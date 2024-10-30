@@ -1,2 +1,10 @@
+build/
+sdkconfig.old
+sdkconfig
+*.o
+.pio/
+components/*
 .DS_Store
-build/*
+dependencies.lock
+sdkconfig.*
+!sdkconfig.defaults
