@@ -29,8 +29,8 @@ public:
     }
 
     double round(double value, int decimal_places) {
-        const double multiplier = std::pow(10.0, decimal_places);
-        return std::round(value * multiplier) / multiplier;
+        const double multiplier = pow(10.0, decimal_places);
+        return round(value * multiplier) / multiplier;
     }
 
     double raw_angle(int decimal_places = 2) {

@@ -67,6 +67,6 @@
 
 #endif
 
-#define TANK_DRIVE_ID           128
+#define TANK_DRIVE_ID           129
 #define DOME_DRIVE_ID           128
 #endif

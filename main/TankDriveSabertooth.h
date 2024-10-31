@@ -1,23 +1,23 @@
 #ifndef TankDriveSabertooh_h
 #define TankDriveSabertooh_h
-
-#include "<Sabertooth.h>"
+#include <Arduino.h>
+#include "SabertoothDriver.h"
 #include "TankDrive.h"
 
-class TankDriveSabertooth : public TankDrive, public Sabertooth
+class TankDriveSabertooth : public TankDrive, public SabertoothDriver
 {
 public:
-    TankDriveSabertooth(int id, HardwareSerial& serial) :
+    TankDriveSabertooth(int id, Stream& serial) :
         TankDrive(),
-        Sabertooth(id, serial)
+        SabertoothDriver(id, serial)
     {
     }
 
-    virtual void setup();
+    virtual void setup() override;
 
-    virtual void stop();
+    virtual void stop() override;
 
 protected:
-    virtual void motor(float left, float right, float throttle);
+    virtual void motor(float left, float right, float throttle) override;
 };
 #endif

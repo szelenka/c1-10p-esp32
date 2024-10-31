@@ -59,12 +59,12 @@ public:
         fEnabled = enable;
     }
 
-    uint32_t getSerialLatency()
+    int getSerialLatency()
     {
         return fSerialLatency;
     }
 
-    void setSerialLatency(uint32_t ms)
+    void setSerialLatency(int ms)
     {
         fSerialLatency = ms;
     }
@@ -544,8 +544,8 @@ protected:
     bool fTurnInverted = false;
     float fSpeedModifier = 0;
     float fGuestSpeedModifier = 0;
-    uint32_t fSerialLatency = 0;
-    uint32_t fLastCommand = 0;
+    int fSerialLatency = 0;
+    int fLastCommand = 0;
     unsigned fThrottleAccelerationScale = 0;
     unsigned fThrottleDecelerationScale = 0;
     unsigned fTurnAccelerationScale = 0;

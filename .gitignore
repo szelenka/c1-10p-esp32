@@ -3,7 +3,10 @@ sdkconfig.old
 sdkconfig
 *.o
 .pio/
+.vscode/
 components/*
+!components/.gitkeep
+!components/**/CMakeLists.txt
 .DS_Store
 dependencies.lock
 sdkconfig.*

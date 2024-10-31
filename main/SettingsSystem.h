@@ -21,4 +21,15 @@
 // Maestro Settings
 #define MAESTRO_SERIAL_BAUD_RATE        9600
 
+#define USE_MOTOR_DEBUG                 true
+
+// Debug statements
+
+#include <Bluepad32.h>
+#define DEBUG_PRINTLN(s) Console.println(s)
+#define DEBUG_PRINT(s) Console.print(s)
+#define DEBUG_PRINTF(...) Console.printf(__VA_ARGS__)
+#define DEBUG_PRINTLN_HEX(s) Console.println(s,HEX)
+#define DEBUG_PRINT_HEX(s) Console.print(s,HEX)
+#define DEBUG_FLUSH() Console.flush()
 #endif

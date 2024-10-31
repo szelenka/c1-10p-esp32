@@ -6,6 +6,62 @@
 
 #include <Arduino.h>
 #include <Bluepad32.h>
+#include <Preferences.h>
+#include "PinMap.h"
+#include "SettingsUser.h"
+#include "SettingsSystem.h"
+
+/*
+    Preferences
+    https://docs.espressif.com/projects/arduino-esp32/en/latest/tutorials/preferences.html
+*/
+Preferences preferences;
+
+/*
+    DimensionEngineering Configuration
+*/
+#include <SoftwareSerial.h>
+// #include <DomeDriveSabertooth.h>
+#include <TankDriveSabertooth.h>
+
+// RX on no pin (unused), TX on pin from PINOUT.h connected to S1 bus
+SoftwareSerial sabertoothSerial(NOT_A_PIN, PIN_SABERTOOTH_TX); 
+
+TankDriveSabertooth sabertoothDome(DOME_DRIVE_ID, sabertoothSerial); 
+TankDriveSabertooth sabertoothTank(TANK_DRIVE_ID, sabertoothSerial);
+
+/*
+    Maestro Configuration
+*/
+#include <PololuMaestro.h>
+
+// RX and TX on pin from PINOUT.h connected to opposite TX/RX on Maestro board
+// SoftwareSerial maestroBodySerial(PIN_MAESTRO_BODY_RX, PIN_MAESTRO_BODY_TX);
+// SoftwareSerial maestroDomeSerial(PIN_MAESTRO_DOME_RX, PIN_MAESTRO_DOME_TX);
+
+// MiniMaestro maestroBody(maestroBodySerial);
+// MiniMaestro maestroDome(maestroDomeSerial);
+
+/*
+    MP3 Configuration
+*/
+#include <MP3Trigger.h>
+
+// RX and TX on pin from PINOUT.h connected to opposite TX/RX on MP3 Trigger board
+// SoftwareSerial mp3TriggerSerial(PIN_MP3TRIGGER_RX, PIN_MP3TRIGGER_TX);
+
+// MP3Trigger mp3Trigger;
+
+/*
+    OpenMV Configuration
+*/
+
+// SoftwareSerial openMVSerial(PIN_OPENMV_RX, PIN_OPENMV_TX);
+
+/* 
+    Dome Position Configuration
+*/
+
 
 //
 // README FIRST, README FIRST, README FIRST
@@ -85,67 +141,6 @@ void dumpGamepad(ControllerPtr ctl) {
     );
 }
 
-void dumpMouse(ControllerPtr ctl) {
-    Console.printf("idx=%d, buttons: 0x%04x, scrollWheel=0x%04x, delta X: %4d, delta Y: %4d\n",
-                   ctl->index(),        // Controller Index
-                   ctl->buttons(),      // bitmask of pressed buttons
-                   ctl->scrollWheel(),  // Scroll Wheel
-                   ctl->deltaX(),       // (-511 - 512) left X Axis
-                   ctl->deltaY()        // (-511 - 512) left Y axis
-    );
-}
-
-void dumpKeyboard(ControllerPtr ctl) {
-    static const char* key_names[] = {
-        // clang-format off
-        // To avoid having too much noise in this file, only a few keys are mapped to strings.
-        // Starts with "A", which is offset 4.
-        "A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V",
-        "W", "X", "Y", "Z", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0",
-        // Special keys
-        "Enter", "Escape", "Backspace", "Tab", "Spacebar", "Underscore", "Equal", "OpenBracket", "CloseBracket",
-        "Backslash", "Tilde", "SemiColon", "Quote", "GraveAccent", "Comma", "Dot", "Slash", "CapsLock",
-        // Function keys
-        "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
-        // Cursors and others
-        "PrintScreen", "ScrollLock", "Pause", "Insert", "Home", "PageUp", "Delete", "End", "PageDown",
-        "RightArrow", "LeftArrow", "DownArrow", "UpArrow",
-        // clang-format on
-    };
-    static const char* modifier_names[] = {
-        // clang-format off
-        // From 0xe0 to 0xe7
-        "Left Control", "Left Shift", "Left Alt", "Left Meta",
-        "Right Control", "Right Shift", "Right Alt", "Right Meta",
-        // clang-format on
-    };
-    Console.printf("idx=%d, Pressed keys: ", ctl->index());
-    for (int key = Keyboard_A; key <= Keyboard_UpArrow; key++) {
-        if (ctl->isKeyPressed(static_cast<KeyboardKey>(key))) {
-            const char* keyName = key_names[key-4];
-            Console.printf("%s,", keyName);
-       }
-    }
-    for (int key = Keyboard_LeftControl; key <= Keyboard_RightMeta; key++) {
-        if (ctl->isKeyPressed(static_cast<KeyboardKey>(key))) {
-            const char* keyName = modifier_names[key-0xe0];
-            Console.printf("%s,", keyName);
-        }
-    }
-    Console.printf("\n");
-}
-
-void dumpBalanceBoard(ControllerPtr ctl) {
-    Console.printf("idx=%d,  TL=%u, TR=%u, BL=%u, BR=%u, temperature=%d\n",
-                   ctl->index(),        // Controller Index
-                   ctl->topLeft(),      // top-left scale
-                   ctl->topRight(),     // top-right scale
-                   ctl->bottomLeft(),   // bottom-left scale
-                   ctl->bottomRight(),  // bottom-right scale
-                   ctl->temperature()   // temperature: used to adjust the scale value's precision
-    );
-}
-
 void processGamepad(ControllerPtr ctl) {
     // There are different ways to query whether a button is pressed.
     // By query each button individually:
@@ -193,60 +188,10 @@ void processGamepad(ControllerPtr ctl) {
 
     // Another way to query controller data is by getting the buttons() function.
     // See how the different "dump*" functions dump the Controller info.
-    dumpGamepad(ctl);
+    // dumpGamepad(ctl);
+    sabertoothTank.animate(ctl->axisX(), ctl->axisY(), ctl->throttle());
 
     // See ArduinoController.h for all the available functions.
-}
-
-void processMouse(ControllerPtr ctl) {
-    // This is just an example.
-    if (ctl->scrollWheel() > 0) {
-        // Do Something
-    } else if (ctl->scrollWheel() < 0) {
-        // Do something else
-    }
-
-    // See "dumpMouse" for possible things to query.
-    dumpMouse(ctl);
-}
-
-void processKeyboard(ControllerPtr ctl) {
-
-    if (!ctl->isAnyKeyPressed())
-        return;
-
-    // This is just an example.
-    if (ctl->isKeyPressed(Keyboard_A)) {
-        // Do Something
-        Console.println("Key 'A' pressed");
-    }
-
-    // Don't do "else" here.
-    // Multiple keys can be pressed at the same time.
-    if (ctl->isKeyPressed(Keyboard_LeftShift)) {
-        // Do something else
-        Console.println("Key 'LEFT SHIFT' pressed");
-    }
-
-    // Don't do "else" here.
-    // Multiple keys can be pressed at the same time.
-    if (ctl->isKeyPressed(Keyboard_LeftArrow)) {
-        // Do something else
-        Console.println("Key 'Left Arrow' pressed");
-    }
-
-    // See "dumpKeyboard" for possible things to query.
-    dumpKeyboard(ctl);
-}
-
-void processBalanceBoard(ControllerPtr ctl) {
-    // This is just an example.
-    if (ctl->topLeft() > 10000) {
-        // Do Something
-    }
-
-    // See "dumpBalanceBoard" for possible things to query.
-    dumpBalanceBoard(ctl);
 }
 
 void processControllers() {
@@ -254,12 +199,6 @@ void processControllers() {
         if (myController && myController->isConnected() && myController->hasData()) {
             if (myController->isGamepad()) {
                 processGamepad(myController);
-            } else if (myController->isMouse()) {
-                processMouse(myController);
-            } else if (myController->isKeyboard()) {
-                processKeyboard(myController);
-            } else if (myController->isBalanceBoard()) {
-                processBalanceBoard(myController);
             } else {
                 Console.printf("Unsupported controller\n");
             }
@@ -267,11 +206,10 @@ void processControllers() {
     }
 }
 
-// Arduino setup function. Runs in CPU 1
-void setup() {
-    Console.printf("Firmware: %s\n", BP32.firmwareVersion());
+void setupBluepad32() {
+    Serial.printf("Firmware: %s\n", BP32.firmwareVersion());
     const uint8_t* addr = BP32.localBdAddress();
-    Console.printf("BD Addr: %2X:%2X:%2X:%2X:%2X:%2X\n", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+    Serial.printf("BD Addr: %2X:%2X:%2X:%2X:%2X:%2X\n", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 
     // Setup the Bluepad32 callbacks
     BP32.setup(&onConnectedController, &onDisconnectedController);
@@ -290,10 +228,128 @@ void setup() {
     // By default, it is disabled.
     BP32.enableVirtualDevice(false);
 
-    // Enables the BLE Service in Bluepad32.
-    // This service allows clients, like a mobile app, to setup and see the state of Bluepad32.
-    // By default, it is disabled.
-    BP32.enableBLEService(false);
+}
+
+void setupSabertooth() {
+    // DimensionEngineering setup
+    sabertoothSerial.begin(SABERTOOTH_SERIAL_BAUD_RATE);
+
+    // Autobaud is for the whole serial line -- you don't need to do
+    // it for each individual motor driver. This is the version of
+    // the autobaud command that is not tied to a particular
+    // Sabertooth object.
+    SabertoothDriver::autobaud(sabertoothSerial);
+
+    // setTimeout rounds up to the nearest 100 milliseconds
+    // A value of 0 disables the serial timeout.
+    sabertoothSerial.setTimeout(C110P_MOTOR_TIMEOUT_MS);
+
+    // This setting does not persist between power cycles.
+    // See the Packet Serial section of the documentation for what values to use
+    // for the minimum voltage command. It may vary between Sabertooth models
+    // (2x25, 2x60, etc.).
+    //
+    // On a Sabertooth 2x25, the value is (Desired Volts - 6) X 5.
+    // So, in this sample, we'll make the low battery cutoff 12V: (12 - 6) X 5 = 30.
+    sabertoothDome.setMinVoltage(30);
+    // sabertoothDome.setMaxSpeed(100);
+    // sabertoothDome.setUseThrottle(false);
+    // sabertoothDome.setScaling(false);
+    // sabertoothDome.setChannelMixing(false);
+
+    sabertoothTank.setMinVoltage(30);
+    sabertoothTank.setMaxSpeed(100);
+    // sabertoothTank.setUseThrottle(false);
+    // sabertoothTank.setScaling(false);
+    // sabertoothTank.setChannelMixing(true);
+
+    // See the Packet Serial section of the documentation for what values to use
+    // for the maximum voltage command. It may vary between Sabertooth models
+    // (2x25, 2x60, etc.).
+    //
+    // On a Sabertooth 2x25, the value is (Desired Volts) X 5.12.
+    // In this sample, we'll cap the max voltage before the motor driver does
+    // a hard brake at 14V. For a 12V ATX power supply this might be reasonable --
+    // at 16V they tend to shut off. Here, if the voltage climbs above
+    // 14V due to regenerative braking, the Sabertooth will go into hard brake instead.
+    // While this is occuring, the red Error LED will turn on.
+    //
+    // 14 X 5.12 = 71.68, so we'll go with 71, cutting off slightly below 14V.
+    //
+    // WARNING: This setting persists between power cycles.
+    // ST.setMaxVoltage(71);
+
+    // See the Sabertooth 2x60 documentation for information on ramping values.
+    // There are three ranges: 1-10 (Fast), 11-20 (Slow), and 21-80 (Intermediate).
+    // The ramping value 14 used here sets a ramp time of 4 seconds for full
+    // forward-to-full reverse.
+    //
+    // 0 turns off ramping. Turning off ramping requires a power cycle.
+    //
+    // WARNING: The Sabertooth remembers this command between restarts AND in all modes.
+    // To change your Sabertooth back to its default, call ST.setRamping(0)
+    // ST.setRamping(14);
+
+}
+
+// void debugMaestroPosition(Maestro &maestro) {
+//     for (uint8_t i = 0; i < 12; i++)
+//     {
+//         uint16_t position = maestro.getPosition(i);
+//         Serial.print("Channel: ");
+//         Serial.print(i);
+//         Serial.print(" Position: ");
+//         Serial.println(position);
+//     }
+// }
+
+// void setupMaestro() {
+//     // Set the serial baud rate.
+//     maestroBodySerial.begin(MAESTRO_SERIAL_BAUD_RATE);
+//     maestroDomeSerial.begin(MAESTRO_SERIAL_BAUD_RATE);
+//     /* 
+//         setTarget takes the channel number you want to control, and
+//         the target position in units of 1/4 microseconds. A typical
+//         RC hobby servo responds to pulses between 1 ms (4000) and 2
+//         ms (8000). 
+//     */
+//     // Set the target of channel 0 to 1500 us, and wait 2 seconds.
+//     //   maestro.setTarget(0, 6000);
+// }
+
+// void setupMp3Trigger() {
+
+//     mp3Trigger.setup(&mp3TriggerSerial);
+
+//     // Set the serial baud rate.
+//     mp3TriggerSerial.begin(MP3Trigger::serialRate());
+// }
+
+// void setupOpenMV() {
+//     // Set the serial baud rate.
+//     // TODO: is this fast enough?
+//     openMVSerial.begin(9600);
+// }
+
+// void setupLeds() {
+//     // setup pins for output
+//     pinMode(PIN_LED_FRONT, OUTPUT);
+//     pinMode(PIN_LED_BACK, OUTPUT);
+
+//     // ensure LED are off
+//     digitalWrite(PIN_LED_FRONT, LOW);
+//     digitalWrite(PIN_LED_BACK, LOW);
+// }
+
+// Arduino setup function. Runs in CPU 1
+void setup() {
+    Serial.begin(115200);
+    setupBluepad32();
+    setupSabertooth();
+    // setupMaestro();
+    // setupMp3Trigger();
+    // setupOpenMV();
+    // setupLeds();
 }
 
 // Arduino loop function. Runs in CPU 1.

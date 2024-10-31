@@ -9,6 +9,7 @@ set(requires
         "bluepad32_arduino"
         "arduino"
         "btstack"
+        "ghostl"
         "espsoftwareserial"
         "maestro-arduino"
         "MP3Trigger"

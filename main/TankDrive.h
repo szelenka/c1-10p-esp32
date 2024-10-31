@@ -1,6 +1,9 @@
 #ifndef TankDrive_h
 #define TankDrive_h
 
+#include <Arduino.h>
+#include "SettingsSystem.h"
+
 #ifdef USE_MOTOR_DEBUG
 #define MOTOR_DEBUG_PRINT(s) DEBUG_PRINT(s)
 #define MOTOR_DEBUG_PRINTLN(s) DEBUG_PRINTLN(s)
@@ -23,13 +26,15 @@ class TankDrive {
 public:
     TankDrive();
 
-    virtual void setup();
+    virtual void setup()
+    {
+    }
 
     bool getEnable();
     void setEnable(bool enable);
 
-    uint32_t getSerialLatency();
-    void setSerialLatency(uint32_t ms);
+    int getSerialLatency();
+    void setSerialLatency(int ms);
 
     bool getChannelMixing();
     void setChannelMixing(bool mixing);
@@ -69,10 +74,15 @@ public:
     void setUseThrottle(bool use);
     void setUseHardStop(bool use);
 
-    virtual void stop();
+    virtual void stop()
+    {
+        fMotorsStopped = true;
+        fDriveThrottle = 0;
+        fDriveTurning = 0;
+    }
     bool motorStopped();
 
-    virtual void animate();
+    virtual void animate(int xAxis, int yAxis, int speedModifier);
 
 protected:
     virtual void motor(float left, float right, float throttle) = 0;
@@ -81,7 +91,7 @@ protected:
     virtual bool hasThrottle();
     virtual float throttleSpeed(float speedModifier);
 
-    void motionVector(float xAxis, float yAxis, float speedModifier);
+    void motionVector(int xAxis, int yAxis, int speedModifier);
 
 protected:
     // ControllerPtr &fControllers;
@@ -91,14 +101,13 @@ protected:
     bool fMotorsStopped = false;
     bool fChannelMixing = false;
     bool fScaling = false;
-    bool fUseLeftStick = true;
-    bool fUseThrottle = true;
+    bool fUseThrottle = false;
     bool fUseHardStop = true;
     bool fThrottleInverted = false;
     bool fTurnInverted = false;
     float fSpeedModifier = 0;
-    uint32_t fSerialLatency = 0;
-    uint32_t fLastCommand = 0;
+    int fSerialLatency = 0;
+    int fLastCommand = 0;
     unsigned fThrottleAccelerationScale = 0;
     unsigned fThrottleDecelerationScale = 0;
     unsigned fTurnAccelerationScale = 0;
