@@ -8,8 +8,8 @@
 #include <Bluepad32.h>
 #include <Preferences.h>
 #include "PinMap.h"
-#include "SettingsUser.h"
 #include "SettingsSystem.h"
+#include "SettingsUser.h"
 
 /*
     Preferences
@@ -17,18 +17,27 @@
 */
 Preferences preferences;
 
+/* 
+    Dome Position Configuration
+*/
+#include "drive/DomePosition.h"
+#include "drive/DomeSensorAnalogPositionProvider.h"
+DomeSensorAnalogPositionProvider domeAnalogProvider = DomeSensorAnalogPositionProvider(PIN_DOME_POTENTIOMETER);
+DomePosition domeSensor = DomePosition(domeAnalogProvider);
+
 /*
     DimensionEngineering Configuration
 */
 #include <SoftwareSerial.h>
-// #include <DomeDriveSabertooth.h>
-#include <TankDriveSabertooth.h>
+#include "drive/DomeDriveSabertooth.h"
+#include "drive/TankDriveSabertooth.h"
 
 // RX on no pin (unused), TX on pin from PINOUT.h connected to S1 bus
+//HardwareSerial sabertoothSerial(1, NOT_A_PIN, PIN_SABERTOOTH_TX);
 SoftwareSerial sabertoothSerial(NOT_A_PIN, PIN_SABERTOOTH_TX); 
 
-TankDriveSabertooth sabertoothDome(DOME_DRIVE_ID, sabertoothSerial); 
 TankDriveSabertooth sabertoothTank(TANK_DRIVE_ID, sabertoothSerial);
+DomeDriveSabertooth sabertoothDome(DOME_DRIVE_ID, sabertoothSerial); 
 
 /*
     Maestro Configuration
@@ -58,10 +67,15 @@ TankDriveSabertooth sabertoothTank(TANK_DRIVE_ID, sabertoothSerial);
 
 // SoftwareSerial openMVSerial(PIN_OPENMV_RX, PIN_OPENMV_TX);
 
-/* 
-    Dome Position Configuration
-*/
+unsigned long lastUpdate = 0;
 
+void emergencyStop()
+{
+    sabertoothDome.stop();
+    sabertoothTank.stop();
+    // TODO: stop music, and servos
+    // TODO: blink LED to indicate problem
+}
 
 //
 // README FIRST, README FIRST, README FIRST
@@ -109,6 +123,7 @@ void onDisconnectedController(ControllerPtr ctl) {
             Console.printf("CALLBACK: Controller disconnected from index=%d\n", i);
             myControllers[i] = nullptr;
             foundController = true;
+            emergencyStop();
             break;
         }
     }
@@ -189,18 +204,20 @@ void processGamepad(ControllerPtr ctl) {
     // Another way to query controller data is by getting the buttons() function.
     // See how the different "dump*" functions dump the Controller info.
     // dumpGamepad(ctl);
+    // sabertoothDome.animate(ctl->axisX(), ctl->throttle());
     sabertoothTank.animate(ctl->axisX(), ctl->axisY(), ctl->throttle());
+    Console.printf("Dome Position: %4d", domeSensor.getDomePosition());
 
     // See ArduinoController.h for all the available functions.
 }
 
 void processControllers() {
+    // TODO: 
     for (auto myController : myControllers) {
-        if (myController && myController->isConnected() && myController->hasData()) {
-            if (myController->isGamepad()) {
+        if (myController && myController->isConnected()) {
+            if (myController->hasData()) {
                 processGamepad(myController);
-            } else {
-                Console.printf("Unsupported controller\n");
+                lastUpdate = millis();
             }
         }
     }
@@ -252,10 +269,11 @@ void setupSabertooth() {
     // On a Sabertooth 2x25, the value is (Desired Volts - 6) X 5.
     // So, in this sample, we'll make the low battery cutoff 12V: (12 - 6) X 5 = 30.
     sabertoothDome.setMinVoltage(30);
-    // sabertoothDome.setMaxSpeed(100);
+    sabertoothDome.setMaxSpeed(100);
     // sabertoothDome.setUseThrottle(false);
     // sabertoothDome.setScaling(false);
     // sabertoothDome.setChannelMixing(false);
+    sabertoothDome.setDomePosition(&domeSensor);
 
     sabertoothTank.setMinVoltage(30);
     sabertoothTank.setMaxSpeed(100);
@@ -358,7 +376,15 @@ void loop() {
     // Call this function in your main loop.
     bool dataUpdated = BP32.update();
     if (dataUpdated)
+    {
         processControllers();
+    }
+    else if ((millis() - lastUpdate) > C110P_CONTROLLER_TIMEOUT_MS) 
+    {
+        // If no data received in more than timeout, emergencyStop!
+        DEBUG_PRINTF("No dataUpdated in %2.6f ms, emergencyStop!\n", millis() - lastUpdate);
+        emergencyStop();
+    }
 
     // The main loop must have some kind of "yield to lower priority task" event.
     // Otherwise, the watchdog will get triggered.

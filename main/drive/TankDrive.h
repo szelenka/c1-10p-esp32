@@ -76,6 +76,7 @@ public:
 
     virtual void stop()
     {
+        MOTOR_DEBUG_PRINTLN("[TankDrive:stop] STOP!");
         fMotorsStopped = true;
         fDriveThrottle = 0;
         fDriveTurning = 0;

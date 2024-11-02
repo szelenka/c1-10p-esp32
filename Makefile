@@ -1,5 +1,6 @@
 BLUEPAD32_VERSION:=4.1.0
 MAESTRO_VERSION:=1.0.0
+IDF_TOOLS_PATH:=D:\Espressif\
 
 setup::
 	mkdir -p build components main patches

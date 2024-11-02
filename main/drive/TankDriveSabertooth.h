@@ -1,8 +1,8 @@
 #ifndef TankDriveSabertooh_h
 #define TankDriveSabertooh_h
 #include <Arduino.h>
-#include "SabertoothDriver.h"
-#include "TankDrive.h"
+#include "motor/SabertoothDriver.h"
+#include "drive/TankDrive.h"
 
 class TankDriveSabertooth : public TankDrive, public SabertoothDriver
 {

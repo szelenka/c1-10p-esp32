@@ -1,7 +1,7 @@
 #ifndef __SETTINGS_USER_H__
 #define __SETTINGS_USER_H__
 
-#define C110P_CONTROLLER_TIMEOUT_MS     2500    // Miliseconds between successful responses from controllers, before emergency-stop
+#define C110P_CONTROLLER_TIMEOUT_MS     1500    // Miliseconds between successful responses from controllers, before emergency-stop
 #define C110P_MOTOR_TIMEOUT_MS          950     // Miliseconds between communication from microcontroller, before emergency-stop
 #define C110P_RAMPING_PERIOD            80      // Ramp time delay between full forward and full reverse speed:
                                                 //       1-10: Fast         = 256/(~1000 * COMMAND_VALUE)
@@ -16,5 +16,13 @@
 #define C110P_THROTTLE_INVERTED         false   // set to true if throttle should be inverted
 #define C110P_TURN_INVERTED             false   // set to true if turn should be inverted
 #define C110P_DOME_INVERTED             false   // set to true if dome drive should be inverted
+
+#ifndef DOME_DIRECTION_CHANGE_THRESHOLD
+#define DOME_DIRECTION_CHANGE_THRESHOLD 5
+#endif
+
+#ifndef DOME_RANDOM_MOVE_MIN_DEGREES
+#define DOME_RANDOM_MOVE_MIN_DEGREES 5
+#endif
 
 #endif

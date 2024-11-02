@@ -22,6 +22,8 @@
 #define MAESTRO_SERIAL_BAUD_RATE        9600
 
 #define USE_MOTOR_DEBUG                 true
+#define USE_DOME_DEBUG                  true
+#define USE_VERBOSE_DOME_DEBUG          true
 
 // Debug statements
 

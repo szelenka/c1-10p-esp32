@@ -17,7 +17,9 @@ to build upon the Bluepad32 Arduino Template outlined here:
 The default compiler for ESP32 does not include an implementation of SoftwareSerial. Where we can, the ESP32 board should use the hardware UARTs, but 
 their may be more Serial connections than UARTs available. For this we use SoftwareSerial library:
 - SoftwareSerial : https://github.com/plerup/espsoftwareserial
-- HardwareSerial (Pin remaping) : https://stackoverflow.com/questions/60094545/esp32-softwareserial-library
+- HardwareSerial (Pin remaping)
+    - https://docs.espressif.com/projects/esp-idf/en/v4.4.8/esp32/api-reference/peripherals/uart.html
+    - https://stackoverflow.com/questions/60094545/esp32-softwareserial-library
 
 ### Arduino Libraries for SyRen/Sabertooth Serial
 The original [Sabertooth Arduino Library](https://www.dimensionengineering.com/info/arduino) leverages implicit casting of byte to int, which the Arduino ESP32 compiler doesn't like. There are two approaches to mitigate this:

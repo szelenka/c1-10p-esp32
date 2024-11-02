@@ -1,4 +1,4 @@
-#include "TankDrive.h"
+#include "drive/TankDrive.h"
 
 #ifdef USE_MOTOR_DEBUG
 #define MOTOR_DEBUG_PRINT(s) DEBUG_PRINT(s)

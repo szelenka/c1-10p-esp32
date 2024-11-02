@@ -1,6 +1,6 @@
-#include "TankDriveSabertooth.h"
-#include "TankDrive.h"
-#include "SabertoothDriver.h"
+#include "drive/TankDriveSabertooth.h"
+#include "drive/TankDrive.h"
+#include "motor/SabertoothDriver.h"
 
 void TankDriveSabertooth::setup()
 {

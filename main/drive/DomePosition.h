@@ -1,7 +1,7 @@
 #ifndef DomePosition_h
 #define DomePosition_h
 
-#include "ReelTwo.h"
+// #include "ReelTwo.h"
 #include "drive/DomePositionProvider.h"
 
 class DomePosition
@@ -203,7 +203,7 @@ public:
         return result;
     }
 
-    unsigned getDomePosition()
+    virtual unsigned getDomePosition()
     {
         unsigned angle = fProvider.getAngle();
         if (angle != fLastAngle)
@@ -242,7 +242,7 @@ public:
 
     bool isTimeout()
     {
-        return (ready() && fLastAngle != ~0u) ? int(fTimeout)*1000 < millis() - fLastChangeMS : true;
+        return (ready() && fLastAngle != ~0u) ? uint32_t(fTimeout)*1000 < millis() - fLastChangeMS : true;
     }
 
     unsigned getHomeRelativeDomePosition()
@@ -428,7 +428,7 @@ private:
     uint8_t fDomeSpeedAuto = 30;
     uint8_t fTimeout = 5;
     unsigned fLastAngle = ~0;
-    int fLastChangeMS = 0;
+    uint32_t fLastChangeMS = 0;
     unsigned fRelativeDegrees = 0;
     void (*fTargetReached)() = nullptr;
     void (*fHomeTargetReached)() = nullptr;

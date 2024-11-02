@@ -1,8 +1,8 @@
 set(srcs
         "main.c"
         "sketch.cpp"
-        "TankDrive.cpp"
-        "TankDriveSabertooth.cpp")
+        "drive/TankDrive.cpp"
+        "drive/TankDriveSabertooth.cpp")
 
 set(requires 
         "bluepad32"
