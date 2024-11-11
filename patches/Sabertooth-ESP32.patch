@@ -1,0 +1,185 @@
+diff -Nruw --strip-trailing-cr build/Sabertooth_/Sabertooth_org/CMakeLists.txt build/Sabertooth_/Sabertooth/CMakeLists.txt
+--- build/Sabertooth_/Sabertooth_org/CMakeLists.txt	1969-12-31 19:00:00.000000000 -0500
++++ build/Sabertooth_/Sabertooth/CMakeLists.txt	2024-11-11 16:33:47.239629100 -0500
+@@ -0,0 +1,8 @@
++set(srcs "Sabertooth.cpp")
++
++set(requires 
++        "arduino")
++
++idf_component_register(SRCS "${srcs}" 
++                INCLUDE_DIRS "."
++                REQUIRES "${requires}")
+diff -Nruw --strip-trailing-cr build/Sabertooth_/Sabertooth_org/Sabertooth.cpp build/Sabertooth_/Sabertooth/Sabertooth.cpp
+--- build/Sabertooth_/Sabertooth_org/Sabertooth.cpp	2024-11-11 16:46:09.007479400 -0500
++++ build/Sabertooth_/Sabertooth/Sabertooth.cpp	2024-11-11 16:33:47.284623900 -0500
+@@ -17,40 +17,36 @@
+ */
+ 
+ #include "Sabertooth.h"
+-
+-Sabertooth::Sabertooth(byte address)
+-  : _address(address), _port(SabertoothTXPinSerial)
+-{
+-  
+-}
++#include <cstdlib>
+ 
+ Sabertooth::Sabertooth(byte address, SabertoothStream& port)
+-  : _address(address), _port(port)
++  : _address(address), _port(&port)
+ {
+ 
+ }
+ 
+-void Sabertooth::autobaud(boolean dontWait) const
++void Sabertooth::autobaud(boolean dontWait /*= false*/) const
+ {
+-  autobaud(port(), dontWait);
++  if (_port != nullptr) 
++    autobaud(*_port, dontWait);
+ }
+ 
+-void Sabertooth::autobaud(SabertoothStream& port, boolean dontWait)
++void Sabertooth::autobaud(SabertoothStream& port, boolean dontWait /*= false*/)
+ {
+   if (!dontWait) { delay(1500); }
+   port.write(0xAA);
+-#if defined(ARDUINO) && ARDUINO >= 100
+   port.flush();
+-#endif
+   if (!dontWait) { delay(500); }
+ }
+ 
+ void Sabertooth::command(byte command, byte value) const
+ {
+-  port().write(address());
+-  port().write(command);
+-  port().write(value);
+-  port().write((address() + command + value) & B01111111);
++  if (_port != nullptr) {
++    _port->write(address());
++    _port->write(command);
++    _port->write(value);
++    _port->write((address() + command + value) & B01111111);
++  }
+ }
+ 
+ void Sabertooth::throttleCommand(byte command, int power) const
+@@ -66,7 +62,7 @@
+ 
+ void Sabertooth::motor(byte motor, int power) const
+ {
+-  if (motor < 1 || motor > 2) { return; }
++  if (motor == 1 || motor == 2) { return; }
+   throttleCommand((motor == 2 ? 4 : 0) + (power < 0 ? 1 : 0), power);
+ }
+ 
+@@ -88,18 +84,18 @@
+ 
+ void Sabertooth::setMinVoltage(byte value) const
+ {
+-  command(2, (byte)min(value, 120));
++  command(2, (byte)min((int)value, 120));
+ }
+ 
+ void Sabertooth::setMaxVoltage(byte value) const
+ {
+-  command(3, (byte)min(value, 127));
++  command(3, (byte)min((int)value, 127));
+ }
+ 
+ void Sabertooth::setBaudRate(long baudRate) const
+ {
+ #if defined(ARDUINO) && ARDUINO >= 100
+-  port().flush();
++ _port->flush();
+ #endif
+ 
+   byte value;
+@@ -114,7 +110,7 @@
+   command(15, value);
+   
+ #if defined(ARDUINO) && ARDUINO >= 100
+-  port().flush();
++ _port->flush();
+ #endif
+   
+   // (1) flush() does not seem to wait until transmission is complete.
+@@ -128,12 +124,12 @@
+ 
+ void Sabertooth::setDeadband(byte value) const
+ {
+-  command(17, (byte)min(value, 127));
++  command(17, (byte)min(int(value), 127));
+ }
+ 
+ void Sabertooth::setRamping(byte value) const
+ {
+-  command(16, (byte)constrain(value, 0, 80));
++  command(16, (byte)min(int(value), 80));
+ }
+ 
+ void Sabertooth::setTimeout(int milliseconds) const
+diff -Nruw --strip-trailing-cr build/Sabertooth_/Sabertooth_org/Sabertooth.h build/Sabertooth_/Sabertooth/Sabertooth.h
+--- build/Sabertooth_/Sabertooth_org/Sabertooth.h	2024-11-11 16:46:09.012479000 -0500
++++ build/Sabertooth_/Sabertooth/Sabertooth.h	2024-11-11 16:33:47.255644500 -0500
+@@ -19,19 +19,11 @@
+ #ifndef Sabertooth_h
+ #define Sabertooth_h   
+ 
+-#if defined(ARDUINO) && ARDUINO >= 100
+ #include <Arduino.h>
+ typedef Stream SabertoothStream;
+-#else
+-#include <WProgram.h>
+-typedef Print SabertoothStream;
+-#endif
+ 
+-#if defined(USBCON)
+-#define SabertoothTXPinSerial Serial1 // Arduino Leonardo has TX->1 on Serial1, not Serial.
+-#else
++
+ #define SabertoothTXPinSerial Serial
+-#endif
+ #define SyRenTXPinSerial SabertoothTXPinSerial
+ 
+ /*!
+@@ -43,13 +35,6 @@
+ public:
+   /*!
+   Initializes a new instance of the Sabertooth class.
+-  The driver address is set to the value given, and the Arduino TX serial port is used.
+-  \param address The driver address.
+-  */
+-  Sabertooth(byte address);
+-  
+-  /*!
+-  Initializes a new instance of the Sabertooth class.
+   The driver address is set to the value given, and the specified serial port is used.
+   \param address The driver address.
+   \param port    The port to use.
+@@ -64,12 +49,6 @@
+   inline byte address() const { return _address; }
+   
+   /*!
+-  Gets the serial port.
+-  \return The serial port.
+-  */
+-  inline SabertoothStream& port() const { return _port; }
+-
+-  /*!
+   Sends the autobaud character.
+   \param dontWait If false, a delay is added to give the driver time to start up.
+   */
+@@ -172,8 +151,8 @@
+   void throttleCommand(byte command, int power) const;
+   
+ private:
+-  const byte        _address;
+-  SabertoothStream& _port; 
++  byte              _address;
++  SabertoothStream* _port = nullptr; 
+ };
+ 
+ #endif
