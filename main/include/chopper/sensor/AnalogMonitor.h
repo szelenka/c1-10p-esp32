@@ -22,11 +22,9 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  * SOFTWARE.
  */
+#pragma once
 
-#ifndef AnalogMonitor_h
-#define AnalogMonitor_h
-
-#include "core/AnimatedEvent.h"
+#include "chopper/core/AnimatedEvent.h"
 
 /**
   * \ingroup Core
@@ -287,5 +285,3 @@ private:
         return (y > 1.0) ? 1.0: y;
     }
 };
-
-#endif

@@ -1,9 +1,7 @@
-#ifndef DomeSensorAnalogPositionProvider_h
-#define DomeSensorAnalogPositionProvider_h
-
+#pragma once
 //#include "ReelTwo.h"
-#include "drive/DomePositionProvider.h"
-#include "core/AnalogMonitor.h"
+#include "chopper/dome/DomePositionProvider.h"
+#include "chopper/sensor/AnalogMonitor.h"
 
 class DomeSensorAnalogPositionProvider : public DomePositionProvider
 {
@@ -32,5 +30,3 @@ public:
 protected:
     AnalogMonitor fAnalogMonitor;
 };
-
-#endif

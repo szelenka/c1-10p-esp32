@@ -1,5 +1,4 @@
-#ifndef AnimatedEvent_h
-#define AnimatedEvent_h
+#pragma once
 
 //#include "ReelTwo.h"
 
@@ -98,5 +97,3 @@ private:
         return &sProc;
     }
 };
-
-#endif

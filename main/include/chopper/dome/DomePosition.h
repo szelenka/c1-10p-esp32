@@ -1,8 +1,7 @@
-#ifndef DomePosition_h
-#define DomePosition_h
+#pragma once
 
 // #include "ReelTwo.h"
-#include "drive/DomePositionProvider.h"
+#include "chopper/dome/DomePositionProvider.h"
 
 class DomePosition
 {
@@ -439,5 +438,3 @@ private:
         return fmod(p2 - p1 + 2*360, 360) >= fmod(p3 - p1 + 2*360, 360);
     }
 };
-
-#endif

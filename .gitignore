@@ -11,3 +11,4 @@ components/*
 dependencies.lock
 sdkconfig.*
 !sdkconfig.defaults
+_backup/

@@ -33,3 +33,13 @@ To control animations from connected servos, the [Polou Maestro USB Servo Contro
 ### SparkFun MP3 Trigger
 For triggering sound effects, the [SparkFun MP3 Trigger](https://learn.sparkfun.com/tutorials/mp3-trigger-hookup-guide-v24) is leveraged, which uses standard Serial to communicate with the ESP32.
 - https://github.com/sansumbrella/MP3Trigger-for-Arduino
+
+### Units
+https://docs.wpilib.org/en/stable/docs/software/basic-programming/cpp-units.html
+https://github.com/nholthaus/units
+
+### WPILib
+https://github.com/wpilibsuite/allwpilib
+
+### fmtlib/fmt
+https://github.com/espressif/idf-extra-components/tree/master/fmt

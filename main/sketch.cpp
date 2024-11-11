@@ -20,8 +20,8 @@ Preferences preferences;
 /* 
     Dome Position Configuration
 */
-#include "drive/DomePosition.h"
-#include "drive/DomeSensorAnalogPositionProvider.h"
+#include "chopper/dome/DomePosition.h"
+#include "chopper/dome/DomeSensorAnalogPositionProvider.h"
 DomeSensorAnalogPositionProvider domeAnalogProvider = DomeSensorAnalogPositionProvider(PIN_DOME_POTENTIOMETER);
 DomePosition domeSensor = DomePosition(domeAnalogProvider);
 
@@ -29,15 +29,15 @@ DomePosition domeSensor = DomePosition(domeAnalogProvider);
     DimensionEngineering Configuration
 */
 #include <SoftwareSerial.h>
-#include "drive/DomeDriveSabertooth.h"
-#include "drive/TankDriveSabertooth.h"
+#include "chopper/drive/DifferentialDriveSabertooth.h"
 
 // RX on no pin (unused), TX on pin from PINOUT.h connected to S1 bus
 //HardwareSerial sabertoothSerial(1, NOT_A_PIN, PIN_SABERTOOTH_TX);
 SoftwareSerial sabertoothSerial(NOT_A_PIN, PIN_SABERTOOTH_TX); 
 
-TankDriveSabertooth sabertoothTank(TANK_DRIVE_ID, sabertoothSerial);
-DomeDriveSabertooth sabertoothDome(DOME_DRIVE_ID, sabertoothSerial); 
+DifferentialDriveSabertooth sabertoothTank = DifferentialDriveSabertooth::create(TANK_DRIVE_ID, sabertoothSerial, 1, 2);
+// TankDriveSabertooth sabertoothTank(TANK_DRIVE_ID, sabertoothSerial);
+// DomeDriveSabertooth sabertoothDome(DOME_DRIVE_ID, sabertoothSerial); 
 
 /*
     Maestro Configuration
@@ -71,8 +71,8 @@ unsigned long lastUpdate = 0;
 
 void emergencyStop()
 {
-    sabertoothDome.stop();
-    sabertoothTank.stop();
+    // sabertoothDome.StopMotor();
+    sabertoothTank.StopMotor();
     // TODO: stop music, and servos
     // TODO: blink LED to indicate problem
 }
@@ -204,9 +204,24 @@ void processGamepad(ControllerPtr ctl) {
     // Another way to query controller data is by getting the buttons() function.
     // See how the different "dump*" functions dump the Controller info.
     // dumpGamepad(ctl);
-    // sabertoothDome.animate(ctl->axisX(), ctl->throttle());
-    sabertoothTank.animate(ctl->axisX(), ctl->axisY(), ctl->throttle());
-    Console.printf("Dome Position: %4d", domeSensor.getDomePosition());
+    // ctl->getModelName(), properties.vendor_id,
+    //                        properties.product_id
+    if (ctl->isConnected())
+    {
+        switch(ctl->getProperties().type) {
+            case CONTROLLER_TYPE_SwitchJoyConLeft:
+                // sabertoothTank.animate((float)ctl->axisX()/512.0, (float)ctl->axisY()/512.0, ctl->throttle());
+
+                sabertoothTank.ArcadeDrive(ctl->axisX(), ctl->axisY());
+                break;
+            case CONTROLLER_TYPE_SwitchJoyConRight:
+                // sabertoothDome.animate((float)ctl->axisX()/512.0, ctl->throttle());
+                Console.printf("Dome Position: %4d\n", domeSensor.getDomePosition());
+                break;
+            default:
+                DEBUG_PRINTF("Unknown Controller type: %4d\n", ctl->getProperties().type);
+        }
+    }
 
     // See ArduinoController.h for all the available functions.
 }
@@ -255,7 +270,7 @@ void setupSabertooth() {
     // it for each individual motor driver. This is the version of
     // the autobaud command that is not tied to a particular
     // Sabertooth object.
-    SabertoothDriver::autobaud(sabertoothSerial);
+    Sabertooth::autobaud(sabertoothSerial);
 
     // setTimeout rounds up to the nearest 100 milliseconds
     // A value of 0 disables the serial timeout.
@@ -268,18 +283,18 @@ void setupSabertooth() {
     //
     // On a Sabertooth 2x25, the value is (Desired Volts - 6) X 5.
     // So, in this sample, we'll make the low battery cutoff 12V: (12 - 6) X 5 = 30.
-    sabertoothDome.setMinVoltage(30);
-    sabertoothDome.setMaxSpeed(100);
+    // sabertoothDome.setMinVoltage(30);
+    // sabertoothDome.setMaxSpeed(100);
     // sabertoothDome.setUseThrottle(false);
     // sabertoothDome.setScaling(false);
     // sabertoothDome.setChannelMixing(false);
-    sabertoothDome.setDomePosition(&domeSensor);
+    // sabertoothDome.setDomePosition(&domeSensor);
 
-    sabertoothTank.setMinVoltage(30);
-    sabertoothTank.setMaxSpeed(100);
-    // sabertoothTank.setUseThrottle(false);
-    // sabertoothTank.setScaling(false);
-    // sabertoothTank.setChannelMixing(true);
+    // sabertoothTankController.setMinVoltage(30);
+    sabertoothTank.SetSpeedLimit(0.8);
+    // sabertoothTankController.setUseThrottle(false);
+    // sabertoothTankController.setScaling(false);
+    // sabertoothTankController.setChannelMixing(true);
 
     // See the Packet Serial section of the documentation for what values to use
     // for the maximum voltage command. It may vary between Sabertooth models
