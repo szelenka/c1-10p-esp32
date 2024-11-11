@@ -25,6 +25,7 @@ their may be more Serial connections than UARTs available. For this we use Softw
 The original [Sabertooth Arduino Library](https://www.dimensionengineering.com/info/arduino) leverages implicit casting of byte to int, which the Arduino ESP32 compiler doesn't like. There are two approaches to mitigate this:
 1. Consume a modified version of the official library, which uses `static_cast<int>` https://github.com/dominicklee/Sabertooth-for-ESP32
 2. Create a modified SabertoothDriver version, which uses `(int)` https://github.com/reeltwo/Reeltwo (src/motor/SabertoothDriver.h)
+3. Apply patch on original library
 
 ### Pololu Maestro Servo Controller library for Arduino
 To control animations from connected servos, the [Polou Maestro USB Servo Controllers](https://www.pololu.com/category/102/maestro-usb-servo-controllers) are used and use standard Serial to communicate with the ESP32.
@@ -35,11 +36,15 @@ For triggering sound effects, the [SparkFun MP3 Trigger](https://learn.sparkfun.
 - https://github.com/sansumbrella/MP3Trigger-for-Arduino
 
 ### Units
+-- TODO: do we want to purge this?
 https://docs.wpilib.org/en/stable/docs/software/basic-programming/cpp-units.html
 https://github.com/nholthaus/units
 
 ### WPILib
+-- we only use the WPI library, how to automate pull?
 https://github.com/wpilibsuite/allwpilib
 
 ### fmtlib/fmt
+-- not currently using
+https://components.espressif.com/components/espressif/fmt
 https://github.com/espressif/idf-extra-components/tree/master/fmt
