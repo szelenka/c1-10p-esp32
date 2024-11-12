@@ -4,28 +4,59 @@
 
 #include "chopper/MotorSafety.h"
 
+#include <inttypes.h>
 #include <algorithm>
 #include <utility>
 #include <thread>
+#include <atomic>
+#include <vector>
+#include <Bluepad32.h>
 
 // #include <hal/DriverStation.h>
-#include <wpi/SafeThread.h>
-#include <wpi/SmallPtrSet.h>
+// #include <wpi/SafeThread.h>
+// #include <wpi/SmallPtrSet.h>
 
 // #include "frc/DriverStation.h"
 // #include "frc/Errors.h"
 
 // using namespace frc;
+#include "wpi/condition_variable.h"
+#include "wpi/mutex.h"
+#include <esp_pthread.h>
+// #include <freertos/FreeRTOS.h>
+// #include <freertos/task.h>
 
 namespace {
-class Thread : public wpi::SafeThread {
+class Thread {
  public:
-  Thread() {}
-  void Main() override;
+  Thread() { }
+  void Main();
+  void Start(std::string name);
+  void Stop();
+  // void Join();
+  
+  esp_pthread_cfg_t m_cfg = esp_pthread_get_default_config();
+
+  mutable wpi::mutex m_mutex;
+  std::thread m_stdThread;
+  std::atomic_bool m_active{true};
+  // std::weak_ptr<SafeThreadBase> m_thread;
+  std::atomic_bool m_joinAtExit{true};
+  std::thread::id m_threadId;
+  wpi::condition_variable m_cond;
 };
 
 void Thread::Main() {
-  wpi::Event event{false, false};
+  Console.printf("Thread::Main [%s]\n", m_cfg.thread_name);
+  int safetyCounter = 0;
+  while (m_active) {
+    if (++safetyCounter >= 4) {
+      MotorSafety::CheckMotors();
+      safetyCounter = 0;
+    }
+    vTaskDelay(100 / portTICK_PERIOD_MS);
+  }
+  // wpi::Event event{false, false};
   // HAL_ProvideNewDataEventHandle(event.GetHandle());
 
   // int safetyCounter = 0;
@@ -50,16 +81,42 @@ void Thread::Main() {
 
   // HAL_RemoveNewDataEventHandle(event.GetHandle());
 }
-}  // namespace
 
+void Thread::Start(std::string name) {
+  m_cfg.thread_name = name.c_str();
+  m_cfg.pin_to_core = 1;
+  m_cfg.stack_size = 3 * 1024;
+  m_cfg.prio = 5;
+  esp_pthread_set_cfg(&m_cfg);
+  m_stdThread = std::thread([this] { Main(); });
+}
+
+void Thread::Stop() {
+  m_active = false;
+  m_cond.notify_all();
+}
+
+// void Thread::Join() {
+//   std::unique_lock lock(m_mutex);
+//   if (auto thr = m_thread.lock()) {
+//     auto stdThread = std::move(m_stdThread);
+//     m_thread.reset();
+//     lock.unlock();
+//     thr->Stop();
+//     stdThread.join();
+//   } else if (m_stdThread.joinable()) {
+//     m_stdThread.detach();
+//   }
+// }
+}  // namespace
 static std::atomic_bool gShutdown{false};
 
 namespace {
 struct MotorSafetyManager {
   ~MotorSafetyManager() { gShutdown = true; }
 
-  wpi::SafeThreadOwner<Thread> thread;
-  wpi::SmallPtrSet<MotorSafety*, 32> instanceList;
+  Thread thread;
+  std::vector<MotorSafety*> instanceList;
   wpi::mutex listMutex;
   bool threadStarted = false;
 };
@@ -70,34 +127,22 @@ static MotorSafetyManager& GetManager() {
   return manager;
 }
 
-#ifndef __FRC_ROBORIO__
-namespace frc::impl {
-void ResetMotorSafety() {
-  auto& manager = GetManager();
-  std::scoped_lock lock(manager.listMutex);
-  manager.instanceList.clear();
-  manager.thread.Stop();
-  manager.thread.Join();
-  manager.thread = wpi::SafeThreadOwner<Thread>{};
-  manager.threadStarted = false;
-}
-}  // namespace frc::impl
-#endif
-
 MotorSafety::MotorSafety() {
   auto& manager = GetManager();
   std::scoped_lock lock(manager.listMutex);
-  manager.instanceList.insert(this);
+  manager.instanceList.push_back(this);
   if (!manager.threadStarted) {
     manager.threadStarted = true;
-    manager.thread.Start();
+    manager.thread.Start("Thread n");
+    // manager.thread.m_stdThread = std::thread(&Thread::Main, &manager.thread);
   }
 }
 
 MotorSafety::~MotorSafety() {
   auto& manager = GetManager();
   std::scoped_lock lock(manager.listMutex);
-  manager.instanceList.erase(this);
+  manager.thread.Stop();
+  manager.instanceList.erase(std::remove(manager.instanceList.begin(), manager.instanceList.end(), this), manager.instanceList.end());
 }
 
 MotorSafety::MotorSafety(MotorSafety&& rhs)
@@ -167,6 +212,7 @@ void MotorSafety::Check() {
     //                 "{}... Output not updated often enough. See "
     //                 "https://docs.wpilib.org/motorsafety for more information.",
     //                 GetDescription());
+    // Console.printf("MotorSafety::Check [%s] -> %llu\n", stopTime, GetDescription());
     StopMotor();
     // try {
     //   StopMotor();

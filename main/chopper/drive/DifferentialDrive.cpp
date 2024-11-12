@@ -6,6 +6,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <Bluepad32.h>
 
 // #include <hal/FRCUsageReporting.h>
 // #include <wpi/sendable/SendableBuilder.h>
@@ -36,12 +37,12 @@ DifferentialDrive::DifferentialDrive(std::function<void(double)> leftMotor,
 
 void DifferentialDrive::ArcadeDrive(double xSpeed, double zRotation,
                                     bool squareInputs) {
-  static bool reported = false;
-  if (!reported) {
-    // HAL_Report(HALUsageReporting::kResourceType_RobotDrive,
-    //            HALUsageReporting::kRobotDrive2_DifferentialArcade, 2);
-    reported = true;
-  }
+  // static bool reported = false;
+  // if (!reported) {
+  //   // HAL_Report(HALUsageReporting::kResourceType_RobotDrive,
+  //   //            HALUsageReporting::kRobotDrive2_DifferentialArcade, 2);
+  //   reported = true;
+  // }
 
   xSpeed = ApplyDeadband(xSpeed, m_deadband);
   zRotation = ApplyDeadband(zRotation, m_deadband);
@@ -53,18 +54,18 @@ void DifferentialDrive::ArcadeDrive(double xSpeed, double zRotation,
 
   m_leftMotor(m_leftOutput);
   m_rightMotor(m_rightOutput);
-
+  Console.printf("\n");
   Feed();
 }
 
 void DifferentialDrive::CurvatureDrive(double xSpeed, double zRotation,
                                        bool allowTurnInPlace) {
-  static bool reported = false;
-  if (!reported) {
-    // HAL_Report(HALUsageReporting::kResourceType_RobotDrive,
-    //            HALUsageReporting::kRobotDrive2_DifferentialCurvature, 2);
-    reported = true;
-  }
+  // static bool reported = false;
+  // if (!reported) {
+  //   // HAL_Report(HALUsageReporting::kResourceType_RobotDrive,
+  //   //            HALUsageReporting::kRobotDrive2_DifferentialCurvature, 2);
+  //   reported = true;
+  // }
 
   xSpeed = ApplyDeadband(xSpeed, m_deadband);
   zRotation = ApplyDeadband(zRotation, m_deadband);
@@ -82,12 +83,12 @@ void DifferentialDrive::CurvatureDrive(double xSpeed, double zRotation,
 
 void DifferentialDrive::TankDrive(double leftSpeed, double rightSpeed,
                                   bool squareInputs) {
-  static bool reported = false;
-  if (!reported) {
-    // HAL_Report(HALUsageReporting::kResourceType_RobotDrive,
-    //            HALUsageReporting::kRobotDrive2_DifferentialTank, 2);
-    reported = true;
-  }
+  // static bool reported = false;
+  // if (!reported) {
+  //   // HAL_Report(HALUsageReporting::kResourceType_RobotDrive,
+  //   //            HALUsageReporting::kRobotDrive2_DifferentialTank, 2);
+  //   reported = true;
+  // }
 
   leftSpeed = ApplyDeadband(leftSpeed, m_deadband);
   rightSpeed = ApplyDeadband(rightSpeed, m_deadband);

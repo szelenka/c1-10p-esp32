@@ -1,8 +1,12 @@
 #include "chopper/motorController/SabertoothController.h"
+#include <Bluepad32.h>
 
 void SabertoothController::Set(double speed) {
     double targetSpeed = std::clamp(speed, -1.0, 1.0);
-    m_sabertoothDriver->motor(m_motorId, targetSpeed * 127);
+    if (GetInverted())
+        targetSpeed *= -1;
+    Console.printf("ST [%1d] %2.3f = %3d  ", m_motorId, targetSpeed, (int)(targetSpeed * 127));
+    m_sabertoothDriver->motor(m_motorId, (int)(targetSpeed * 127));
 }
 
 double SabertoothController::Get() const {

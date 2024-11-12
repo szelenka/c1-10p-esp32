@@ -35,7 +35,8 @@ DomePosition domeSensor = DomePosition(domeAnalogProvider);
 //HardwareSerial sabertoothSerial(1, NOT_A_PIN, PIN_SABERTOOTH_TX);
 SoftwareSerial sabertoothSerial(NOT_A_PIN, PIN_SABERTOOTH_TX); 
 
-DifferentialDriveSabertooth sabertoothTank = DifferentialDriveSabertooth::create(TANK_DRIVE_ID, sabertoothSerial, 1, 2);
+SabertoothDrive sabertoothTankDrive(TANK_DRIVE_ID, sabertoothSerial, 1, 2);
+DifferentialDrive sabertoothTank(sabertoothTankDrive.GetLeftMotor(), sabertoothTankDrive.GetRightMotor());
 // TankDriveSabertooth sabertoothTank(TANK_DRIVE_ID, sabertoothSerial);
 // DomeDriveSabertooth sabertoothDome(DOME_DRIVE_ID, sabertoothSerial); 
 
@@ -72,7 +73,7 @@ unsigned long lastUpdate = 0;
 void emergencyStop()
 {
     // sabertoothDome.StopMotor();
-    sabertoothTank.StopMotor();
+    // sabertoothTank.StopMotor();
     // TODO: stop music, and servos
     // TODO: blink LED to indicate problem
 }
@@ -211,7 +212,6 @@ void processGamepad(ControllerPtr ctl) {
         switch(ctl->getProperties().type) {
             case CONTROLLER_TYPE_SwitchJoyConLeft:
                 // sabertoothTank.animate((float)ctl->axisX()/512.0, (float)ctl->axisY()/512.0, ctl->throttle());
-
                 sabertoothTank.ArcadeDrive(ctl->axisX(), ctl->axisY());
                 break;
             case CONTROLLER_TYPE_SwitchJoyConRight:
@@ -292,6 +292,9 @@ void setupSabertooth() {
 
     // sabertoothTankController.setMinVoltage(30);
     sabertoothTank.SetSpeedLimit(0.8);
+    sabertoothTank.SetSafetyEnabled(true);
+    sabertoothTankDrive.GetLeftMotor().SetInverted(false);
+    sabertoothTankDrive.GetRightMotor().SetInverted(true);
     // sabertoothTankController.setUseThrottle(false);
     // sabertoothTankController.setScaling(false);
     // sabertoothTankController.setChannelMixing(true);
@@ -397,7 +400,7 @@ void loop() {
     else if ((millis() - lastUpdate) > C110P_CONTROLLER_TIMEOUT_MS) 
     {
         // If no data received in more than timeout, emergencyStop!
-        DEBUG_PRINTF("No dataUpdated in %2.6f ms, emergencyStop!\n", millis() - lastUpdate);
+        // DEBUG_PRINTF("No dataUpdated in %2.6f ms, emergencyStop!\n", millis() - lastUpdate);
         emergencyStop();
     }
 

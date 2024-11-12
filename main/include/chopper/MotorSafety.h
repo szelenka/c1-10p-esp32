@@ -104,7 +104,8 @@ class MotorSafety {
   virtual std::string GetDescription() const = 0;
 
  private:
-  static constexpr auto kDefaultSafetyExpiration = 100;
+  // measured in milliseconds
+  static constexpr auto kDefaultSafetyExpiration = 1000;
 
   // The expiration time for this object
   uint64_t m_expiration = kDefaultSafetyExpiration;

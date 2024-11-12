@@ -105,7 +105,11 @@ class RobotDriveBase : public MotorSafety {
   void FeedWatchdog();
 
   double normalizeSensorInput(int rawValue) {
-    return (m_maxOutput-m_minOutput)*((rawValue-m_minInput)/(m_maxInput-m_minInput))+(m_minOutput);
+    if (m_maxInput > m_minInput && m_maxOutput > m_minOutput) {
+      return (m_maxOutput-m_minOutput)*((rawValue-m_minInput)/(m_maxInput-m_minInput))+(m_minOutput);
+    }
+    // TODO: we shouldn't get here .. how to raise a "safe" error?
+    return rawValue/m_maxInput;
   }
 
   void StopMotor() override = 0;
@@ -128,7 +132,7 @@ class RobotDriveBase : public MotorSafety {
   static constexpr double kDefaultMaxOutput = 1.0;
 
   /// Default minimum output.
-  static constexpr double kDefaultMinOutput = 1.0;
+  static constexpr double kDefaultMinOutput = -1.0;
 
   // Default speed limit
   static constexpr double kDefaultSpeedLimit = 0.8;

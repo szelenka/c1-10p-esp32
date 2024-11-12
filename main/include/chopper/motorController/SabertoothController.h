@@ -5,18 +5,21 @@
 #include "chopper/motorController/MotorController.h"
 #include "chopper/MotorSafety.h"
 #include <Sabertooth.h>
+#include <Bluepad32.h>
 
-class SabertoothController : virtual public MotorController, 
-                             public MotorSafety {
+class SabertoothController : virtual public MotorController
+{
  public:
-  SabertoothController(SabertoothController&&) = default;
-  SabertoothController& operator=(SabertoothController&&) = default;
-  SabertoothController() {};
+  // SabertoothController(SabertoothController&&) = default;
+  // SabertoothController& operator=(SabertoothController&&) = default;
+  // SabertoothController() {};
   SabertoothController(Sabertooth& sabertoothDriver, int motor) :
     m_sabertoothDriver(&sabertoothDriver),
     m_motorId(motor)
-  {}
-  ~SabertoothController() override = default;
+  {
+    Console.println("SabertoothController [init]");
+  }
+  // ~SabertoothController() override = default;
   
   void Set(double speed) override;
 

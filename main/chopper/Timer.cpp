@@ -15,11 +15,11 @@ void Wait(uint64_t milliseconds) {
   std::this_thread::sleep_for(std::chrono::duration<double>(milliseconds/1000.0));}
 
 uint64_t GetTime() {
-  using std::chrono::duration;
+  // using std::chrono::duration;
   using std::chrono::duration_cast;
   using std::chrono::system_clock;
 
-  return duration_cast<duration<uint64_t>>(system_clock::now().time_since_epoch())
+  return duration_cast<std::chrono::milliseconds>(system_clock::now().time_since_epoch())
           .count();
 }
 

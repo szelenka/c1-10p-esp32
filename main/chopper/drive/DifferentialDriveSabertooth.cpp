@@ -8,16 +8,16 @@
 // };
 
 void DifferentialDriveSabertooth::SetRamping(uint64_t ramping) {
-    m_sabertoothDriver.setRamping((byte)(ramping));
+    // m_sabertoothDriver.setRamping((byte)(ramping));
     DifferentialDrive::SetRamping(ramping);
 }
 
 void DifferentialDriveSabertooth::SetDeadband(double deadband) {
-    m_sabertoothDriver.setDeadband((byte)(deadband*127));
+    // m_sabertoothDriver.setDeadband((byte)(deadband*127));
     DifferentialDrive::SetDeadband(deadband);
 }
 
 void DifferentialDriveSabertooth::SetExpiration(uint64_t expirationTime) {
-    m_sabertoothDriver.setTimeout(expirationTime);
+    // m_sabertoothDriver.setTimeout(expirationTime);
     DifferentialDrive::SetExpiration(expirationTime);
 };
