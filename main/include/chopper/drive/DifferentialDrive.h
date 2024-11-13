@@ -105,6 +105,7 @@ class DifferentialDrive : public RobotDriveBase { //
   DifferentialDrive& operator=(DifferentialDrive&&) = default;
 
 
+  void DifferentialDrive::ApplySpeedToMotors();
 
   /**
    * Arcade drive method for differential drive platform.
@@ -116,7 +117,7 @@ class DifferentialDrive : public RobotDriveBase { //
    *                      axis [-1.0..1.0]. Forward is positive.
    * @param zRotation     The rotation rate of the robot around the Z axis
    *                      [-1.0..1.0]. Counterclockwise is positive.
-   * @param squareInputs If set, decreases the input sensitivity at low speeds.
+   * @param squareInputs  If set, decreases the input sensitivity at low speeds.
    */
   void ArcadeDrive(int xSpeed, int zRotation, bool squareInputs = true) {
     return ArcadeDrive(normalizeSensorInput(xSpeed), normalizeSensorInput(zRotation), squareInputs);
@@ -142,6 +143,24 @@ class DifferentialDrive : public RobotDriveBase { //
     return CurvatureDrive(normalizeSensorInput(xSpeed), normalizeSensorInput(zRotation), allowTurnInPlace);
   };
   void CurvatureDrive(double xSpeed, double zRotation, bool allowTurnInPlace);
+
+  /**
+   * ReelTwo drive method for differential drive platform.
+   *
+   * The rotation argument controls the curvature of the robot's path rather
+   * than its rate of heading change. This makes the robot more controllable at
+   * high speeds.
+   *
+   * @param xSpeed           The robot's speed along the X axis [-1.0..1.0].
+   *                         Forward is positive.
+   * @param zRotation        The normalized curvature [-1.0..1.0].
+   *                         Counterclockwise is positive.
+   * @param squareInputs     If set, decreases the input sensitivity at low speeds.
+   */
+  void ReelTwoDrive(int xSpeed, int zRotation, bool squareInputs = true) {
+    return ReelTwoDrive(normalizeSensorInput(xSpeed), normalizeSensorInput(zRotation), squareInputs);
+  };
+  void ReelTwoDrive(double xSpeed, double zRotation, bool squareInputs);
 
   /**
    * Tank drive method for differential drive platform.
@@ -191,6 +210,9 @@ class DifferentialDrive : public RobotDriveBase { //
    */
   static WheelSpeeds CurvatureDriveIK(double xSpeed, double zRotation,
                                       bool allowTurnInPlace);
+
+  static WheelSpeeds ReelTwoDriveIK(double xSpeed, double zRotation,
+                                      bool squareInputs);
 
   /**
    * Tank drive inverse kinematics for differential drive platform.

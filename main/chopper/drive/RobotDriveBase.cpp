@@ -16,8 +16,25 @@ RobotDriveBase::RobotDriveBase() {
   SetSafetyEnabled(true);
 }
 
-void RobotDriveBase::SetRamping(uint64_t ramping) {
-  m_ramping = ramping;
+void RobotDriveBase::SetRampingValue(int ramping) {
+  /*
+  This adjusts or disables the ramping feature found on the Sabertooth 2x35. This adjustment
+  applies to all modes, even R/C and analog mode
+
+  Values between 1 and 10 are Fast Ramp
+  Values between 11 and 20 are Slow Ramp
+
+  Values between 21 and 80 are Intermediate Ramp.
+
+  Fast Ramping is a ramp time of 256/(~1000xCommand value). Ramp time is the delay between
+  full forward and full reverse speed.
+  1: 1/4 second ramp (default)
+  2: 1/8 second ramp
+  3: 1/12 second ramp
+
+  Slow and Intermediate Ramping are a ramp time of 256/[15.25x(Command value  10)]
+  */
+  m_rampingValue = std::clamp(ramping, 0, 80);
 }
 
 void RobotDriveBase::SetDeadband(double deadband) {

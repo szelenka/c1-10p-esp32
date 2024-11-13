@@ -76,6 +76,27 @@ ApplyDeadband(T value, T deadband, T maxMagnitude = T{1.0}) {
   }
 }
 
+/**
+ * Limits the speed to a specified range. If the speed is within the deadband,
+ * it is set to zero. Otherwise, it is scaled to fit within the range.
+ *
+ * @param speed Speed to limit.
+ * @param speedLimit Range [0, 1].
+ * @return The speed after the limit is applied.
+ */
+template <typename T>
+typename std::enable_if<std::is_arithmetic<T>::value, T>::type
+ApplySpeedLimit(T speed, T speedLimit) {
+  T magnitude = std::clamp(std::abs(speed), T{0.0}, T{1.0});
+  T limitedSpeed = std::clamp(speedLimit, T{0.0}, T{1.0});
+
+  if (magnitude > limitedSpeed) {
+      return std::copy_sign(limitedSpeed, speed);
+  } else {
+    return speed;
+  }
+}
+
 // /**
 //  * Returns modulus of input.
 //  *

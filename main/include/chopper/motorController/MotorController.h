@@ -65,5 +65,9 @@ class MotorController {
  protected:
   /// Default inverteted parameter.
   static constexpr bool kDefaultIsInverted = false;
+
+  // Default Scale
+  static constexpr double kDefaultScale = 1.0;
+
   bool m_IsInverted = kDefaultIsInverted;
 };

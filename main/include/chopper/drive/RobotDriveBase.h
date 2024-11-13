@@ -43,7 +43,7 @@ class RobotDriveBase : public MotorSafety {
   RobotDriveBase(RobotDriveBase&&) = default;
   RobotDriveBase& operator=(RobotDriveBase&&) = default;
 
-  void SetRamping(uint64_t ramping);
+  void SetRampingValue(int ramping);
 
   /**
    * Sets the deadband applied to the drive inputs (e.g., joystick values).
@@ -113,11 +113,12 @@ class RobotDriveBase : public MotorSafety {
   }
 
   void StopMotor() override = 0;
+
   std::string GetDescription() const override = 0;
 
  protected:
   /// Default input ramping.
-  static constexpr uint64_t kDefaultRamping = 1;
+  static constexpr int kDefaultRampingValue = 80;
 
   /// Default input deadband.
   static constexpr double kDefaultDeadband = 0.02;
@@ -144,7 +145,7 @@ class RobotDriveBase : public MotorSafety {
   // static void Desaturate(std::span<double> wheelSpeeds);
 
   /// Input ramping.
-  uint64_t m_ramping = kDefaultRamping;
+  double m_rampingValue = kDefaultRampingValue;
 
   /// Input deadband.
   double m_deadband = kDefaultDeadband;
@@ -161,6 +162,6 @@ class RobotDriveBase : public MotorSafety {
   /// Minimum output.
   double m_minOutput = kDefaultMinOutput;
 
-  // Speedlimit
+  /// Speedlimit
   double m_speedLimit = kDefaultSpeedLimit;
 };

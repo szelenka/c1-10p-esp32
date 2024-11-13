@@ -35,6 +35,14 @@ DifferentialDrive::DifferentialDrive(std::function<void(double)> leftMotor,
   // wpi::SendableRegistry::AddLW(this, "DifferentialDrive", instances);
 }
 
+void DifferentialDrive::ApplySpeedToMotors() {
+  double left = ApplySpeedLimit(m_leftOutput, m_speedLimit);
+  double right = ApplySpeedLimit(m_rightOutput, m_speedLimit);
+  m_leftMotor(left);
+  m_rightMotor(right);
+  Feed();
+}
+
 void DifferentialDrive::ArcadeDrive(double xSpeed, double zRotation,
                                     bool squareInputs) {
   // static bool reported = false;
@@ -52,14 +60,11 @@ void DifferentialDrive::ArcadeDrive(double xSpeed, double zRotation,
   m_leftOutput = left * m_maxOutput;
   m_rightOutput = right * m_maxOutput;
 
-  m_leftMotor(m_leftOutput);
-  m_rightMotor(m_rightOutput);
-  Console.printf("\n");
-  Feed();
+  ApplySpeedToMotors();
 }
 
 void DifferentialDrive::CurvatureDrive(double xSpeed, double zRotation,
-                                       bool allowTurnInPlace) {
+                                        bool allowTurnInPlace) {
   // static bool reported = false;
   // if (!reported) {
   //   // HAL_Report(HALUsageReporting::kResourceType_RobotDrive,
@@ -75,10 +80,27 @@ void DifferentialDrive::CurvatureDrive(double xSpeed, double zRotation,
   m_leftOutput = left * m_maxOutput;
   m_rightOutput = right * m_maxOutput;
 
-  m_leftMotor(m_leftOutput);
-  m_rightMotor(m_rightOutput);
+  ApplySpeedToMotors();
+}
 
-  Feed();
+void DifferentialDrive::ReelTwoDrive(double xSpeed, double zRotation,
+                                      bool allowTurnInPlace) {
+  // static bool reported = false;
+  // if (!reported) {
+  //   // HAL_Report(HALUsageReporting::kResourceType_RobotDrive,
+  //   //            HALUsageReporting::kRobotDrive2_DifferentialCurvature, 2);
+  //   reported = true;
+  // }
+
+  xSpeed = ApplyDeadband(xSpeed, m_deadband);
+  zRotation = ApplyDeadband(zRotation, m_deadband);
+
+  auto [left, right] = ReelTwoDriveIK(xSpeed, zRotation, allowTurnInPlace);
+
+  m_leftOutput = left * m_maxOutput;
+  m_rightOutput = right * m_maxOutput;
+
+  ApplySpeedToMotors();
 }
 
 void DifferentialDrive::TankDrive(double leftSpeed, double rightSpeed,
@@ -98,10 +120,7 @@ void DifferentialDrive::TankDrive(double leftSpeed, double rightSpeed,
   m_leftOutput = left * m_maxOutput;
   m_rightOutput = right * m_maxOutput;
 
-  m_leftMotor(m_leftOutput);
-  m_rightMotor(m_rightOutput);
-
-  Feed();
+  ApplySpeedToMotors();
 }
 
 DifferentialDrive::WheelSpeeds DifferentialDrive::ArcadeDriveIK(
@@ -150,6 +169,63 @@ DifferentialDrive::WheelSpeeds DifferentialDrive::CurvatureDriveIK(
   }
 
   // Desaturate wheel speeds
+  double maxMagnitude = std::max(std::abs(leftSpeed), std::abs(rightSpeed));
+  if (maxMagnitude > 1.0) {
+    leftSpeed /= maxMagnitude;
+    rightSpeed /= maxMagnitude;
+  }
+
+  return {leftSpeed, rightSpeed};
+}
+
+DifferentialDrive::WheelSpeeds DifferentialDrive::ReelTwoDriveIK(
+    double xSpeed, double zRotation, bool squareInputs) {
+  xSpeed = std::clamp(xSpeed, -1.0, 1.0);
+  zRotation = std::clamp(zRotation, -1.0, 1.0);
+
+  // exagerate the zRotation by 1.4
+  if (std::abs(zRotation) > m_deadband)
+    zRotation = std::copy_sign(std::pow(std::abs(zRotation)-m_deadband, 1.4), zRotation);
+
+  // Square the inputs (while preserving the sign) to increase fine control
+  // while permitting full power.
+  if (squareInputs) {
+    xSpeed = std::copysign(xSpeed * xSpeed, xSpeed);
+    zRotation = std::copysign(zRotation * zRotation, zRotation);
+  }
+
+  // Convert the cartesian coordinates to planar coordnates
+  // ref: https://en.wikipedia.org/wiki/Atan2
+  double ray = std::hypot(xSpeed, zRotation);
+  double theta = std::atan2(zRotation, xSpeed);
+  /*
+  By rotating the joystick’s (x, y) coordinates by 45 degrees (i.e. pi/4 radians), we align the 
+  joystick directions with the left and right motor requirements:
+
+  - The rotated x-coordinate now represents a mix of forward/backward and left turning movement.
+  - The rotated y-coordinate represents a mix of forward/backward and right turning movement.
+
+  The 45-degree rotation simplifies the translation from joystick movement to differential drive
+  control because it "tilts" the input space
+  */
+  theta += M_PI_4;
+  double leftSpeed = ray * std::cos(theta);
+  double rightSpeed = ray * std::sin(theta);
+
+  /*
+  After rotating by 45 degrees, the maximum values in each direction would be reduced to about 
+  0.707 due to trigonometric scaling (cos(45°) = sin(45°) = 1/√2). To maintain the original input 
+  range, we scale by √2, so that the motor commands can still reach their full range [-1.0, 1.0] 
+  when the joystick is pushed to its extremes in the cardinal directions
+  */
+  leftSpeed *= std::sqrt(2);
+  rightSpeed *= std::sqrt(2);
+
+  /*
+  Scaling the joystick inputs by √2 can over-compensates when the direction reaches near +/- 45-degree
+  in each quadrant, so we need to desaturated the wheel speeds to get back in the [-1.0, 1.0] range
+  for all directions
+  */
   double maxMagnitude = std::max(std::abs(leftSpeed), std::abs(rightSpeed));
   if (maxMagnitude > 1.0) {
     leftSpeed /= maxMagnitude;
