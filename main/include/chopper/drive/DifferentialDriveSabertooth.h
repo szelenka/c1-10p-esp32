@@ -4,6 +4,7 @@
 #include "chopper/motorController/SabertoothController.h"
 #include <Sabertooth.h>
 #include <Bluepad32.h>
+#include "SettingsSystem.h"
 
 class SabertoothDrive {
 public:
@@ -13,7 +14,8 @@ public:
     m_rightMotor(m_sabertoothDriver, rightMotorId)
   {
     Console.println("SabertoothDrive [init]");
-    m_sabertoothDriver.setBaudRate(9600);
+    m_sabertoothDriver.setBaudRate(SABERTOOTH_SERIAL_BAUD_RATE);
+    // m_sabertoothDriver.setDeadband()
   }
 
   SabertoothController& GetLeftMotor() {
@@ -40,7 +42,7 @@ class DifferentialDriveSabertooth : public DifferentialDrive
   //   m_rightMotor = SabertoothController(m_sabertoothDriver, rightMotorId);
   //   return DifferentialDriveSabertooth(m_leftMotor, m_rightMotor);
   // }
-  void SetRamping(int ramping);
+  void SetRampingValue(int ramping);
   void SetDeadband(double deadband);
   void SetExpiration(uint64_t expirationTime);
 

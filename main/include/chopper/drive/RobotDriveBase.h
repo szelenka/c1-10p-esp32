@@ -121,7 +121,7 @@ class RobotDriveBase : public MotorSafety {
   static constexpr int kDefaultRampingValue = 80;
 
   /// Default input deadband.
-  static constexpr double kDefaultDeadband = 0.02;
+  static constexpr double kDefaultDeadband = 0.05;
 
   /// Default maximum input.
   static constexpr int kDefaultMaxInput = 512;

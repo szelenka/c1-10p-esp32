@@ -105,7 +105,7 @@ class DifferentialDrive : public RobotDriveBase { //
   DifferentialDrive& operator=(DifferentialDrive&&) = default;
 
 
-  void DifferentialDrive::ApplySpeedToMotors();
+  void ApplySpeedToMotors();
 
   /**
    * Arcade drive method for differential drive platform.

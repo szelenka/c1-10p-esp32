@@ -35,7 +35,7 @@ DomePosition domeSensor = DomePosition(domeAnalogProvider);
 //HardwareSerial sabertoothSerial(1, NOT_A_PIN, PIN_SABERTOOTH_TX);
 SoftwareSerial sabertoothSerial(NOT_A_PIN, PIN_SABERTOOTH_TX); 
 
-SabertoothDrive sabertoothTankDrive(TANK_DRIVE_ID, sabertoothSerial, 1, 2);
+SabertoothDrive sabertoothTankDrive(TANK_DRIVE_ID, sabertoothSerial, 2, 1);
 DifferentialDrive sabertoothTank(sabertoothTankDrive.GetLeftMotor(), sabertoothTankDrive.GetRightMotor());
 // TankDriveSabertooth sabertoothTank(TANK_DRIVE_ID, sabertoothSerial);
 // DomeDriveSabertooth sabertoothDome(DOME_DRIVE_ID, sabertoothSerial); 
@@ -207,12 +207,23 @@ void processGamepad(ControllerPtr ctl) {
     // dumpGamepad(ctl);
     // ctl->getModelName(), properties.vendor_id,
     //                        properties.product_id
+
+    //TODO: axisX is off by -41:-10, axisY is off by 0:14
+    int leftJoyconOffsetX = 30;
     if (ctl->isConnected())
     {
         switch(ctl->getProperties().type) {
             case CONTROLLER_TYPE_SwitchJoyConLeft:
                 // sabertoothTank.animate((float)ctl->axisX()/512.0, (float)ctl->axisY()/512.0, ctl->throttle());
-                sabertoothTank.ArcadeDrive(ctl->axisX(), ctl->axisY());
+                Console.print("Arcade ");
+                sabertoothTank.ArcadeDrive(ctl->axisX()+leftJoyconOffsetX, ctl->axisY());
+                Console.print("Curve ");
+                sabertoothTank.CurvatureDrive(ctl->axisX()+leftJoyconOffsetX, ctl->axisY());
+                Console.print("Tank ");
+                sabertoothTank.TankDrive(ctl->axisX()+leftJoyconOffsetX, ctl->axisY());
+                Console.print("Reel2 ");
+                sabertoothTank.ReelTwoDrive(ctl->axisX()+leftJoyconOffsetX, ctl->axisY());
+                Console.println("");
                 break;
             case CONTROLLER_TYPE_SwitchJoyConRight:
                 // sabertoothDome.animate((float)ctl->axisX()/512.0, ctl->throttle());
@@ -293,7 +304,7 @@ void setupSabertooth() {
     // sabertoothTankController.setMinVoltage(30);
     sabertoothTank.SetSpeedLimit(0.8);
     sabertoothTank.SetSafetyEnabled(true);
-    sabertoothTankDrive.GetLeftMotor().SetInverted(false);
+    sabertoothTankDrive.GetLeftMotor().SetInverted(true);
     sabertoothTankDrive.GetRightMotor().SetInverted(true);
     // sabertoothTankController.setUseThrottle(false);
     // sabertoothTankController.setScaling(false);

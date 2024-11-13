@@ -91,7 +91,7 @@ ApplySpeedLimit(T speed, T speedLimit) {
   T limitedSpeed = std::clamp(speedLimit, T{0.0}, T{1.0});
 
   if (magnitude > limitedSpeed) {
-      return std::copy_sign(limitedSpeed, speed);
+      return std::copysign(limitedSpeed, speed);
   } else {
     return speed;
   }

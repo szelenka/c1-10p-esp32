@@ -160,6 +160,7 @@ DifferentialDrive::WheelSpeeds DifferentialDrive::CurvatureDriveIK(
   double leftSpeed = 0.0;
   double rightSpeed = 0.0;
 
+  // TODO: when at very small values just outside deadzone, this can cause creap b/c it's not squared
   if (allowTurnInPlace) {
     leftSpeed = xSpeed - zRotation;
     rightSpeed = xSpeed + zRotation;
@@ -184,8 +185,8 @@ DifferentialDrive::WheelSpeeds DifferentialDrive::ReelTwoDriveIK(
   zRotation = std::clamp(zRotation, -1.0, 1.0);
 
   // exagerate the zRotation by 1.4
-  if (std::abs(zRotation) > m_deadband)
-    zRotation = std::copy_sign(std::pow(std::abs(zRotation)-m_deadband, 1.4), zRotation);
+  // if (std::abs(zRotation) > m_deadband)
+  //   zRotation = std::copysign(std::pow(std::abs(zRotation)-m_deadband, 1.4), zRotation);
 
   // Square the inputs (while preserving the sign) to increase fine control
   // while permitting full power.
