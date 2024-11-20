@@ -1,50 +1,27 @@
 # C1-10P for ESP32 microcontroller
 
+This repo contains a template for controlling an Astromech containing:
+- Penumbra
+- [Dimension Engineering Sabertooth 2x32](https://www.dimensionengineering.com/products/sabertooth2x32)
+- [Dimension Engineering SyRen 10](https://www.dimensionengineering.com/products/syren10)
+- [SparkFun MP3 Trigger](https://learn.sparkfun.com/tutorials/mp3-trigger-hookup-guide-v24)
+- [Polou Maestro USB Servo Controllers](https://www.pololu.com/category/102/maestro-usb-servo-controllers)
+- Bluetooth Controller
+
 ## Safety
 Ensure all motors stop when bluetooth controller has not responded in a specified timeframe:
 - https://bluepad32.readthedocs.io/en/latest/FAQ/#how-to-detect-when-a-gamepad-is-out-of-range
 
+## How to alter .patch files
+In order to convert native Arduino libraries to compile with the ESP-IDF, some of them need to adapt to
+use CMake. There are also some libraries which require altering additional code within to function on
+ESP hardware.
+
+This is accomplished with diff/patch. The patches are created by the following process:
+1. `make {x}-download` will download the specified branch/version for Arduino
+2. Make changes to the `build/{x}/_new` folder for the changes required
+3. `make {x}-patch` to generate the content of the `patches/components/{X}.patch` (verify this is what you expect)
+4. `make {x}` to re-download the specified branch/version for Arduino, apply the patch, and move the contents to the `components/{x}` directory
+
 ## Libraries
-### Bluepad32
-To connect any supported Bluetooth controller to the ESP32, we build upon the Bluepad32 C library:
-- https://github.com/ricardoquesada/bluepad32
-
-This uses the Expressif's libraries and other BTStack components, which make it tricky to compile with the default Arduino IDE. As such, it's recommended
-to build upon the Bluepad32 Arduino Template outlined here:
-- https://github.com/ricardoquesada/esp-idf-arduino-bluepad32-template
-
-### SoftwareSerial
-The default compiler for ESP32 does not include an implementation of SoftwareSerial. Where we can, the ESP32 board should use the hardware UARTs, but 
-their may be more Serial connections than UARTs available. For this we use SoftwareSerial library:
-- SoftwareSerial : https://github.com/plerup/espsoftwareserial
-- HardwareSerial (Pin remaping)
-    - https://docs.espressif.com/projects/esp-idf/en/v4.4.8/esp32/api-reference/peripherals/uart.html
-    - https://stackoverflow.com/questions/60094545/esp32-softwareserial-library
-
-### Arduino Libraries for SyRen/Sabertooth Serial
-The original [Sabertooth Arduino Library](https://www.dimensionengineering.com/info/arduino) leverages implicit casting of byte to int, which the Arduino ESP32 compiler doesn't like. There are two approaches to mitigate this:
-1. Consume a modified version of the official library, which uses `static_cast<int>` https://github.com/dominicklee/Sabertooth-for-ESP32
-2. Create a modified SabertoothDriver version, which uses `(int)` https://github.com/reeltwo/Reeltwo (src/motor/SabertoothDriver.h)
-3. Apply patch on original library
-
-### Pololu Maestro Servo Controller library for Arduino
-To control animations from connected servos, the [Polou Maestro USB Servo Controllers](https://www.pololu.com/category/102/maestro-usb-servo-controllers) are used and use standard Serial to communicate with the ESP32.
-- https://github.com/pololu/maestro-arduino
-
-### SparkFun MP3 Trigger
-For triggering sound effects, the [SparkFun MP3 Trigger](https://learn.sparkfun.com/tutorials/mp3-trigger-hookup-guide-v24) is leveraged, which uses standard Serial to communicate with the ESP32.
-- https://github.com/sansumbrella/MP3Trigger-for-Arduino
-
-### Units
--- TODO: do we want to purge this?
-https://docs.wpilib.org/en/stable/docs/software/basic-programming/cpp-units.html
-https://github.com/nholthaus/units
-
-### WPILib
--- we only use the WPI library, how to automate pull?
-https://github.com/wpilibsuite/allwpilib
-
-### fmtlib/fmt
--- not currently using
-https://components.espressif.com/components/espressif/fmt
-https://github.com/espressif/idf-extra-components/tree/master/fmt
+Refer to [components/README.md](components/README.md)

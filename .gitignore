@@ -5,8 +5,7 @@ sdkconfig
 .pio/
 .vscode/
 components/*
-!components/.gitkeep
-!components/**/CMakeLists.txt
+!components/README.md
 .DS_Store
 dependencies.lock
 sdkconfig.*
