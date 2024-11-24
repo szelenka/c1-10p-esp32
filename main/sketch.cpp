@@ -234,7 +234,7 @@ void processGamepad(ControllerPtr ctl) {
         }
     }
 
-    // See ArduinoController.h for all the available functions.
+    // See components/bluepad32_arduino/include/ArduinoController.h for all the available functions.
 }
 
 void processControllers() {
@@ -390,6 +390,10 @@ void setupSabertooth() {
 
 // Arduino setup function. Runs in CPU 1
 void setup() {
+    // Set system clock to 0
+    // struct timeval raw_time = {};
+    // int err = settimeofday(&raw_time, NULL);
+
     Serial.begin(115200);
     setupBluepad32();
     setupSabertooth();

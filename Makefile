@@ -1,41 +1,125 @@
+BLUEPAD32_GITHUB:=https://gitlab.com/ricardoquesada/esp-idf-arduino-bluepad32-template
 BLUEPAD32_VERSION:=4.1.0
+BLUEPAD32_BUILD_FOLDER:=build/esp-idf-arduino-bluepad32-template
+
+MAESTRO_GITHUB:=https://github.com/pololu/maestro-arduino
 MAESTRO_VERSION:=1.0.0
+MAESTRO_BUILD_FOLDER:=build/maestro-arduino
+
+SABERTOOTH_BUILD_FOLDER:=build/Sabertooth
+SABERTOOTH_VERSION:=
+SABERTOOTH_GITHUB:=https://www.dimensionengineering.com/software/SabertoothArduinoLibraries.zip
+
+MP3_GITHUB:=https://github.com/sansumbrella/MP3Trigger-for-Arduino
+MP3_VERSION:=5b70369
+MP3_BUILD_FOLDER:=build/MP3Trigger
+
+GHOSTL_GITHUB:=https://github.com/dok-net/ghostl
+GHOSTL_VERSION:=1.0.1
+GHOSTL_BUILD_FOLDER:=build/ghostl
+
+SOFTWARESERIAL_GITHUB:=https://github.com/plerup/espsoftwareserial
+SOFTWARESERIAL_VERSION:=8.2.0
+SOFTWARESERIAL_BUILD_FOLDER:=build/espsoftwareserial
+
 UNITS_VERSION:=v2.3.3
+
 FMT_VERSION:=11.0.1
+
+WPILIB_GITHUB:=https://github.com/wpilibsuite/allwpilib
 WPILIB_VERSION:=v2024.3.2
+WPILIB_BUILD_FOLDER:=build/allwpilib
+
 IDF_TOOLS_PATH:=D:\Espressif\
 
 setup::
 	mkdir -p build components main patches
 
-bluepad32::
-	if [ ! -d "build/esp-idf-arduino-bluepad32-template" ]; then \
-		git clone --depth 1 --recursive --branch $(BLUEPAD32_VERSION) https://gitlab.com/ricardoquesada/esp-idf-arduino-bluepad32-template.git build/esp-idf-arduino-bluepad32-template; \
+gitsync:: setup
+ifndef GITHUB_URL
+	$(error GITHUB_URL is not set)
+endif
+ifndef GITHUB_BRANCH
+	$(error GITHUB_BRANCH is not set)
+endif
+ifndef GITHUB_FOLDER
+	$(error GITHUB_FOLDER is not set)
+endif
+	if [ ! -d "$(GITHUB_FOLDER)/_new" ]; then \
+		git clone --depth 1 --branch $(GITHUB_BRANCH) $(GITHUB_URL) $(GITHUB_FOLDER)/_new ; \
 	else \
-		git -C build/esp-idf-arduino-bluepad32-template pull origin $(BLUEPAD32_VERSION); \
+		git -C $(GITHUB_FOLDER)/_new stash ; \
+		git -C $(GITHUB_FOLDER)/_new pull origin $(GITHUB_BRANCH) ; \
+	fi ;\
+	rm -rf $(GITHUB_FOLDER)/_org ; \
+	cp -r $(GITHUB_FOLDER)/_new $(GITHUB_FOLDER)/_org
+
+make-patch::
+ifndef GITHUB_FOLDER
+	$(error GITHUB_FOLDER is not set)
+endif
+	diff -Nruw --strip-trailing-cr --exclude=.git $(GITHUB_FOLDER)/_org/ $(GITHUB_FOLDER)/_new/ > patches/components/$(shell basename $(GITHUB_FOLDER)).patch || true
+
+apply-patch::
+ifndef GITHUB_FOLDER
+	$(error GITHUB_FOLDER is not set)
+endif
+	patch -l -f -d $(GITHUB_FOLDER) -p2 < patches/components/$(shell basename $(GITHUB_FOLDER)).patch
+	rm -rf $(GITHUB_FOLDER)/_org/.git components/$(shell basename $(GITHUB_FOLDER))
+	mv $(GITHUB_FOLDER)/_org components/$(shell basename $(GITHUB_FOLDER))
+	rm -rf $(GITHUB_FOLDER)
+
+# -- Bluepad32
+bluepad32-clean::
+	rm -rf $(BLUEPAD32_BUILD_FOLDER)
+
+bluepad32-download::
+	GITHUB_URL=$(BLUEPAD32_GITHUB) GITHUB_BRANCH=$(BLUEPAD32_VERSION) GITHUB_FOLDER=$(BLUEPAD32_BUILD_FOLDER) $(MAKE) gitsync
+
+bluepad32:: bluepad32-clean bluepad32-download
+	for dir in $(BLUEPAD32_BUILD_FOLDER)/_org/components/*; do \
+		if [ -d $$dir ]; then \
+			mkdir -p components/$$(basename $$dir); \
+			cp -R $$dir/* components/$$(basename $$dir); \
+			find components/$$(basename $$dir) -name ".git" -type d -exec rm -rf {} +; \
+		fi; \
+	done
+	cp -R $(BLUEPAD32_BUILD_FOLDER)/_org/patches/ patches/
+	for f in platformio.ini sdkconfig.defaults; do \
+		if [ ! -f $$f ]; then \
+			cp -R $(BLUEPAD32_BUILD_FOLDER)/_org/$$f $$f; \
+		fi; \
+	done ; \
+	rm -rf $(BLUEPAD32_BUILD_FOLDER)
+
+# -- Sabertooth
+sabertooth-clean::
+	rm -rf $(SABERTOOTH_BUILD_FOLDER)
+
+sabertooth-download:: setup
+	if [ ! -d "$(SABERTOOTH_BUILD_FOLDER)" ]; then \
+		mkdir -p $(SABERTOOTH_BUILD_FOLDER) ; \
+		curl -o build/SabertoothArduinoLibraries.zip $(SABERTOOTH_GITHUB) ; \
+		unzip -o build/SabertoothArduinoLibraries.zip -d $(SABERTOOTH_BUILD_FOLDER)/_new ; \
+		rm build/SabertoothArduinoLibraries.zip ; \
+		rm -rf $(SABERTOOTH_BUILD_FOLDER)/_org ; \
+		cp -r $(SABERTOOTH_BUILD_FOLDER)/_new $(SABERTOOTH_BUILD_FOLDER)/_org ; \
 	fi
-	cp -R build/esp-idf-arduino-bluepad32-template/components/ components
-	cp -R build/esp-idf-arduino-bluepad32-template/patches patches
-	for f in CMakeList.txt LICENSE platformio.ini sdkconfig.defaults; do \
-		cp -R build/esp-idf-arduino-bluepad32-template/$$f $$f; \
+	for f in Sabertooth/Sabertooth.h; do \
+		for d in _new _org; do \
+			dos2unix $(SABERTOOTH_BUILD_FOLDER)/$$d/$$f ; \
+		done; \
 	done
 
-sabertooth:: sabertooth-download
-	patch -l -f -d build/Sabertooth_ -p2 < patches/Sabertooth-ESP32.patch
-	rm -rf components/Sabertooth
-	mv build/Sabertooth_/Sabertooth components/Sabertooth
-	rm -rf build/Sabertooth_/
+sabertooth:: sabertooth-clean sabertooth-download
+	GITHUB_FOLDER=$(SABERTOOTH_BUILD_FOLDER) $(MAKE) apply-patch
+	mv components/Sabertooth $(SABERTOOTH_BUILD_FOLDER)
+	mkdir -p components/Sabertooth
+	mv $(SABERTOOTH_BUILD_FOLDER)/Sabertooth/ components/
+	rm -rf $(SABERTOOTH_BUILD_FOLDER)
 
-sabertooth-download::
-	if [ ! -d "build/Sabertooth_" ]; then \
-		curl -o build/SabertoothArduinoLibraries.zip https://www.dimensionengineering.com/software/SabertoothArduinoLibraries.zip ; \
-		unzip -o build/SabertoothArduinoLibraries.zip -d build/Sabertooth_ ; \
-		rm build/SabertoothArduinoLibraries.zip ; \
-		cp -R build/Sabertooth_/Sabertooth/ build/Sabertooth_/Sabertooth_org/ ; \
-	fi
-
-sabertooth-patch:: sabertooth-download
-	diff -Nruw --strip-trailing-cr build/Sabertooth_/Sabertooth_org/ build/Sabertooth_/Sabertooth/ > patches/Sabertooth-ESP32.patch || true
+sabertooth-patch::
+	GITHUB_FOLDER=$(SABERTOOTH_BUILD_FOLDER) $(MAKE) make-patch
 
 # sabertooth::
 # 	if [ ! -d "build/Sabertooth-for-ESP32" ]; then \
@@ -48,49 +132,60 @@ sabertooth-patch:: sabertooth-download
 # 	rm -rf build/Sabertooth-for-ESP32
 # 	echo 'set(srcs "Sabertooth.cpp")\n\nidf_component_register(SRCS "${srcs}" INCLUDE_DIRS ".")\n' > components/Sabertooth/CMakeLists.txt
 
-maestro::
-	if [ ! -d "build/maestro-arduino" ]; then \
-		git clone --depth 1 --branch $(MAESTRO_VERSION) https://github.com/pololu/maestro-arduino build/maestro-arduino; \
-	else \
-		git -C build/maestro-arduino pull origin $(MAESTRO_VERSION); \
-	fi
-	rm -rf build/maestro-arduino/.git components/maestro-arduino
-	mv build/maestro-arduino components/maestro-arduino
-	echo 'set(srcs "PololuMaestro.cpp")\n\nidf_component_register(SRCS "${srcs}" INCLUDE_DIRS ".")\n' > components/maestro-arduino/CMakeLists.txt
+# -- Maestro
+maestro-clean::
+	rm -rf $(MAESTRO_BUILD_FOLDER)
 
-mp3::
-	if [ ! -d "build/MP3Trigger-for-Arduino" ]; then \
-		git clone --depth 1 https://github.com/sansumbrella/MP3Trigger-for-Arduino.git build/MP3Trigger-for-Arduino; \
-	else \
-		git -C build/MP3Trigger-for-Arduino pull origin master; \
-	fi
-	rm -rf build/MP3Trigger-for-Arduino/.git components/MP3Trigger
-	mv build/MP3Trigger-for-Arduino components/MP3Trigger
-	echo 'set(srcs "MP3Trigger.cpp")\n\nidf_component_register(SRCS "${srcs}" INCLUDE_DIRS ".")\n' > components/MP3Trigger/CMakeLists.txt
+maestro-download::
+	GITHUB_URL=$(MAESTRO_GITHUB) GITHUB_BRANCH=$(MAESTRO_VERSION) GITHUB_FOLDER=$(MAESTRO_BUILD_FOLDER) $(MAKE) gitsync
 
+maestro:: maestro-clean maestro-download 
+	GITHUB_FOLDER=$(MAESTRO_BUILD_FOLDER) $(MAKE) apply-patch
+
+maestro-patch::
+	GITHUB_FOLDER=$(MAESTRO_BUILD_FOLDER) $(MAKE) make-patch
+
+# -- MP3Trigger
+mp3-clean::
+	rm -rf $(MP3_BUILD_FOLDER)
+
+mp3-download::
+	GITHUB_URL=$(MP3_GITHUB) GITHUB_BRANCH=$(MP3_VERSION) GITHUB_FOLDER=$(MP3_BUILD_FOLDER) $(MAKE) gitsync
+
+mp3:: mp3-clean mp3-download 
+	GITHUB_FOLDER=$(MP3_BUILD_FOLDER) $(MAKE) apply-patch
+
+mp3-patch::
+	GITHUB_FOLDER=$(MP3_BUILD_FOLDER) $(MAKE) make-patch
+
+# -- Ghostl
 # https://github.com/plerup/espsoftwareserial/issues/305
-ghostl::
-	if [ ! -d "build/ghostl" ]; then \
-		git clone --depth 1 https://github.com/plerup/espsoftwareserial build/espsoftwareserial ;\
-	else \
-		git -C build/ghostl pull origin main; \
-	fi
-	rm -rf build/ghostl/.git components/ghostl
-	mv build/ghostl components/ghostl
-	echo 'set(srcs "src/FastScheduler.cpp")\n\nidf_component_register(SRCS "${srcs}" INCLUDE_DIRS "./src")\n' > components/espsoftwareserial/CMakeLists.txt
+ghostl-clean::
+	rm -rf $(GHOSTL_BUILD_FOLDER)
 
+ghostl-download::
+	GITHUB_URL=$(GHOSTL_GITHUB) GITHUB_BRANCH=$(GHOSTL_VERSION) GITHUB_FOLDER=$(GHOSTL_BUILD_FOLDER) $(MAKE) gitsync
 
-softwareserial:: ghostl
-	if [ ! -d "build/espsoftwareserial" ]; then \
-		git clone --depth 1 https://github.com/plerup/espsoftwareserial build/espsoftwareserial ;\
-	else \
-		git -C build/espsoftwareserial pull origin main; \
-	fi
-	rm -rf build/espsoftwareserial/.git components/espsoftwareserial
-	mv build/espsoftwareserial components/espsoftwareserial
-	echo 'set(srcs "src/SoftwareSerial.cpp")\n\nidf_component_register(SRCS "${srcs}" INCLUDE_DIRS "./src")\n' > components/espsoftwareserial/CMakeLists.txt
+ghostl:: ghostl-clean ghostl-download
+	GITHUB_FOLDER=$(GHOSTL_BUILD_FOLDER) $(MAKE) apply-patch
 
-fmt::
+ghostl-patch::
+	GITHUB_FOLDER=$(GHOSTL_BUILD_FOLDER) $(MAKE) make-patch
+
+# -- SoftwareSerial
+softwareserial-clean::
+	rm -rf $(SOFTWARESERIAL_BUILD_FOLDER)
+
+softwareserial-download::
+	GITHUB_URL=$(SOFTWARESERIAL_GITHUB) GITHUB_BRANCH=$(SOFTWARESERIAL_VERSION) GITHUB_FOLDER=$(SOFTWARESERIAL_BUILD_FOLDER) $(MAKE) gitsync
+
+softwareserial:: ghostl softwareserial-clean softwareserial-download
+	GITHUB_FOLDER=$(SOFTWARESERIAL_BUILD_FOLDER) $(MAKE) apply-patch
+
+softwareserial-patch::
+	GITHUB_FOLDER=$(SOFTWARESERIAL_BUILD_FOLDER) $(MAKE) make-patch
+
+fmt:: setup
 	if [ ! -d "build/fmt" ]; then \
 		git clone --depth 1 --branch $(FMT_VERSION) https://github.com/fmtlib/fmt build/fmt ;\
 	else \
@@ -101,7 +196,7 @@ fmt::
 	echo 'idf_component_register(INCLUDE_DIRS "./include")\n' >> components/fmt/CMakeLists.txt
 
 
-units::
+units:: setup
 	if [ ! -d "build/units" ]; then \
 		git clone --depth 1 --branch $(UNITS_VERSION) https://github.com/nholthaus/units build/units ;\
 	else \
@@ -112,7 +207,7 @@ units::
 # TODO: 	if(NOT CMAKE_BUILD_EARLY_EXPANSION) ... endif()
 	echo 'idf_component_register(INCLUDE_DIRS "./include")\n' >> components/units/CMakeLists.txt
  
-wpilibc::
+wpilibc:: setup
 	if [ ! -d "build/allwpilib" ]; then \
 		git clone --depth 1 --branch $(WPILIB_VERSION) https://github.com/wpilibsuite/allwpilib build/allwpilib ;\
 	else \

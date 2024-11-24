@@ -1,0 +1,9 @@
+diff -Nruw --strip-trailing-cr --exclude=.git build/ghostl/_org/CMakeLists.txt build/ghostl/_new/CMakeLists.txt
+--- build/ghostl/_org/CMakeLists.txt	1969-12-31 19:00:00
++++ build/ghostl/_new/CMakeLists.txt	2024-11-15 10:56:55
+@@ -0,0 +1,5 @@
++set(srcs "src/FastScheduler.cpp")
++
++idf_component_register(
++    SRCS "${srcs}"
++    INCLUDE_DIRS "./src")
