@@ -7,9 +7,9 @@
 #include <Arduino.h>
 #include <Bluepad32.h>
 #include <Preferences.h>
-#include "PinMap.h"
-#include "SettingsSystem.h"
-#include "SettingsUser.h"
+#include "include/PinMap.h"
+#include "include/SettingsSystem.h"
+#include "include/SettingsUser.h"
 
 /*
     Preferences
