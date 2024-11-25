@@ -13,7 +13,7 @@ class SabertoothController : virtual public MotorController
   // SabertoothController(SabertoothController&&) = default;
   // SabertoothController& operator=(SabertoothController&&) = default;
   // SabertoothController() {};
-  SabertoothController(Sabertooth& sabertoothDriver, int motor) :
+  SabertoothController(Sabertooth& sabertoothDriver, uint8_t motor) :
     m_sabertoothDriver(&sabertoothDriver),
     m_motorId(motor)
   {
@@ -37,5 +37,5 @@ class SabertoothController : virtual public MotorController
 
  private:
   Sabertooth* m_sabertoothDriver = nullptr;
-  int m_motorId = 0;
+  uint8_t m_motorId = 0;
 };

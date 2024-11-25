@@ -32,10 +32,10 @@ DomePosition domeSensor = DomePosition(domeAnalogProvider);
 #include "chopper/drive/DifferentialDriveSabertooth.h"
 
 // RX on no pin (unused), TX on pin from PINOUT.h connected to S1 bus
-//HardwareSerial sabertoothSerial(1, NOT_A_PIN, PIN_SABERTOOTH_TX);
-SoftwareSerial sabertoothSerial(NOT_A_PIN, PIN_SABERTOOTH_TX); 
+// HardwareSerial sabertoothSerial(1);
+EspSoftwareSerial::UART sabertoothSerial; 
 
-SabertoothDrive sabertoothTankDrive(TANK_DRIVE_ID, sabertoothSerial, 2, 1);
+SabertoothDrive sabertoothTankDrive(TANK_DRIVE_ID, sabertoothSerial, 1, 2);
 DifferentialDrive sabertoothTank(sabertoothTankDrive.GetLeftMotor(), sabertoothTankDrive.GetRightMotor());
 // TankDriveSabertooth sabertoothTank(TANK_DRIVE_ID, sabertoothSerial);
 // DomeDriveSabertooth sabertoothDome(DOME_DRIVE_ID, sabertoothSerial); 
@@ -216,13 +216,15 @@ void processGamepad(ControllerPtr ctl) {
             case CONTROLLER_TYPE_SwitchJoyConLeft:
                 // sabertoothTank.animate((float)ctl->axisX()/512.0, (float)ctl->axisY()/512.0, ctl->throttle());
                 Console.print("Arcade ");
-                sabertoothTank.ArcadeDrive(ctl->axisX()+leftJoyconOffsetX, ctl->axisY());
-                Console.print("Curve ");
-                sabertoothTank.CurvatureDrive(ctl->axisX()+leftJoyconOffsetX, ctl->axisY());
-                Console.print("Tank ");
-                sabertoothTank.TankDrive(ctl->axisX()+leftJoyconOffsetX, ctl->axisY());
-                Console.print("Reel2 ");
-                sabertoothTank.ReelTwoDrive(ctl->axisX()+leftJoyconOffsetX, ctl->axisY());
+                Console.printf("X: %3d Y: %3d ", ctl->axisX(), ctl->axisY()*-1);
+                sabertoothTank.ArcadeDrive(ctl->axisY()*-1, ctl->axisX()+leftJoyconOffsetX);
+                // sabertoothTank.ArcadeDrive(ctl->axisX()+leftJoyconOffsetX, ctl->axisY());
+                // Console.print("Curve ");
+                // sabertoothTank.CurvatureDrive(ctl->axisX()+leftJoyconOffsetX, ctl->axisY());
+                // Console.print("Tank ");
+                // sabertoothTank.TankDrive(ctl->axisX()+leftJoyconOffsetX, ctl->axisY());
+                // Console.print("Reel2 ");
+                // sabertoothTank.ReelTwoDrive(ctl->axisX()+leftJoyconOffsetX, ctl->axisY());
                 Console.println("");
                 break;
             case CONTROLLER_TYPE_SwitchJoyConRight:
@@ -275,7 +277,15 @@ void setupBluepad32() {
 
 void setupSabertooth() {
     // DimensionEngineering setup
-    sabertoothSerial.begin(SABERTOOTH_SERIAL_BAUD_RATE);
+    // For HardwareSerial
+    // sabertoothSerial.begin(SABERTOOTH_SERIAL_BAUD_RATE, SERIAL_8N1, NOT_A_PIN, PIN_SABERTOOTH_TX);
+    sabertoothSerial.begin(SABERTOOTH_SERIAL_BAUD_RATE, SWSERIAL_8N1, NOT_A_PIN, PIN_SABERTOOTH_TX, false);
+    if (!sabertoothSerial) { // If the object did not initialize, then its configuration is invalid
+        while (1) { 
+        Console.println("Invalid EspSoftwareSerial pin configuration, check config"); 
+            delay (1000);
+        }
+    } 
 
     // Autobaud is for the whole serial line -- you don't need to do
     // it for each individual motor driver. This is the version of
@@ -305,7 +315,7 @@ void setupSabertooth() {
     sabertoothTank.SetSpeedLimit(0.8);
     sabertoothTank.SetSafetyEnabled(true);
     sabertoothTankDrive.GetLeftMotor().SetInverted(true);
-    sabertoothTankDrive.GetRightMotor().SetInverted(true);
+    sabertoothTankDrive.GetRightMotor().SetInverted(false);
     // sabertoothTankController.setUseThrottle(false);
     // sabertoothTankController.setScaling(false);
     // sabertoothTankController.setChannelMixing(true);

@@ -70,4 +70,5 @@ class MotorController {
   static constexpr double kDefaultScale = 1.0;
 
   bool m_IsInverted = kDefaultIsInverted;
+  double m_scale = kDefaultScale;
 };

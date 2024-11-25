@@ -9,57 +9,66 @@
 // ref: 
 // https://github.com/reeltwo/PenumbraShadowMD/blob/main/PenumbraSchematic.pdf
 // https://www.espressif.com/sites/default/files/documentation/esp32-wroom-32d_esp32-wroom-32u_datasheet_en.pdf
-#ifndef SDA
-#define SDA                     21
-#endif
-#ifndef SLC
-#define SLC                     22
-#endif
-#ifndef RX
-#define RX                      3
-#endif
-#ifndef TX
-#define TX                      1
-#endif
 
-#define DIN1_PIN                34 // GPI34
-#define DIN2_PIN                35 // GPIO35
+// GPIO next to USB Host port
+#define PIN_DOUT13              GPIO_NUM_13 // pin 16 - GPIO13, ADC2_CH4, TOUCH4, RTC_GPIO14, MTCK, HSPID, HS2_DATA3, SD_DATA3, EMAC_RX_ER
+#define PIN_DOUT14              GPIO_NUM_14 // pin 13 - GPIO14, ADC2_CH6, TOUCH6, RTC_GPIO16, MTMS, HSPICLK, HS2_CLK, SD_CLK, EMAC_TXD2
+#define PIN_DIN35               GPIO_NUM_35  // pin  7 - (INPUT ONLY) GPIO35, ADC1_CH7, RTC_GPIO5
+#define PIN_DIN34               GPIO_NUM_34  // pin  6 - (INPUT ONLY) GPIO34, ADC1_CH6, RTC_GPIO4
 
-#define DOUT1_PIN               14 // GPIO14
-#define DOUT2_PIN               13 // ADC1_CH5
+// UART 0: SERIAL1 
+// Shared with Serial/USB Conversion CH340C and USB Console for Bluepad32 ??
+// Join solder pad to disable boot messages being sent to TXD0
+#define PIN_SERIAL1_RX          GPIO_NUM_3  // pin 34 - GPIO3, U0RXD, CLK_OUT2
+#define PIN_SERIAL1_TX          GPIO_NUM_1  // pin 35 - GPIO1, U0TXD, CLK_OUT3, EMAC_RXD2
 
-#define RXD0_PIN                RX // U0RXD
-#define TXD0_PIN                TX // U0TXD
-#define RXD1_PIN                33
-#define TXD1_PIN                25
-#define RXD2_PIN                16 // U2RXD
-#define TXD2_PIN                17 // U2TXD
-#define RXD3_PIN                32
-#define TXD3_PIN                4
+// UART 1: SERIAL2
+// Shared with RS485
+// SHD/SD2 (disconnected) pin 17 - GPIO9, SD_DATA2, SPIHD, HS1_DATA2, U1RXD
+// SWP/SD3 (disconnected) pin 18 - GPIO10, SD_DATA3, SPIWP, HS1_DATA3, U1TXD
+// connected to the integrated SPI flash integrated on the module and are not recommended for other uses.
+#define PIN_SERIAL2_RX          GPIO_NUM_33 // pin  9 - GPIO33, XTAL_32K_N (32.768 kHz crystal oscillator output), ADC1_CH5, TOUCH8, RTC_GPIO8
+#define PIN_SERIAL2_TX          GPIO_NUM_25 // pin 10 - GPIO25, DAC_1, ADC2_CH8, RTC_GPIO6, EMAC_RXD0
 
-#define OUTPUT_ENABLE_PIN       27
-#define RS485_RTS_PIN           26
+// UART 2: SERIAL3
+// ERRATA: Pin 17 is not connected. Serial2 can either be RX or TX but not both.
+#define PIN_SERIAL3_RX          GPIO_NUM_16 // pin 27 - GPIO16, HS1_DATA4, U2RXD, EMAC_CLK_OUT
+#define PIN_SERIAL3_TX          GPIO_NUM_17 // pin 28 - GPIO17, HS1_DATA5, U2TXD, EMAC_CLK_OUT_180
+
+// UART 3: SERIAL4
+#define PIN_SERIAL4_RX          GPIO_NUM_32 // pin  8 - GPIO32, XTAL_32K_P (32.768 kHz crystal oscillator input), ADC1_CH4, TOUCH9, RTC_GPIO9
+#define PIN_SERIAL4_TX          GPIO_NUM_4  // pin 26 - GPIO4, ADC2_CH0, TOUCH0, RTC_GPIO10, HSPIHD, HS2_DATA1, SD_DATA1, EMAC_TX_ER
+
+// GPIO next to antenna
+// If not using PCA9685 Controller
+#define PIN_OUTPUT_ENABLE       GPIO_NUM_27 // pin 12 - GPIO27, ADC2_CH7, TOUCH7, RTC_GPIO17, EMAC_RX_DV
+#define PIN_SCL                 GPIO_NUM_22 // pin 36 - GPIO22, VSPIWP, U0RTS, EMAC_TXD1
+#define PIN_SDA                 GPIO_NUM_21 // pin 33 - GPIO21, VSPIHD, EMAC_TX_EN
+
+// GPIO next to RS485
+#define PIN_RS485_RTS           GPIO_NUM_26 // pin 11 - GPIO26, DAC_2, ADC2_CH9, RTC_GPIO7, EMAC_RXD1
+
 
 // Assign pins for C1-10P
 
-#define PIN_SABERTOOTH_TX       DIN1_PIN
+#define PIN_SABERTOOTH_TX       PIN_SDA
 
-#define PIN_MP3TRIGGER_RX       RXD1_PIN
-#define PIN_MP3TRIGGER_TX       TXD1_PIN
+#define PIN_MP3TRIGGER_RX       PIN_SERIAL1_RX
+#define PIN_MP3TRIGGER_TX       PIN_SERIAL1_TX
 
-#define PIN_MAESTRO_BODY_RX     RXD2_PIN
-#define PIN_MAESTRO_BODY_TX     TXD2_PIN
+#define PIN_MAESTRO_DOME_RX     PIN_SERIAL2_RX
+#define PIN_MAESTRO_DOME_TX     PIN_SERIAL2_TX
 
-#define PIN_MAESTRO_DOME_RX     RXD3_PIN
-#define PIN_MAESTRO_DOME_TX     TXD3_PIN
+#define PIN_MAESTRO_BODY_RX     PIN_SERIAL3_RX
+#define PIN_MAESTRO_BODY_TX     PIN_SERIAL3_TX
 
-#define PIN_OPENMV_RX           RXD0_PIN
-#define PIN_OPENMV_TX           TXD0_PIN
+#define PIN_OPENMV_RX           PIN_SERIAL4_RX
+#define PIN_OPENMV_TX           PIN_SERIAL4_TX
 
-#define PIN_LED_FRONT           DIN2_PIN
-#define PIN_LED_BACK            DOUT1_PIN
+#define PIN_LED_FRONT           PIN_DOUT13
+#define PIN_LED_BACK            PIN_DOUT13
 
-#define PIN_DOME_POTENTIOMETER  DOUT2_PIN
+#define PIN_DOME_POTENTIOMETER  PIN_DIN34
 
 #else
 // Assign pins for Generic ESP32
@@ -69,4 +78,21 @@
 
 #define TANK_DRIVE_ID           129
 #define DOME_DRIVE_ID           128
+
+// Map pins to UART ports
+#define MD_SERIAL               Serial1
+#define MOTOR_SERIAL            motorSerial
+#define BODY_MD_SERIAL          Serial2
+#define SOUND_SERIAL            soundSerial
+#define OPENMV_SERIAL           Serial3
+
+#define SOUND_SERIAL_BAUD       9600
+#define SOUND_DEFAULT_VOLUME    50
+
+#define DOME_SERIAL_INIT(baud)      MD_SERIAL.begin(baud, SERIAL_8N1, PIN_MAESTRO_DOME_RX, PIN_MAESTRO_DOME_TX)
+#define BODY_SERIAL_INIT(baud)      BODY_MD_SERIAL.begin(baud, SERIAL_8N1, PIN_MAESTRO_BODY_RX, PIN_MAESTRO_BODY_TX)
+#define MOTOR_SERIAL_INIT(baud)     MOTOR_SERIAL.begin(baud, SWSERIAL_8N1, -1, PIN_SABERTOOTH_TX, false)
+#define SOUND_SERIAL_INIT(baud)     { SOUND_SERIAL.begin(baud, SWSERIAL_8N1, PIN_MP3TRIGGER_RX, PIN_MP3TRIGGER_TX, false); delay(1500); }
+#define OPENMV_SERIAL_INIT(baud)    OPENMV_SERIAL.begin(baud, SWSERIAL_8N1, PIN_OPENMV_RX, PIN_OPENMV_TX)
+
 #endif

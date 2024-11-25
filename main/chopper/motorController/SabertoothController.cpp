@@ -5,8 +5,9 @@ void SabertoothController::Set(double speed) {
     double targetSpeed = std::clamp(speed, -1.0, 1.0);
     if (GetInverted())
         targetSpeed *= -1;
-    Console.printf("ST[%1d]:%3d ", m_motorId, (int)(targetSpeed * 127));
-    m_sabertoothDriver->motor(m_motorId, (int)(targetSpeed * 127));
+    int8_t motorSpeed = (int8_t)(targetSpeed * (int8_t)127);
+    m_sabertoothDriver->motor(m_motorId, motorSpeed);
+    Console.printf("ST[%1d]:%3d ", m_motorId, motorSpeed);
 }
 
 double SabertoothController::Get() const {

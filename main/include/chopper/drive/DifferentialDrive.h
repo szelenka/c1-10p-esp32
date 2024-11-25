@@ -13,7 +13,6 @@
 
 #include "chopper/drive/RobotDriveBase.h"
 
-
 class MotorController;
 
 /**
