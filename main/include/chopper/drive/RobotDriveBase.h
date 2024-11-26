@@ -109,7 +109,7 @@ class RobotDriveBase : public MotorSafety {
       return (m_maxOutput-m_minOutput)*((rawValue-m_minInput)/(m_maxInput-m_minInput))+(m_minOutput);
     }
     // TODO: we shouldn't get here .. how to raise a "safe" error?
-    return rawValue/m_maxInput;
+    return 0.0;
   }
 
   void StopMotor() override = 0;

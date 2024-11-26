@@ -91,8 +91,8 @@ void emergencyStop()
 // Should you want to still use "Serial", you have to disable the Bluepad32's console
 // from "sdkconfig.defaults" with:
 //    CONFIG_BLUEPAD32_USB_CONSOLE_ENABLE=n
-
-ControllerPtr myControllers[BP32_MAX_GAMEPADS];
+#include "chopper/core/FilterNormalizedController.h"
+FilterNormalizedControllerPtr myControllers[BP32_MAX_GAMEPADS];
 
 // This callback gets called any time a new gamepad is connected.
 // Up to 4 gamepads can be connected at the same time.
@@ -216,7 +216,7 @@ void processGamepad(ControllerPtr ctl) {
             case CONTROLLER_TYPE_SwitchJoyConLeft:
                 // sabertoothTank.animate((float)ctl->axisX()/512.0, (float)ctl->axisY()/512.0, ctl->throttle());
                 Console.print("Arcade ");
-                Console.printf("X: %3d Y: %3d ", ctl->axisX(), ctl->axisY()*-1);
+                Console.printf("X: %3d Y: %3d ", ctl->axisX()+leftJoyconOffsetX, ctl->axisY()*-1);
                 sabertoothTank.ArcadeDrive(ctl->axisY()*-1, ctl->axisX()+leftJoyconOffsetX);
                 // sabertoothTank.ArcadeDrive(ctl->axisX()+leftJoyconOffsetX, ctl->axisY());
                 // Console.print("Curve ");
