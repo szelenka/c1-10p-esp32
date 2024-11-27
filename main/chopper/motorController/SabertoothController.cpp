@@ -27,6 +27,7 @@ void SabertoothController::Disable() {
 }
 
 void SabertoothController::StopMotor() {
+    // TODO: do we want to gracefully slow down the motors when encountering an explicit Stop?
     Set(0.0);
 }
 

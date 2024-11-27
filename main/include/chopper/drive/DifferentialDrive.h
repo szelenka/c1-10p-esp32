@@ -118,9 +118,6 @@ class DifferentialDrive : public RobotDriveBase { //
    *                      [-1.0..1.0]. Counterclockwise is positive.
    * @param squareInputs  If set, decreases the input sensitivity at low speeds.
    */
-  void ArcadeDrive(int xSpeed, int zRotation, bool squareInputs = true) {
-    return ArcadeDrive(normalizeSensorInput(xSpeed), normalizeSensorInput(zRotation), squareInputs);
-  };
   void ArcadeDrive(double xSpeed, double zRotation, bool squareInputs = true);
 
   /**
@@ -138,9 +135,6 @@ class DifferentialDrive : public RobotDriveBase { //
    *                         turn-in-place maneuvers. zRotation will control
    *                         turning rate instead of curvature.
    */
-  void CurvatureDrive(int xSpeed, int zRotation, bool allowTurnInPlace = true) {
-    return CurvatureDrive(normalizeSensorInput(xSpeed), normalizeSensorInput(zRotation), allowTurnInPlace);
-  };
   void CurvatureDrive(double xSpeed, double zRotation, bool allowTurnInPlace);
 
   /**
@@ -156,9 +150,6 @@ class DifferentialDrive : public RobotDriveBase { //
    *                         Counterclockwise is positive.
    * @param squareInputs     If set, decreases the input sensitivity at low speeds.
    */
-  void ReelTwoDrive(int xSpeed, int zRotation, bool squareInputs = true) {
-    return ReelTwoDrive(normalizeSensorInput(xSpeed), normalizeSensorInput(zRotation), squareInputs);
-  };
   void ReelTwoDrive(double xSpeed, double zRotation, bool squareInputs);
 
   /**
@@ -170,9 +161,6 @@ class DifferentialDrive : public RobotDriveBase { //
    *                      [-1.0..1.0]. Forward is positive.
    * @param squareInputs If set, decreases the input sensitivity at low speeds.
    */
-  void TankDrive(int leftSpeed, int rightSpeed, bool squareInputs = true) {
-    return TankDrive(normalizeSensorInput(leftSpeed), normalizeSensorInput(rightSpeed), squareInputs);
-  };
   void TankDrive(double leftSpeed, double rightSpeed, bool squareInputs = true);
 
   /**

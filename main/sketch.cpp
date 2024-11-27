@@ -91,8 +91,29 @@ void emergencyStop()
 // Should you want to still use "Serial", you have to disable the Bluepad32's console
 // from "sdkconfig.defaults" with:
 //    CONFIG_BLUEPAD32_USB_CONSOLE_ENABLE=n
-#include "chopper/core/FilterNormalizedController.h"
-FilterNormalizedControllerPtr myControllers[BP32_MAX_GAMEPADS];
+#include "chopper/core/ControllerDecorator.h"
+ControllerDecoratorPtr myControllers[BP32_MAX_GAMEPADS];
+
+void adjustController(ControllerDecoratorPtr ctl)
+{
+    switch(ctl->getProperties().type) {
+            case CONTROLLER_TYPE_SwitchJoyConLeft:
+                // type(uint8_t)
+                // switch(ctl->getProperties().btaddr) {
+                //      5C:52:1E:FF:6E:A2 = JoyCon(L) Pink
+                // }
+                // axisX is off by -41:-10, axisY is off by 0:14
+                ctl->setAxisXOffset(-30);
+                // JoyCon orentiation for single-hand position
+                ctl->setAxisXInvert(true);
+                ctl->setAxisYInvert(true);
+                // ctl->setAxisXSlew(1.0, -1.5);
+                // ctl->setAxisYSlew(1.0, -1.5);
+                break;
+            default:
+                break;
+    }
+}
 
 // This callback gets called any time a new gamepad is connected.
 // Up to 4 gamepads can be connected at the same time.
@@ -106,7 +127,8 @@ void onConnectedController(ControllerPtr ctl) {
             ControllerProperties properties = ctl->getProperties();
             Console.printf("Controller model: %s, VID=0x%04x, PID=0x%04x\n", ctl->getModelName(), properties.vendor_id,
                            properties.product_id);
-            myControllers[i] = ctl;
+            myControllers[i] = new ControllerDecorator(ctl);
+            adjustController(myControllers[i]);
             foundEmptySlot = true;
             break;
         }
@@ -120,11 +142,11 @@ void onDisconnectedController(ControllerPtr ctl) {
     bool foundController = false;
 
     for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
-        if (myControllers[i] == ctl) {
+        if (myControllers[i] && myControllers[i]->index() == i) {
             Console.printf("CALLBACK: Controller disconnected from index=%d\n", i);
+            delete myControllers[i];
             myControllers[i] = nullptr;
             foundController = true;
-            emergencyStop();
             break;
         }
     }
@@ -134,7 +156,7 @@ void onDisconnectedController(ControllerPtr ctl) {
     }
 }
 
-void dumpGamepad(ControllerPtr ctl) {
+void dumpGamepad(ControllerDecoratorPtr ctl) {
     Console.printf(
         "idx=%d, dpad: 0x%02x, buttons: 0x%04x, axis L: %4d, %4d, axis R: %4d, %4d, brake: %4d, throttle: %4d, "
         "misc: 0x%02x, gyro x:%6d y:%6d z:%6d, accel x:%6d y:%6d z:%6d\n",
@@ -157,7 +179,7 @@ void dumpGamepad(ControllerPtr ctl) {
     );
 }
 
-void processGamepad(ControllerPtr ctl) {
+void processGamepad(ControllerDecoratorPtr ctl) {
     // There are different ways to query whether a button is pressed.
     // By query each button individually:
     //  a(), b(), x(), y(), l1(), etc...
@@ -205,26 +227,21 @@ void processGamepad(ControllerPtr ctl) {
     // Another way to query controller data is by getting the buttons() function.
     // See how the different "dump*" functions dump the Controller info.
     // dumpGamepad(ctl);
-    // ctl->getModelName(), properties.vendor_id,
-    //                        properties.product_id
 
-    //TODO: axisX is off by -41:-10, axisY is off by 0:14
-    int leftJoyconOffsetX = 30;
     if (ctl->isConnected())
     {
         switch(ctl->getProperties().type) {
             case CONTROLLER_TYPE_SwitchJoyConLeft:
                 // sabertoothTank.animate((float)ctl->axisX()/512.0, (float)ctl->axisY()/512.0, ctl->throttle());
                 Console.print("Arcade ");
-                Console.printf("X: %3d Y: %3d ", ctl->axisX()+leftJoyconOffsetX, ctl->axisY()*-1);
-                sabertoothTank.ArcadeDrive(ctl->axisY()*-1, ctl->axisX()+leftJoyconOffsetX);
-                // sabertoothTank.ArcadeDrive(ctl->axisX()+leftJoyconOffsetX, ctl->axisY());
+                sabertoothTank.ArcadeDrive(ctl->axisXslew(), ctl->axisYslew());
+                // sabertoothTank.ArcadeDrive(ctl->axisXslew(), ctl->axisYslew());
                 // Console.print("Curve ");
-                // sabertoothTank.CurvatureDrive(ctl->axisX()+leftJoyconOffsetX, ctl->axisY());
+                // sabertoothTank.CurvatureDrive(ctl->axisXslew(), ctl->axisYslew());
                 // Console.print("Tank ");
-                // sabertoothTank.TankDrive(ctl->axisX()+leftJoyconOffsetX, ctl->axisY());
+                // sabertoothTank.TankDrive(ctl->axisXslew(), ctl->axisYslew());
                 // Console.print("Reel2 ");
-                // sabertoothTank.ReelTwoDrive(ctl->axisX()+leftJoyconOffsetX, ctl->axisY());
+                // sabertoothTank.ReelTwoDrive(ctl->axisXslew(), ctl->axisYslew());
                 Console.println("");
                 break;
             case CONTROLLER_TYPE_SwitchJoyConRight:
@@ -312,7 +329,7 @@ void setupSabertooth() {
     // sabertoothDome.setDomePosition(&domeSensor);
 
     // sabertoothTankController.setMinVoltage(30);
-    sabertoothTank.SetSpeedLimit(0.8);
+    sabertoothTank.SetSpeedLimit(0.65);
     sabertoothTank.SetSafetyEnabled(true);
     sabertoothTankDrive.GetLeftMotor().SetInverted(true);
     sabertoothTankDrive.GetRightMotor().SetInverted(false);

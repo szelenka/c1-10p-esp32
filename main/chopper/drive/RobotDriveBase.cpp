@@ -41,20 +41,8 @@ void RobotDriveBase::SetDeadband(double deadband) {
   m_deadband = deadband;
 }
 
-void RobotDriveBase::SetMaxInput(double maxInput) {
-  m_maxInput = maxInput;
-}
-
-void RobotDriveBase::SetMinInput(double minInput) {
-  m_minInput = minInput;
-}
-
 void RobotDriveBase::SetMaxOutput(double maxOutput) {
   m_maxOutput = maxOutput;
-}
-
-void RobotDriveBase::SetMinOutput(double minOutput) {
-  m_minOutput = minOutput;
 }
 
 void RobotDriveBase::SetSpeedLimit(double limit) {

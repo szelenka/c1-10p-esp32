@@ -5,6 +5,7 @@
 #pragma once
 
 #include <algorithm>
+#include <Bluepad32.h>
 
 #include "chopper/Timer.h"
 
@@ -17,12 +18,8 @@
  *
  * @see TrapezoidProfile
  */
-template <class Unit>
 class SlewRateLimiter {
  public:
-  using Unit_t = units::unit_t<Unit>;
-  using Rate = units::compound_unit<Unit, units::inverse<units::seconds>>;
-  using Rate_t = units::unit_t<Rate>;
 
   /**
    * Creates a new SlewRateLimiter with the given positive and negative rate
@@ -36,8 +33,8 @@ class SlewRateLimiter {
    *                          to be negative.
    * @param initialValue The initial value of the input.
    */
-  SlewRateLimiter(Rate_t positiveRateLimit, Rate_t negativeRateLimit,
-                  Unit_t initialValue = Unit_t{0})
+  SlewRateLimiter(double positiveRateLimit, double negativeRateLimit,
+                  double initialValue = 0.0)
       : m_positiveRateLimit{positiveRateLimit},
         m_negativeRateLimit{negativeRateLimit},
         m_prevVal{initialValue},
@@ -49,7 +46,7 @@ class SlewRateLimiter {
    *
    * @param rateLimit The rate-of-change limit.
    */
-  explicit SlewRateLimiter(Rate_t rateLimit)
+  explicit SlewRateLimiter(double rateLimit)
       : SlewRateLimiter(rateLimit, -rateLimit) {}
 
   /**
@@ -59,13 +56,15 @@ class SlewRateLimiter {
    * @return The filtered value, which will not change faster than the slew
    * rate.
    */
-  Unit_t Calculate(Unit_t input) {
-    // TODO: verify this is measured in Seconds, not milliseconds
+  double Calculate(double input) {
     uint64_t currentTime = Timer::GetFPGATimestamp();
     uint64_t elapsedTime = currentTime - m_prevTime;
+    // smooth out the rateLimit across milliseconds to get the per-second rateLimit
     m_prevVal +=
-        std::clamp(input - m_prevVal, m_negativeRateLimit * elapsedTime,
-                   m_positiveRateLimit * elapsedTime);
+        std::clamp(
+            input - m_prevVal, 
+            m_negativeRateLimit * elapsedTime / 1000,
+            m_positiveRateLimit * elapsedTime / 1000);
     m_prevTime = currentTime;
     return m_prevVal;
   }
@@ -75,22 +74,32 @@ class SlewRateLimiter {
    *
    * @return The last value.
    */
-  Unit_t LastValue() const { return m_prevVal; }
+  double LastValue() const { return m_prevVal; }
 
   /**
    * Resets the slew rate limiter to the specified value; ignores the rate limit
    * when doing so.
    *
-   * @param value The value to reset to.
+   * @param positiveRateLimit The rate-of-change limit in the positive
+   *                          direction, in units per second. This is expected
+   *                          to be positive.
+   * @param negativeRateLimit The rate-of-change limit in the negative
+   *                          direction, in units per second. This is expected
+   *                          to be negative.
+   * @param initialValue The initial value of the input.
    */
-  void Reset(Unit_t value) {
-    m_prevVal = value;
+  void Reset(double positiveRateLimit, double negativeRateLimit,
+                  double initialValue = 0.0)
+  {
+    m_positiveRateLimit = positiveRateLimit;
+    m_negativeRateLimit = negativeRateLimit;
+    m_prevVal = initialValue;
     m_prevTime = Timer::GetFPGATimestamp();
   }
 
  private:
-  Rate_t m_positiveRateLimit;
-  Rate_t m_negativeRateLimit;
-  Unit_t m_prevVal;
+  double m_positiveRateLimit;
+  double m_negativeRateLimit;
+  double m_prevVal;
   uint64_t m_prevTime;
 };

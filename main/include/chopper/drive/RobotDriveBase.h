@@ -104,14 +104,6 @@ class RobotDriveBase : public MotorSafety {
    */
   void FeedWatchdog();
 
-  double normalizeSensorInput(int rawValue) {
-    if (m_maxInput > m_minInput && m_maxOutput > m_minOutput) {
-      return (m_maxOutput-m_minOutput)*((rawValue-m_minInput)/(m_maxInput-m_minInput))+(m_minOutput);
-    }
-    // TODO: we shouldn't get here .. how to raise a "safe" error?
-    return 0.0;
-  }
-
   void StopMotor() override = 0;
 
   std::string GetDescription() const override = 0;
@@ -123,17 +115,8 @@ class RobotDriveBase : public MotorSafety {
   /// Default input deadband.
   static constexpr double kDefaultDeadband = 0.05;
 
-  /// Default maximum input.
-  static constexpr int kDefaultMaxInput = 512;
-
-  /// Default minimum input.
-  static constexpr int kDefaultMinInput = -512;
-
   /// Default maximum output.
   static constexpr double kDefaultMaxOutput = 1.0;
-
-  /// Default minimum output.
-  static constexpr double kDefaultMinOutput = -1.0;
 
   // Default speed limit
   static constexpr double kDefaultSpeedLimit = 0.8;
@@ -150,17 +133,8 @@ class RobotDriveBase : public MotorSafety {
   /// Input deadband.
   double m_deadband = kDefaultDeadband;
 
-  /// Maximum input.
-  double m_maxInput = kDefaultMaxInput;
-
-  /// Minimum input.
-  double m_minInput = kDefaultMinInput;
-
   /// Maximum output.
   double m_maxOutput = kDefaultMaxOutput;
-
-  /// Minimum output.
-  double m_minOutput = kDefaultMinOutput;
 
   /// Speedlimit
   double m_speedLimit = kDefaultSpeedLimit;
