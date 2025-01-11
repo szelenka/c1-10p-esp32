@@ -11,7 +11,7 @@ SABERTOOTH_VERSION:=
 SABERTOOTH_GITHUB:=https://www.dimensionengineering.com/software/SabertoothArduinoLibraries.zip
 
 MP3_GITHUB:=https://github.com/sansumbrella/MP3Trigger-for-Arduino
-MP3_VERSION:=5b70369
+MP3_VERSION:=master
 MP3_BUILD_FOLDER:=build/MP3Trigger
 
 GHOSTL_GITHUB:=https://github.com/dok-net/ghostl
@@ -46,35 +46,35 @@ ifndef GITHUB_FOLDER
 	$(error GITHUB_FOLDER is not set)
 endif
 	if [ ! -d "$(GITHUB_FOLDER)/_new" ]; then \
-		git clone --depth 1 --branch $(GITHUB_BRANCH) $(GITHUB_URL) $(GITHUB_FOLDER)/_new ; \
+		git clone --depth 1 --branch $(GITHUB_BRANCH) $(GITHUB_URL) "$(GITHUB_FOLDER)/_new" ; \
 	else \
-		git -C $(GITHUB_FOLDER)/_new stash ; \
-		git -C $(GITHUB_FOLDER)/_new pull origin $(GITHUB_BRANCH) ; \
+		git -C "$(GITHUB_FOLDER)/_new" stash ; \
+		git -C "$(GITHUB_FOLDER)/_new" pull origin $(GITHUB_BRANCH) ; \
 	fi ;\
-	rm -rf $(GITHUB_FOLDER)/_org ; \
-	cp -r $(GITHUB_FOLDER)/_new $(GITHUB_FOLDER)/_org
+	rm -rf "$(GITHUB_FOLDER)/_org" ; \
+	cp -r "$(GITHUB_FOLDER)/_new" "$(GITHUB_FOLDER)/_org"
 
 make-patch::
 ifndef GITHUB_FOLDER
 	$(error GITHUB_FOLDER is not set)
 endif
-	diff -Nruw --strip-trailing-cr --exclude=.git $(GITHUB_FOLDER)/_org/ $(GITHUB_FOLDER)/_new/ > patches/components/$(shell basename $(GITHUB_FOLDER)).patch || true
+	diff -Nruw --strip-trailing-cr --exclude=.git "$(GITHUB_FOLDER)/_org/" "$(GITHUB_FOLDER)/_new/" > "patches/components/$(shell basename $(GITHUB_FOLDER)).patch" || true
 
 apply-patch::
 ifndef GITHUB_FOLDER
 	$(error GITHUB_FOLDER is not set)
 endif
-	patch -l -f -d $(GITHUB_FOLDER) -p2 < patches/components/$(shell basename $(GITHUB_FOLDER)).patch
-	rm -rf $(GITHUB_FOLDER)/_org/.git components/$(shell basename $(GITHUB_FOLDER))
-	mv $(GITHUB_FOLDER)/_org components/$(shell basename $(GITHUB_FOLDER))
-	rm -rf $(GITHUB_FOLDER)
+	patch -l -f -d "$(GITHUB_FOLDER)" -p2 < patches/components/$(shell basename $(GITHUB_FOLDER)).patch
+	rm -rf "$(GITHUB_FOLDER)/_org/.git" "components/$(shell basename $(GITHUB_FOLDER))"
+	mv "$(GITHUB_FOLDER)/_org" "components/$(shell basename $(GITHUB_FOLDER))"
+	rm -rf "$(GITHUB_FOLDER)"
 
 # -- Bluepad32
 bluepad32-clean::
-	rm -rf $(BLUEPAD32_BUILD_FOLDER)
+	rm -rf "$(BLUEPAD32_BUILD_FOLDER)"
 
 bluepad32-download::
-	GITHUB_URL=$(BLUEPAD32_GITHUB) GITHUB_BRANCH=$(BLUEPAD32_VERSION) GITHUB_FOLDER=$(BLUEPAD32_BUILD_FOLDER) $(MAKE) gitsync
+	GITHUB_URL=$(BLUEPAD32_GITHUB) GITHUB_BRANCH=$(BLUEPAD32_VERSION) GITHUB_FOLDER=$(BLUEPAD32_BUILD_FOLDER) "$(MAKE)" gitsync
 
 bluepad32:: bluepad32-clean bluepad32-download
 	for dir in $(BLUEPAD32_BUILD_FOLDER)/_org/components/*; do \
@@ -112,14 +112,14 @@ sabertooth-download:: setup
 	done
 
 sabertooth:: sabertooth-clean sabertooth-download
-	GITHUB_FOLDER=$(SABERTOOTH_BUILD_FOLDER) $(MAKE) apply-patch
+	GITHUB_FOLDER=$(SABERTOOTH_BUILD_FOLDER) "$(MAKE)" apply-patch
 	mv components/Sabertooth $(SABERTOOTH_BUILD_FOLDER)
 	mkdir -p components/Sabertooth
 	mv $(SABERTOOTH_BUILD_FOLDER)/Sabertooth/ components/
 	rm -rf $(SABERTOOTH_BUILD_FOLDER)
 
 sabertooth-patch::
-	GITHUB_FOLDER=$(SABERTOOTH_BUILD_FOLDER) $(MAKE) make-patch
+	GITHUB_FOLDER=$(SABERTOOTH_BUILD_FOLDER) "$(MAKE)" make-patch
 
 # sabertooth::
 # 	if [ ! -d "build/Sabertooth-for-ESP32" ]; then \
@@ -137,26 +137,26 @@ maestro-clean::
 	rm -rf $(MAESTRO_BUILD_FOLDER)
 
 maestro-download::
-	GITHUB_URL=$(MAESTRO_GITHUB) GITHUB_BRANCH=$(MAESTRO_VERSION) GITHUB_FOLDER=$(MAESTRO_BUILD_FOLDER) $(MAKE) gitsync
+	GITHUB_URL=$(MAESTRO_GITHUB) GITHUB_BRANCH=$(MAESTRO_VERSION) GITHUB_FOLDER=$(MAESTRO_BUILD_FOLDER) "$(MAKE)" gitsync
 
 maestro:: maestro-clean maestro-download 
-	GITHUB_FOLDER=$(MAESTRO_BUILD_FOLDER) $(MAKE) apply-patch
+	GITHUB_FOLDER=$(MAESTRO_BUILD_FOLDER) "$(MAKE)" apply-patch
 
 maestro-patch::
-	GITHUB_FOLDER=$(MAESTRO_BUILD_FOLDER) $(MAKE) make-patch
+	GITHUB_FOLDER=$(MAESTRO_BUILD_FOLDER) "$(MAKE)" make-patch
 
 # -- MP3Trigger
 mp3-clean::
 	rm -rf $(MP3_BUILD_FOLDER)
 
 mp3-download::
-	GITHUB_URL=$(MP3_GITHUB) GITHUB_BRANCH=$(MP3_VERSION) GITHUB_FOLDER=$(MP3_BUILD_FOLDER) $(MAKE) gitsync
+	GITHUB_URL=$(MP3_GITHUB) GITHUB_BRANCH=$(MP3_VERSION) GITHUB_FOLDER=$(MP3_BUILD_FOLDER) "$(MAKE)" gitsync
 
 mp3:: mp3-clean mp3-download 
-	GITHUB_FOLDER=$(MP3_BUILD_FOLDER) $(MAKE) apply-patch
+	GITHUB_FOLDER=$(MP3_BUILD_FOLDER) "$(MAKE)" apply-patch
 
 mp3-patch::
-	GITHUB_FOLDER=$(MP3_BUILD_FOLDER) $(MAKE) make-patch
+	GITHUB_FOLDER=$(MP3_BUILD_FOLDER) "$(MAKE)" make-patch
 
 # -- Ghostl
 # https://github.com/plerup/espsoftwareserial/issues/305
@@ -164,26 +164,26 @@ ghostl-clean::
 	rm -rf $(GHOSTL_BUILD_FOLDER)
 
 ghostl-download::
-	GITHUB_URL=$(GHOSTL_GITHUB) GITHUB_BRANCH=$(GHOSTL_VERSION) GITHUB_FOLDER=$(GHOSTL_BUILD_FOLDER) $(MAKE) gitsync
+	GITHUB_URL=$(GHOSTL_GITHUB) GITHUB_BRANCH=$(GHOSTL_VERSION) GITHUB_FOLDER=$(GHOSTL_BUILD_FOLDER) "$(MAKE)" gitsync
 
 ghostl:: ghostl-clean ghostl-download
-	GITHUB_FOLDER=$(GHOSTL_BUILD_FOLDER) $(MAKE) apply-patch
+	GITHUB_FOLDER=$(GHOSTL_BUILD_FOLDER) "$(MAKE)" apply-patch
 
 ghostl-patch::
-	GITHUB_FOLDER=$(GHOSTL_BUILD_FOLDER) $(MAKE) make-patch
+	GITHUB_FOLDER=$(GHOSTL_BUILD_FOLDER) "$(MAKE)" make-patch
 
 # -- SoftwareSerial
 softwareserial-clean::
 	rm -rf $(SOFTWARESERIAL_BUILD_FOLDER)
 
 softwareserial-download::
-	GITHUB_URL=$(SOFTWARESERIAL_GITHUB) GITHUB_BRANCH=$(SOFTWARESERIAL_VERSION) GITHUB_FOLDER=$(SOFTWARESERIAL_BUILD_FOLDER) $(MAKE) gitsync
+	GITHUB_URL=$(SOFTWARESERIAL_GITHUB) GITHUB_BRANCH=$(SOFTWARESERIAL_VERSION) GITHUB_FOLDER=$(SOFTWARESERIAL_BUILD_FOLDER) "$(MAKE)" gitsync
 
 softwareserial:: ghostl softwareserial-clean softwareserial-download
-	GITHUB_FOLDER=$(SOFTWARESERIAL_BUILD_FOLDER) $(MAKE) apply-patch
+	GITHUB_FOLDER=$(SOFTWARESERIAL_BUILD_FOLDER) "$(MAKE)" apply-patch
 
 softwareserial-patch::
-	GITHUB_FOLDER=$(SOFTWARESERIAL_BUILD_FOLDER) $(MAKE) make-patch
+	GITHUB_FOLDER=$(SOFTWARESERIAL_BUILD_FOLDER) "$(MAKE)" make-patch
 
 fmt:: setup
 	if [ ! -d "build/fmt" ]; then \
