@@ -9,8 +9,15 @@ This repo contains a template for controlling an Astromech containing:
 - Bluetooth Controller
 
 ## Developer Environment Setup
+This follows the Bluepad32 setup for an environment:
+https://github.com/ricardoquesada/esp-idf-arduino-bluepad32-template
+
+This typically includes:
 - [Visual Studio Code](https://code.visualstudio.com/download)
-- [ESP-IDF 4.4](https://dl.espressif.com/dl/esp-idf/?idf=4.4)
+- [Platform.IO Extension](https://platformio.org/install/ide?install=vscode)
+
+As a backup, you can download the offline install for ESP-IDF 5.3.2 (as of January 2025):
+- [ESP-IDF 5.3](https://dl.espressif.com/dl/esp-idf/?idf=5.3)
 
 ### Microsoft Windows (extra steps)
 - [GitBash](https://git-scm.com/downloads)
