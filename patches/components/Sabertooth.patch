@@ -62,7 +62,7 @@ diff -Nruw --strip-trailing-cr --exclude=.git build/Sabertooth/_org/Sabertooth/S
 +    port->write(address());
 +    port->write(command);
 +    port->write(value);
-+    port->write((address() + command + value) & B01111111);
++    port->write((address() + command + value) & 0b01111111);
    }
 +}
  
@@ -113,7 +113,7 @@ diff -Nruw --strip-trailing-cr --exclude=.git build/Sabertooth/_org/Sabertooth/S
  void Sabertooth::setRamping(byte value) const
  {
 -  command(16, (byte)constrain(value, 0, 80));
-+  command(16, (byte)min(int(value), 0, 80));
++  command(16, (byte)min(int(value), 80));
  }
  
  void Sabertooth::setTimeout(int milliseconds) const

@@ -8,9 +8,21 @@ This repo contains a template for controlling an Astromech containing:
 - [Polou Maestro USB Servo Controllers](https://www.pololu.com/category/102/maestro-usb-servo-controllers)
 - Bluetooth Controller
 
-## Safety
-Ensure all motors stop when bluetooth controller has not responded in a specified timeframe:
-- https://bluepad32.readthedocs.io/en/latest/FAQ/#how-to-detect-when-a-gamepad-is-out-of-range
+## Developer Environment Setup
+This follows the Bluepad32 setup for an environment:
+https://github.com/ricardoquesada/esp-idf-arduino-bluepad32-template
+
+This typically includes:
+- [Visual Studio Code](https://code.visualstudio.com/download)
+- [Platform.IO Extension](https://platformio.org/install/ide?install=vscode)
+
+As a backup, you can download the offline install for ESP-IDF 5.3.2 (as of January 2025):
+- [ESP-IDF 5.3](https://dl.espressif.com/dl/esp-idf/?idf=5.3)
+
+### Microsoft Windows (extra steps)
+- [GitBash](https://git-scm.com/downloads)
+- [GNUWIN32](http://gnuwin32.sourceforge.net/install.html)
+    - Add location of `make.exe` to system PATH
 
 ## How to alter .patch files
 In order to convert native Arduino libraries to compile with the ESP-IDF, some of them need to adapt to
