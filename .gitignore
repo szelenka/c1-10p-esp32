@@ -12,3 +12,5 @@ dependencies.lock
 sdkconfig.*
 !sdkconfig.defaults
 _backup/
+main/include/wpi
+main/include/hal

@@ -246,7 +246,6 @@ void processGamepad(ControllerDecoratorPtr ctl) {
                 break;
             case CONTROLLER_TYPE_SwitchJoyConRight:
                 // sabertoothDome.animate((float)ctl->axisX()/512.0, ctl->throttle());
-                Console.printf("Dome Position: %4d\n", domeSensor.getDomePosition());
                 break;
             default:
                 DEBUG_PRINTF("Unknown Controller type: %4d\n", ctl->getProperties().type);
@@ -273,8 +272,15 @@ void setupBluepad32() {
     const uint8_t* addr = BP32.localBdAddress();
     Serial.printf("BD Addr: %2X:%2X:%2X:%2X:%2X:%2X\n", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
 
-    // Setup the Bluepad32 callbacks
-    BP32.setup(&onConnectedController, &onDisconnectedController);
+    // Setup the Bluepad32 callbacks, and the default behavior for scanning or not.
+    // By default, if the "startScanning" parameter is not passed, it will do the "start scanning".
+    // Notice that "Start scanning" will try to auto-connect to devices that are compatible with Bluepad32.
+    // E.g: if a Gamepad, keyboard or mouse are detected, it will try to auto connect to them.
+    bool startScanning = true;
+    BP32.setup(&onConnectedController, &onDisconnectedController, startScanning);
+
+    // Notice that scanning can be stopped / started at any time by calling:
+    // BP32.enableNewBluetoothConnections(enabled);
 
     // "forgetBluetoothKeys()" should be called when the user performs
     // a "device factory reset", or similar.
@@ -405,15 +411,15 @@ void setupSabertooth() {
 //     openMVSerial.begin(9600);
 // }
 
-// void setupLeds() {
-//     // setup pins for output
-//     pinMode(PIN_LED_FRONT, OUTPUT);
-//     pinMode(PIN_LED_BACK, OUTPUT);
+void setupLeds() {
+    // setup pins for output
+    pinMode(PIN_LED_FRONT, OUTPUT);
+    pinMode(PIN_LED_BACK, OUTPUT);
 
-//     // ensure LED are off
-//     digitalWrite(PIN_LED_FRONT, LOW);
-//     digitalWrite(PIN_LED_BACK, LOW);
-// }
+    // ensure LED are off
+    digitalWrite(PIN_LED_FRONT, LOW);
+    digitalWrite(PIN_LED_BACK, LOW);
+}
 
 // Arduino setup function. Runs in CPU 1
 void setup() {
@@ -427,7 +433,7 @@ void setup() {
     // setupMaestro();
     // setupMp3Trigger();
     // setupOpenMV();
-    // setupLeds();
+    setupLeds();
 }
 
 // Arduino loop function. Runs in CPU 1.
@@ -439,12 +445,7 @@ void loop() {
     {
         processControllers();
     }
-    else if ((millis() - lastUpdate) > C110P_CONTROLLER_TIMEOUT_MS) 
-    {
-        // If no data received in more than timeout, emergencyStop!
-        // DEBUG_PRINTF("No dataUpdated in %2.6f ms, emergencyStop!\n", millis() - lastUpdate);
-        emergencyStop();
-    }
+    Console.printf("Dome Position: %4d\n", domeSensor.getDomePosition());
 
     // The main loop must have some kind of "yield to lower priority task" event.
     // Otherwise, the watchdog will get triggered.

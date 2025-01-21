@@ -1,5 +1,6 @@
 #pragma once
 //#include "ReelTwo.h"
+#include <Bluepad32.h>
 #include "chopper/dome/DomePositionProvider.h"
 #include "chopper/sensor/AnalogMonitor.h"
 
@@ -20,8 +21,7 @@ public:
     {
         fAnalogMonitor.animate();
         unsigned val = fAnalogMonitor.getValue();
-        // Serial.print("val : "); Serial.print(val); Serial.print(" : ");
-        return map(val, 0, 1024, 0, 359);
+        return map(val, 1225, 2500, 0, 359);
         // val = min(max(val, fParams.domespmin), fParams.domespmax);
         // int pos = map(val, fParams.domespmin, fParams.domespmax, 0, 359);
         // return 0;

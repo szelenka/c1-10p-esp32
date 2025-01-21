@@ -24,6 +24,7 @@
  */
 #pragma once
 
+#include <Bluepad32.h>
 #include "chopper/core/AnimatedEvent.h"
 
 /**
@@ -127,8 +128,10 @@ public:
 
     virtual void animate()
     {
-        if (fPin == 0xFF)
+        if (fPin == 0xFF) {
+            Console.printf("Invalid Pin: %4d\n", fPin);
             return;
+        }
         fRawValue = analogRead(fPin);
         fPrevResponsiveValue = fResponsiveValue;
         fResponsiveValue = getResponsiveValue(fRawValue);

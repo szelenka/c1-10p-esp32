@@ -88,7 +88,7 @@ template <typename T>
 typename std::enable_if<std::is_arithmetic<T>::value, T>::type
 ApplySpeedLimit(T speed, T speedLimit) {
   T magnitude = std::clamp(std::abs(speed), T{0.0}, T{1.0});
-  T limitedSpeed = std::clamp(speedLimit, T{0.0}, T{1.0});
+  T limitedSpeed = std::clamp(std::abs(speedLimit), T{0.0}, T{1.0});
 
   if (magnitude > limitedSpeed) {
       return std::copysign(limitedSpeed, speed);
