@@ -6,6 +6,7 @@ sdkconfig
 .vscode/
 components/*
 !components/README.md
+managed_components/*
 .DS_Store
 dependencies.lock
 sdkconfig.*

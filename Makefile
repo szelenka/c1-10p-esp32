@@ -1,5 +1,5 @@
-BLUEPAD32_GITHUB:=https://gitlab.com/ricardoquesada/esp-idf-arduino-bluepad32-template
-BLUEPAD32_VERSION:=4.1.0
+BLUEPAD32_GITHUB:=https://github.com/ricardoquesada/esp-idf-arduino-bluepad32-template
+BLUEPAD32_VERSION:=4.2.0
 BLUEPAD32_BUILD_FOLDER:=build/esp-idf-arduino-bluepad32-template
 
 MAESTRO_GITHUB:=https://github.com/pololu/maestro-arduino
@@ -75,6 +75,7 @@ bluepad32-clean::
 
 bluepad32-download::
 	GITHUB_URL=$(BLUEPAD32_GITHUB) GITHUB_BRANCH=$(BLUEPAD32_VERSION) GITHUB_FOLDER=$(BLUEPAD32_BUILD_FOLDER) "$(MAKE)" gitsync
+	git -C "$(BLUEPAD32_BUILD_FOLDER)/_org" submodule update --init --recursive
 
 bluepad32:: bluepad32-clean bluepad32-download
 	for dir in $(BLUEPAD32_BUILD_FOLDER)/_org/components/*; do \

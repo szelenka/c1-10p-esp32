@@ -11,4 +11,4 @@ diff -Nruw --strip-trailing-cr --exclude=.git build/espsoftwareserial/_org/CMake
 +idf_component_register(
 +    SRCS "${srcs}"
 +    INCLUDE_DIRS "./src"
-+    REQUIRES "${requires}"))
++    REQUIRES "${requires}")
