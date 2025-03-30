@@ -299,7 +299,6 @@ void processLeftJoyCon(ControllerDecoratorPtr ctl) {
     if (ctl->thumbL()) {
         Console.println("Joystick Push In");
     }
-
 }
 
 void processRightJoyCon(ControllerDecoratorPtr ctl) {
@@ -322,6 +321,7 @@ void processRightJoyCon(ControllerDecoratorPtr ctl) {
     if (ctl->l1()) {
         Console.println("SL");
     }
+    
     if (ctl->r1()) {
         Console.println("SR");
     }
