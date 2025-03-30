@@ -255,12 +255,112 @@ void processGamepad(ControllerDecoratorPtr ctl) {
     // See components/bluepad32_arduino/include/ArduinoController.h for all the available functions.
 }
 
+void processLeftJoyCon(ControllerDecoratorPtr ctl) {
+    if (ctl->a()) {
+        Console.println("Dpad Left");
+    }
+
+    if (ctl->b()) {
+        Console.println("Dpad Down");
+    }
+
+    if (ctl->x()) {
+        Console.println("Dpad Up");
+    }
+    
+    if (ctl->y()) {
+        Console.println("Dpad Right");
+    }
+
+    if (ctl->l1()) {
+        Console.println("SL");
+    }
+
+    if (ctl->r1()) {
+        Console.println("SR");
+    }
+
+    if (ctl->l2()) {
+        Console.println("L");
+    }
+
+    if (ctl->r2()) {
+        Console.println("ZL");
+    }
+
+    if (ctl->miscSelect()) {
+        Console.println("-");
+    }
+
+    if (ctl->miscStart()) {
+        Console.println("Screen Capture");
+    }
+
+    if (ctl->thumbL()) {
+        Console.println("Joystick Push In");
+    }
+
+}
+
+void processRightJoyCon(ControllerDecoratorPtr ctl) {
+    if (ctl->a()) {
+        Console.println("A");
+    }
+
+    if (ctl->b()) {
+        Console.println("X");
+    }
+
+    if (ctl->x()) {
+        Console.println("B");
+    }
+    
+    if (ctl->y()) {
+        Console.println("Y");
+    }
+
+    if (ctl->l1()) {
+        Console.println("SL");
+    }
+    if (ctl->r1()) {
+        Console.println("SR");
+    }
+
+    if (ctl->l2()) {
+        Console.println("R");
+    }
+
+    if (ctl->r2()) {
+        Console.println("ZR");
+    }
+
+    if (ctl->miscSelect()) {
+        Console.println("Home");
+    }
+
+    if (ctl->miscStart()) {
+        Console.println("+");
+    }
+
+    if (ctl->thumbL()) {
+        Console.println("Joystick Push In");
+    }
+}
+
 void processControllers() {
     // TODO: 
     for (auto myController : myControllers) {
         if (myController && myController->isConnected()) {
             if (myController->hasData()) {
-                processGamepad(myController);
+                // processGamepad(myController);
+                switch(myController->getProperties().type) {
+                    case CONTROLLER_TYPE_SwitchJoyConLeft:
+                        processLeftJoyCon(myController);
+                        break;
+                    case CONTROLLER_TYPE_SwitchJoyConRight:
+                        processRightJoyCon(myController);
+                        break;
+                }
                 lastUpdate = millis();
             }
         }
@@ -445,7 +545,7 @@ void loop() {
     {
         processControllers();
     }
-    Console.printf("Dome Position: %4d\n", domeSensor.getDomePosition());
+    // Console.printf("Dome Position: %4d\n", domeSensor.getDomePosition());
 
     // The main loop must have some kind of "yield to lower priority task" event.
     // Otherwise, the watchdog will get triggered.
