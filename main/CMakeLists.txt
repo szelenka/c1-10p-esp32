@@ -4,7 +4,6 @@ set(include_dirs
 set(src_dirs
         "."
         "chopper"
-        "chopper/dome"
         "chopper/drive"
         "chopper/motorController"
         "chopper/sensor")
@@ -17,6 +16,7 @@ set(srcs
         "chopper/drive/DifferentialDrive.cpp"
         "chopper/drive/DifferentialDriveSabertooth.cpp"
         "chopper/drive/RobotDriveBase.cpp"
+        "chopper/drive/SingleDrive.cpp"
         "chopper/motorController/SabertoothController.cpp"
         "chopper/sensor/AnalogMonitor.cpp")
 

@@ -29,16 +29,21 @@ DomePosition domeSensor = DomePosition(domeAnalogProvider);
     DimensionEngineering Configuration
 */
 #include <SoftwareSerial.h>
-#include "chopper/drive/DifferentialDriveSabertooth.h"
+#include "chopper/drive/SabertoothDrive.h"
 
 // RX on no pin (unused), TX on pin from PINOUT.h connected to S1 bus
-// HardwareSerial sabertoothSerial(1);
-EspSoftwareSerial::UART sabertoothSerial; 
+// HardwareSerial sabertoothSerial(3);
+// EspSoftwareSerial::UART sabertoothSerial; 
 
-SabertoothDrive sabertoothTankDrive(TANK_DRIVE_ID, sabertoothSerial, 1, 2);
-DifferentialDrive sabertoothTank(sabertoothTankDrive.GetLeftMotor(), sabertoothTankDrive.GetRightMotor());
-// TankDriveSabertooth sabertoothTank(TANK_DRIVE_ID, sabertoothSerial);
-// DomeDriveSabertooth sabertoothDome(DOME_DRIVE_ID, sabertoothSerial); 
+// Setup Sabertooth Driver for Feet
+#include "chopper/drive/DifferentialDriveSabertooth.h"
+SabertoothDrive sabertoothDiffDrive(SABERTOOTH_TANK_DRIVE_ID, UART_SABERTOOTH, 2);
+DifferentialDrive sabertoothDiff(sabertoothDiffDrive.GetMotor(1), sabertoothDiffDrive.GetMotor(2));
+
+// Setup SyRen Driver for Dome
+#include "chopper/drive/SingleDriveSabertooth.h"
+SabertoothDrive sabertoothSyRenDrive(SABERTOOTH_DOME_DRIVE_ID, UART_SABERTOOTH, 1); 
+SingleDrive sabertoothSyRen(sabertoothSyRenDrive.GetMotor(1));
 
 /*
     Maestro Configuration
@@ -46,8 +51,10 @@ DifferentialDrive sabertoothTank(sabertoothTankDrive.GetLeftMotor(), sabertoothT
 #include <PololuMaestro.h>
 
 // RX and TX on pin from PINOUT.h connected to opposite TX/RX on Maestro board
-// SoftwareSerial maestroBodySerial(PIN_MAESTRO_BODY_RX, PIN_MAESTRO_BODY_TX);
-// SoftwareSerial maestroDomeSerial(PIN_MAESTRO_DOME_RX, PIN_MAESTRO_DOME_TX);
+// HardwareSerial maestroBodySerial(UART_MAESTRO_BODY);
+// HardwareSerial maestroDomeSerial(UART_MAESTRO_DOME);
+// EspSoftwareSerial::UART maestroBodySerial;
+// EspSoftwareSerial::UART maestroDomeSerial;
 
 // MiniMaestro maestroBody(maestroBodySerial);
 // MiniMaestro maestroDome(maestroDomeSerial);
@@ -58,25 +65,16 @@ DifferentialDrive sabertoothTank(sabertoothTankDrive.GetLeftMotor(), sabertoothT
 #include <MP3Trigger.h>
 
 // RX and TX on pin from PINOUT.h connected to opposite TX/RX on MP3 Trigger board
-// SoftwareSerial mp3TriggerSerial(PIN_MP3TRIGGER_RX, PIN_MP3TRIGGER_TX);
+// EspSoftwareSerial::UART mp3TriggerSerial;
 
-// MP3Trigger mp3Trigger;
+MP3Trigger mp3Trigger;
 
 /*
     OpenMV Configuration
 */
 
-// SoftwareSerial openMVSerial(PIN_OPENMV_RX, PIN_OPENMV_TX);
-
-unsigned long lastUpdate = 0;
-
-void emergencyStop()
-{
-    // sabertoothDome.StopMotor();
-    // sabertoothTank.StopMotor();
-    // TODO: stop music, and servos
-    // TODO: blink LED to indicate problem
-}
+// HardwareSerial openMVSerial(UART_OPENMV);
+// EspSoftwareSerial::UART openMVSerial;
 
 //
 // README FIRST, README FIRST, README FIRST
@@ -179,97 +177,33 @@ void dumpGamepad(ControllerDecoratorPtr ctl) {
     );
 }
 
-void processGamepad(ControllerDecoratorPtr ctl) {
-    // There are different ways to query whether a button is pressed.
-    // By query each button individually:
-    //  a(), b(), x(), y(), l1(), etc...
-    if (ctl->a()) {
-        static int colorIdx = 0;
-        // Some gamepads like DS4 and DualSense support changing the color LED.
-        // It is possible to change it by calling:
-        switch (colorIdx % 3) {
-            case 0:
-                // Red
-                ctl->setColorLED(255, 0, 0);
-                break;
-            case 1:
-                // Green
-                ctl->setColorLED(0, 255, 0);
-                break;
-            case 2:
-                // Blue
-                ctl->setColorLED(0, 0, 255);
-                break;
-        }
-        colorIdx++;
-    }
-
-    if (ctl->b()) {
-        // Turn on the 4 LED. Each bit represents one LED.
-        static int led = 0;
-        led++;
-        // Some gamepads like the DS3, DualSense, Nintendo Wii, Nintendo Switch
-        // support changing the "Player LEDs": those 4 LEDs that usually indicate
-        // the "gamepad seat".
-        // It is possible to change them by calling:
-        ctl->setPlayerLEDs(led & 0x0f);
-    }
-
-    if (ctl->x()) {
-        // Some gamepads like DS3, DS4, DualSense, Switch, Xbox One S, Stadia support rumble.
-        // It is possible to set it by calling:
-        // Some controllers have two motors: "strong motor", "weak motor".
-        // It is possible to control them independently.
-        ctl->playDualRumble(0 /* delayedStartMs */, 250 /* durationMs */, 0x80 /* weakMagnitude */,
-                            0x40 /* strongMagnitude */);
-    }
-
-    // Another way to query controller data is by getting the buttons() function.
-    // See how the different "dump*" functions dump the Controller info.
-    // dumpGamepad(ctl);
-
-    if (ctl->isConnected())
-    {
-        switch(ctl->getProperties().type) {
-            case CONTROLLER_TYPE_SwitchJoyConLeft:
-                // sabertoothTank.animate((float)ctl->axisX()/512.0, (float)ctl->axisY()/512.0, ctl->throttle());
-                Console.print("Arcade ");
-                sabertoothTank.ArcadeDrive(ctl->axisXslew(), ctl->axisYslew());
-                // sabertoothTank.ArcadeDrive(ctl->axisXslew(), ctl->axisYslew());
-                // Console.print("Curve ");
-                // sabertoothTank.CurvatureDrive(ctl->axisXslew(), ctl->axisYslew());
-                // Console.print("Tank ");
-                // sabertoothTank.TankDrive(ctl->axisXslew(), ctl->axisYslew());
-                // Console.print("Reel2 ");
-                // sabertoothTank.ReelTwoDrive(ctl->axisXslew(), ctl->axisYslew());
-                Console.println("");
-                break;
-            case CONTROLLER_TYPE_SwitchJoyConRight:
-                // sabertoothDome.animate((float)ctl->axisX()/512.0, ctl->throttle());
-                break;
-            default:
-                DEBUG_PRINTF("Unknown Controller type: %4d\n", ctl->getProperties().type);
-        }
-    }
-
-    // See components/bluepad32_arduino/include/ArduinoController.h for all the available functions.
-}
-
 void processLeftJoyCon(ControllerDecoratorPtr ctl) {
+
+    if (!ctl->isConnected())
+    {
+        Console.println("Left JoyCon not connected");
+        return;
+    }
+
+    // process button inputs
     if (ctl->a()) {
         Console.println("Dpad Left");
+        // Turn Periscope Left
     }
 
     if (ctl->b()) {
         Console.println("Dpad Down");
+        // Toggle Body Arm out/in
     }
 
     if (ctl->x()) {
         Console.println("Dpad Up");
+        // Toggle Periscope up/down
     }
     
     if (ctl->y()) {
         Console.println("Dpad Right");
+        // Turn Periscope Right
     }
 
     if (ctl->l1()) {
@@ -282,10 +216,13 @@ void processLeftJoyCon(ControllerDecoratorPtr ctl) {
 
     if (ctl->l2()) {
         Console.println("L");
+        // Raise Head up
     }
 
     if (ctl->r2()) {
         Console.println("ZL");
+        // Spin the Dome to the Left
+        
     }
 
     if (ctl->miscSelect()) {
@@ -299,9 +236,29 @@ void processLeftJoyCon(ControllerDecoratorPtr ctl) {
     if (ctl->thumbL()) {
         Console.println("Joystick Push In");
     }
+
+    // Process joystick for drive system
+    Console.print(C110P_DRIVE_SYSTEM + " ");
+    if (C110P_DRIVE_SYSTEM == C110P_DRIVE_SYSTEM_ARCADE) {
+        sabertoothDiff.ArcadeDrive(ctl->axisXslew(), ctl->axisYslew());
+    } else if (C110P_DRIVE_SYSTEM == C110P_DRIVE_SYSTEM_CURVE) {
+        sabertoothDiff.CurvatureDrive(ctl->axisXslew(), ctl->axisYslew());
+    } else if (C110P_DRIVE_SYSTEM == C110P_DRIVE_SYSTEM_TANK) {
+        sabertoothDiff.TankDrive(ctl->axisXslew(), ctl->axisYslew());
+    } else if (C110P_DRIVE_SYSTEM == C110P_DRIVE_SYSTEM_REELTWO) {
+        sabertoothDiff.ReelTwoDrive(ctl->axisXslew(), ctl->axisYslew());
+    }
+    Console.println("");
+
 }
 
 void processRightJoyCon(ControllerDecoratorPtr ctl) {
+    if (!ctl->isConnected())
+    {
+        Console.println("Right JoyCon not connected");
+        return;
+    }
+
     if (ctl->a()) {
         Console.println("A");
     }
@@ -328,10 +285,12 @@ void processRightJoyCon(ControllerDecoratorPtr ctl) {
 
     if (ctl->l2()) {
         Console.println("R");
+        // Raise Head down
     }
 
     if (ctl->r2()) {
         Console.println("ZR");
+        // Spin the Dome to the Right
     }
 
     if (ctl->miscSelect()) {
@@ -345,14 +304,14 @@ void processRightJoyCon(ControllerDecoratorPtr ctl) {
     if (ctl->thumbL()) {
         Console.println("Joystick Push In");
     }
+
+    //TODO: process joystick for nod system?
 }
 
 void processControllers() {
-    // TODO: 
     for (auto myController : myControllers) {
         if (myController && myController->isConnected()) {
             if (myController->hasData()) {
-                // processGamepad(myController);
                 switch(myController->getProperties().type) {
                     case CONTROLLER_TYPE_SwitchJoyConLeft:
                         processLeftJoyCon(myController);
@@ -361,7 +320,6 @@ void processControllers() {
                         processRightJoyCon(myController);
                         break;
                 }
-                lastUpdate = millis();
             }
         }
     }
@@ -400,26 +358,21 @@ void setupBluepad32() {
 
 void setupSabertooth() {
     // DimensionEngineering setup
+    UART_SABERTOOTH_INIT(SABERTOOTH_SERIAL_BAUD_RATE);
     // For HardwareSerial
     // sabertoothSerial.begin(SABERTOOTH_SERIAL_BAUD_RATE, SERIAL_8N1, NOT_A_PIN, PIN_SABERTOOTH_TX);
-    sabertoothSerial.begin(SABERTOOTH_SERIAL_BAUD_RATE, SWSERIAL_8N1, NOT_A_PIN, PIN_SABERTOOTH_TX, false);
-    if (!sabertoothSerial) { // If the object did not initialize, then its configuration is invalid
-        while (1) { 
-        Console.println("Invalid EspSoftwareSerial pin configuration, check config"); 
-            delay (1000);
-        }
-    } 
+    // For EspSoftwareSerial
+    // sabertoothSerial.begin(SABERTOOTH_SERIAL_BAUD_RATE, SWSERIAL_8N1, NOT_A_PIN, PIN_SABERTOOTH_TX, false);
 
     // Autobaud is for the whole serial line -- you don't need to do
     // it for each individual motor driver. This is the version of
     // the autobaud command that is not tied to a particular
     // Sabertooth object.
-    Sabertooth::autobaud(sabertoothSerial);
+    Sabertooth::autobaud(UART_SABERTOOTH);
 
     // setTimeout rounds up to the nearest 100 milliseconds
     // A value of 0 disables the serial timeout.
-    sabertoothSerial.setTimeout(C110P_MOTOR_TIMEOUT_MS);
-
+    UART_SABERTOOTH.setTimeout(C110P_MOTOR_TIMEOUT_MS);
     // This setting does not persist between power cycles.
     // See the Packet Serial section of the documentation for what values to use
     // for the minimum voltage command. It may vary between Sabertooth models
@@ -435,10 +388,13 @@ void setupSabertooth() {
     // sabertoothDome.setDomePosition(&domeSensor);
 
     // sabertoothTankController.setMinVoltage(30);
-    sabertoothTank.SetSpeedLimit(0.65);
-    sabertoothTank.SetSafetyEnabled(true);
-    sabertoothTankDrive.GetLeftMotor().SetInverted(true);
-    sabertoothTankDrive.GetRightMotor().SetInverted(false);
+    sabertoothDiff.SetSpeedLimit(0.65);
+    sabertoothDiff.SetSafetyEnabled(true);
+    sabertoothDiffDrive.GetMotor(1).SetInverted(true);
+    sabertoothDiffDrive.GetMotor(2).SetInverted(false);
+
+    sabertoothSyRen.SetSpeedLimit(0.65);
+    sabertoothSyRen.SetSafetyEnabled(true);
     // sabertoothTankController.setUseThrottle(false);
     // sabertoothTankController.setScaling(false);
     // sabertoothTankController.setChannelMixing(true);
@@ -483,33 +439,29 @@ void setupSabertooth() {
 //     }
 // }
 
-// void setupMaestro() {
-//     // Set the serial baud rate.
-//     maestroBodySerial.begin(MAESTRO_SERIAL_BAUD_RATE);
-//     maestroDomeSerial.begin(MAESTRO_SERIAL_BAUD_RATE);
-//     /* 
-//         setTarget takes the channel number you want to control, and
-//         the target position in units of 1/4 microseconds. A typical
-//         RC hobby servo responds to pulses between 1 ms (4000) and 2
-//         ms (8000). 
-//     */
-//     // Set the target of channel 0 to 1500 us, and wait 2 seconds.
-//     //   maestro.setTarget(0, 6000);
-// }
+void setupMaestro() {
+    // Set the serial baud rate.
+    UART_MAESTRO_BODY_INIT(MAESTRO_SERIAL_BAUD_RATE);
+    UART_MAESTRO_DOME_INIT(MAESTRO_SERIAL_BAUD_RATE);
+    /* 
+        setTarget takes the channel number you want to control, and
+        the target position in units of 1/4 microseconds. A typical
+        RC hobby servo responds to pulses between 1 ms (4000) and 2
+        ms (8000). 
+    */
+    // Set the target of channel 0 to 1500 us, and wait 2 seconds.
+    //   maestro.setTarget(0, 6000);
+}
 
-// void setupMp3Trigger() {
+void setupMp3Trigger() {
+    mp3Trigger.setup(&UART_MP3TRIGGER);
+    UART_MP3TRIGGER_INIT(MP3TRIGGER_SERIAL_BAUD_RATE);
+    mp3Trigger.setVolume(MP3TRIGGER_DEFAULT_VOLUME);
+}
 
-//     mp3Trigger.setup(&mp3TriggerSerial);
-
-//     // Set the serial baud rate.
-//     mp3TriggerSerial.begin(MP3Trigger::serialRate());
-// }
-
-// void setupOpenMV() {
-//     // Set the serial baud rate.
-//     // TODO: is this fast enough?
-//     openMVSerial.begin(9600);
-// }
+void setupOpenMV() {
+    UART_OPENMV_INIT(OPENMV_SERIAL_BAUD_RATE);
+}
 
 void setupLeds() {
     // setup pins for output
@@ -530,9 +482,9 @@ void setup() {
     Serial.begin(115200);
     setupBluepad32();
     setupSabertooth();
-    // setupMaestro();
-    // setupMp3Trigger();
-    // setupOpenMV();
+    setupMaestro();
+    setupMp3Trigger();
+    setupOpenMV();
     setupLeds();
 }
 

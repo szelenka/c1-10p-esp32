@@ -17,6 +17,13 @@
 #define C110P_TURN_INVERTED             false   // set to true if turn should be inverted
 #define C110P_DOME_INVERTED             false   // set to true if dome drive should be inverted
 
+#define C110P_DRIVE_SYSTEM_ARCADE       0
+#define C110P_DRIVE_SYSTEM_CURVE        1
+#define C110P_DRIVE_SYSTEM_TANK         2
+#define C110P_DRIVE_SYSTEM_REELTWO      3
+
+#define C110P_DRIVE_SYSTEM              0       // 0 = Arcade, 1 = Curve, 2 = Tank, 3 = ReelTwo
+
 #ifndef DOME_DIRECTION_CHANGE_THRESHOLD
 #define DOME_DIRECTION_CHANGE_THRESHOLD 5
 #endif

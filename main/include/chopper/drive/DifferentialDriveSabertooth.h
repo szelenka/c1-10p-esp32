@@ -6,31 +6,6 @@
 #include <Bluepad32.h>
 #include "SettingsSystem.h"
 
-class SabertoothDrive {
-public:
-  SabertoothDrive(byte address, Stream& stream, int leftMotorId = 1, int rightMotorId = 2) :
-    m_sabertoothDriver(address, stream),
-    m_leftMotor(m_sabertoothDriver, leftMotorId),
-    m_rightMotor(m_sabertoothDriver, rightMotorId)
-  {
-    Console.println("SabertoothDrive [init]");
-    m_sabertoothDriver.setBaudRate(SABERTOOTH_SERIAL_BAUD_RATE);
-    // m_sabertoothDriver.setDeadband()
-  }
-
-  SabertoothController& GetLeftMotor() {
-    return m_leftMotor;
-  }
-  SabertoothController& GetRightMotor() {
-    return m_rightMotor;
-  }
-
-private:
-  Sabertooth m_sabertoothDriver;
-  SabertoothController m_leftMotor;
-  SabertoothController m_rightMotor;
-};
-
 class DifferentialDriveSabertooth : public DifferentialDrive
 { 
  public:

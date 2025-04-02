@@ -45,7 +45,7 @@ void DifferentialDrive::ApplySpeedToMotors() {
 }
 
 void DifferentialDrive::ArcadeDrive(double xSpeed, double zRotation,
-                                    bool squareInputs) {
+                                    bool squareInputs /* = true */) {
   // static bool reported = false;
   // if (!reported) {
   //   // HAL_Report(HALUsageReporting::kResourceType_RobotDrive,
@@ -67,7 +67,7 @@ void DifferentialDrive::ArcadeDrive(double xSpeed, double zRotation,
 }
 
 void DifferentialDrive::CurvatureDrive(double xSpeed, double zRotation,
-                                        bool allowTurnInPlace) {
+                                        bool allowTurnInPlace /* = true */) {
   // static bool reported = false;
   // if (!reported) {
   //   // HAL_Report(HALUsageReporting::kResourceType_RobotDrive,
@@ -87,7 +87,7 @@ void DifferentialDrive::CurvatureDrive(double xSpeed, double zRotation,
 }
 
 void DifferentialDrive::ReelTwoDrive(double xSpeed, double zRotation,
-                                      bool allowTurnInPlace) {
+                                      bool squareInputs /* = true */) {
   // static bool reported = false;
   // if (!reported) {
   //   // HAL_Report(HALUsageReporting::kResourceType_RobotDrive,
@@ -98,7 +98,7 @@ void DifferentialDrive::ReelTwoDrive(double xSpeed, double zRotation,
   xSpeed = ApplyDeadband(xSpeed, m_deadband);
   zRotation = ApplyDeadband(zRotation, m_deadband);
 
-  auto [left, right] = ReelTwoDriveIK(xSpeed, zRotation, allowTurnInPlace);
+  auto [left, right] = ReelTwoDriveIK(xSpeed, zRotation, squareInputs);
 
   m_leftOutput = left * m_maxOutput;
   m_rightOutput = right * m_maxOutput;
@@ -107,7 +107,7 @@ void DifferentialDrive::ReelTwoDrive(double xSpeed, double zRotation,
 }
 
 void DifferentialDrive::TankDrive(double leftSpeed, double rightSpeed,
-                                  bool squareInputs) {
+                                  bool squareInputs /* = true */) {
   // static bool reported = false;
   // if (!reported) {
   //   // HAL_Report(HALUsageReporting::kResourceType_RobotDrive,

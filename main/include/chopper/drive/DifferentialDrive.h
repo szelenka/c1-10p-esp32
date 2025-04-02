@@ -135,7 +135,7 @@ class DifferentialDrive : public RobotDriveBase { //
    *                         turn-in-place maneuvers. zRotation will control
    *                         turning rate instead of curvature.
    */
-  void CurvatureDrive(double xSpeed, double zRotation, bool allowTurnInPlace);
+  void CurvatureDrive(double xSpeed, double zRotation, bool allowTurnInPlace = true);
 
   /**
    * ReelTwo drive method for differential drive platform.
@@ -150,7 +150,7 @@ class DifferentialDrive : public RobotDriveBase { //
    *                         Counterclockwise is positive.
    * @param squareInputs     If set, decreases the input sensitivity at low speeds.
    */
-  void ReelTwoDrive(double xSpeed, double zRotation, bool squareInputs);
+  void ReelTwoDrive(double xSpeed, double zRotation, bool squareInputs = true);
 
   /**
    * Tank drive method for differential drive platform.
