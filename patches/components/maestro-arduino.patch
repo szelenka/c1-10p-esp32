@@ -1,9 +1,14 @@
 diff -Nruw --strip-trailing-cr --exclude=.git build/maestro-arduino/_org/CMakeLists.txt build/maestro-arduino/_new/CMakeLists.txt
 --- build/maestro-arduino/_org/CMakeLists.txt	1969-12-31 19:00:00
-+++ build/maestro-arduino/_new/CMakeLists.txt	2024-11-20 12:35:07
-@@ -0,0 +1,5 @@
-+set(srcs "PololuMaestro.cpp")
++++ build/maestro-arduino/_new/CMakeLists.txt	2025-04-01 21:02:12
+@@ -0,0 +1,10 @@
++set(srcs 
++    "PololuMaestro.cpp")
++
++set(requires 
++    "arduino"
 +
 +idf_component_register(
 +    SRCS "${srcs}"
-+    INCLUDE_DIRS ".")
++    INCLUDE_DIRS "."
++    REQUIRES "${requires}")

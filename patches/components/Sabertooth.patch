@@ -59,10 +59,10 @@ diff -Nruw --strip-trailing-cr --exclude=.git build/Sabertooth/_org/Sabertooth/S
 -  port().write((address() + command + value) & B01111111);
 +  if (_port != nullptr)
 +  {
-+    port->write(address());
-+    port->write(command);
-+    port->write(value);
-+    port->write((address() + command + value) & 0b01111111);
++    _port->write(address());
++    _port->write(command);
++    _port->write(value);
++    _port->write((address() + command + value) & 0b01111111);
    }
 +}
  

@@ -69,6 +69,10 @@ endif
 	mv "$(GITHUB_FOLDER)/_org" "components/$(shell basename $(GITHUB_FOLDER))"
 	rm -rf "$(GITHUB_FOLDER)"
 
+# Platform.IO is used for builds in VSCode, if it's present we need to clean it up when updating to a new version of Bluepad32
+platformio-clean::
+	rm -rf $(HOME)/.platformio/ $(HOME)/.espressif .pio/
+
 # -- Bluepad32
 bluepad32-clean::
 	rm -rf "$(BLUEPAD32_BUILD_FOLDER)"
@@ -121,17 +125,6 @@ sabertooth:: sabertooth-clean sabertooth-download
 
 sabertooth-patch::
 	GITHUB_FOLDER=$(SABERTOOTH_BUILD_FOLDER) "$(MAKE)" make-patch
-
-# sabertooth::
-# 	if [ ! -d "build/Sabertooth-for-ESP32" ]; then \
-# 		git clone --depth 1	https://github.com/dominicklee/Sabertooth-for-ESP32 build/Sabertooth-for-ESP32; \
-# 	else \
-# 		git -C build/Sabertooth-for-ESP32 pull origin main; \
-# 	fi
-# 	rm -rf build/Sabertooth-for-ESP32/.git components/Sabertooth
-# 	mv build/Sabertooth-for-ESP32/Sabertooth components/Sabertooth
-# 	rm -rf build/Sabertooth-for-ESP32
-# 	echo 'set(srcs "Sabertooth.cpp")\n\nidf_component_register(SRCS "${srcs}" INCLUDE_DIRS ".")\n' > components/Sabertooth/CMakeLists.txt
 
 # -- Maestro
 maestro-clean::

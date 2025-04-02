@@ -1,11 +1,12 @@
 diff -Nruw --strip-trailing-cr --exclude=.git build/espsoftwareserial/_org/CMakeLists.txt build/espsoftwareserial/_new/CMakeLists.txt
 --- build/espsoftwareserial/_org/CMakeLists.txt	1969-12-31 19:00:00
-+++ build/espsoftwareserial/_new/CMakeLists.txt	2024-11-15 11:09:18
-@@ -0,0 +1,10 @@
++++ build/espsoftwareserial/_new/CMakeLists.txt	2025-04-01 20:59:03
+@@ -0,0 +1,11 @@
 +set(srcs 
 +    "src/SoftwareSerial.cpp")
 +
 +set(requires 
++    "arduino"
 +    "ghostl")
 +
 +idf_component_register(
