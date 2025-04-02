@@ -1,14 +1,12 @@
 #ifndef __PIN_MAP_H__
 #define __PIN_MAP_H__
 
-#define PENUMBRA_BOARD
-#ifdef PENUMBRA_BOARD
-
-// #define USE_USB
-// Default pinout for Penumbra
-// ref: 
-// https://github.com/reeltwo/PenumbraShadowMD/blob/main/PenumbraSchematic.pdf
+// ESP32-WROOM-32D & ESP32-WROOM-32U
 // https://www.espressif.com/sites/default/files/documentation/esp32-wroom-32d_esp32-wroom-32u_datasheet_en.pdf
+#ifdef CONFIG_IDF_TARGET_ESP32
+
+// Default pinout for Penumbra
+// https://github.com/reeltwo/PenumbraShadowMD/blob/main/PenumbraSchematic.pdf
 
 // GPIO next to USB Host port
 #define PIN_DOUT13              GPIO_NUM_13 // pin 16 - GPIO13, ADC2_CH4, TOUCH4, RTC_GPIO14, MTCK, HSPID, HS2_DATA3, SD_DATA3, EMAC_RX_ER
@@ -48,6 +46,11 @@
 // GPIO next to RS485
 #define PIN_RS485_RTS           GPIO_NUM_26 // pin 11 - GPIO26, DAC_2, ADC2_CH9, RTC_GPIO7, EMAC_RXD1
 
+#else
+// Assign pins for Other ESP32
+// TODO:
+
+#endif
 
 // Assign pins for C1-10P
 
@@ -70,29 +73,27 @@
 
 #define PIN_DOME_POTENTIOMETER  PIN_DIN34
 
-#else
-// Assign pins for Generic ESP32
-// TODO:
-
-#endif
-
-#define TANK_DRIVE_ID           129
-#define DOME_DRIVE_ID           128
-
 // Map pins to UART ports
-#define MD_SERIAL               Serial1
-#define MOTOR_SERIAL            motorSerial
-#define BODY_MD_SERIAL          Serial2
-#define SOUND_SERIAL            soundSerial
-#define OPENMV_SERIAL           Serial3
+#define UART_SABERTOOTH         sabertoothSerial
+#define UART_MAESTRO_DOME       maestroDomeSerial
+#define UART_MAESTRO_BODY       maestroBodySerial
+#define UART_MP3TRIGGER         mp3TriggerSerial
+#define UART_OPENMV             Serial2
 
-#define SOUND_SERIAL_BAUD       9600
-#define SOUND_DEFAULT_VOLUME    50
+// Macros for initalizing the Serial Ports
+#define UART_INITIALIZE_WAIT(uart)      if (!uart) { while (1) { Console.println("Invalid Serial pin configuration, check config"); delay (1000);}} 
 
-#define DOME_SERIAL_INIT(baud)      MD_SERIAL.begin(baud, SERIAL_8N1, PIN_MAESTRO_DOME_RX, PIN_MAESTRO_DOME_TX)
-#define BODY_SERIAL_INIT(baud)      BODY_MD_SERIAL.begin(baud, SERIAL_8N1, PIN_MAESTRO_BODY_RX, PIN_MAESTRO_BODY_TX)
-#define MOTOR_SERIAL_INIT(baud)     MOTOR_SERIAL.begin(baud, SWSERIAL_8N1, -1, PIN_SABERTOOTH_TX, false)
-#define SOUND_SERIAL_INIT(baud)     { SOUND_SERIAL.begin(baud, SWSERIAL_8N1, PIN_MP3TRIGGER_RX, PIN_MP3TRIGGER_TX, false); delay(1500); }
-#define OPENMV_SERIAL_INIT(baud)    OPENMV_SERIAL.begin(baud, SWSERIAL_8N1, PIN_OPENMV_RX, PIN_OPENMV_TX)
+#define UART_MAESTRO_DOME_INIT(baud)    { UART_MAESTRO_DOME.begin(baud, SWSERIAL_8N1, PIN_MAESTRO_DOME_RX, PIN_MAESTRO_DOME_TX, false); UART_INITIALIZE_WAIT(UART_MAESTRO_DOME); }
+#define UART_MAESTRO_BODY_INIT(baud)    { UART_MAESTRO_BODY.begin(baud, SWSERIAL_8N1, PIN_MAESTRO_BODY_RX, PIN_MAESTRO_BODY_TX, false); UART_INITIALIZE_WAIT(UART_MAESTRO_BODY); }
+#define UART_SABERTOOTH_INIT(baud)      { UART_SABERTOOTH.begin(baud, SWSERIAL_8N1, NOT_A_PIN, PIN_SABERTOOTH_TX, false); UART_INITIALIZE_WAIT(UART_SABERTOOTH); }
+#define UART_MP3TRIGGER_INIT(baud)      { UART_MP3TRIGGER.begin(baud, SWSERIAL_8N1, PIN_MP3TRIGGER_RX, PIN_MP3TRIGGER_TX, false); delay(1500); UART_INITIALIZE_WAIT(UART_MP3TRIGGER); }
+#define UART_OPENMV_INIT(baud)          { UART_OPENMV.begin(baud, SERIAL_8N1, PIN_OPENMV_RX, PIN_OPENMV_TX); UART_INITIALIZE_WAIT(UART_OPENMV); }
+
+
+#include <SoftwareSerial.h>
+EspSoftwareSerial::UART UART_SABERTOOTH;
+EspSoftwareSerial::UART UART_MAESTRO_BODY;
+EspSoftwareSerial::UART UART_MAESTRO_DOME;
+EspSoftwareSerial::UART UART_MP3TRIGGER;
 
 #endif

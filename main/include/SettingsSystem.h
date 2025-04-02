@@ -1,25 +1,21 @@
 #ifndef __SETTINGS_SYSTEM_H__
 #define __SETTINGS_SYSTEM_H__
 
-// Drive System options
-
-#define DRIVE_SYSTEM_PWM                1
-#define DRIVE_SYSTEM_SABER              2
-#define DRIVE_SYSTEM_ROBOTEQ_PWM        3
-#define DRIVE_SYSTEM_ROBOTEQ_SERIAL     4
-#define DRIVE_SYSTEM_ROBOTEQ_PWM_SERIAL 5
-
-// Dome System options
-
-#define DOME_DRIVE_NONE                 0
-#define DOME_DRIVE_PWM                  1
-#define DOME_DRIVE_SABER                2
-
 // Sabertooth Settings
 #define SABERTOOTH_SERIAL_BAUD_RATE     9600
+#define SABERTOOTH_TANK_DRIVE_ID        129
+#define SABERTOOTH_DOME_DRIVE_ID        128
 
 // Maestro Settings
 #define MAESTRO_SERIAL_BAUD_RATE        9600
+
+// OpemMV Settings
+// TODO: is this fast enough for images?
+#define OPENMV_SERIAL_BAUD_RATE         115200
+
+// MP3 Trigger Settings
+#define MP3TRIGGER_SERIAL_BAUD_RATE     9600
+#define MP3TRIGGER_DEFAULT_VOLUME       50
 
 #define USE_MOTOR_DEBUG                 true
 #define USE_DOME_DEBUG                  true
