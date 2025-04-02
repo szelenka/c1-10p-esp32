@@ -4,11 +4,11 @@ This folder contains all third-party libraries used. The following table lists t
 
 | Library                                                                                                         | Version  | License       | Used             | Notes |
 |-----------------------------------------------------------------------------------------------------------------|----------|---------------|------------------|-------|
-| [arduino](https://github.com/espressif/arduino-esp32/)                                                          | 2.0.17   | LGPL-2.1      | Interface to microcontrollers              | N/A   |
-| [bluepad32](https://github.com/ricardoquesada/bluepad32/)                                                       | 4.1.0    | Apache-2.0    | Interface to Bluetooth Controllers              | N/A   |
-| [bluepad32_arduino](https://github.com/ricardoquesada/esp-idf-arduino-bluepad32-template/)                      | 4.1.0    | Apache-2.0    | Middleware between arduino and bluepad32              | N/A   |
+| [arduino](https://github.com/espressif/arduino-esp32/)                                                          | 3.1.0    | LGPL-2.1      | Interface to microcontrollers              | N/A   |
+| [bluepad32](https://github.com/ricardoquesada/bluepad32/)                                                       | 4.2.0    | Apache-2.0    | Interface to Bluetooth Controllers              | N/A   |
+| [bluepad32_arduino](https://github.com/ricardoquesada/esp-idf-arduino-bluepad32-template/)                      | 4.2.0    | Apache-2.0    | Middleware between arduino and bluepad32              | N/A   |
 | [btstack](https://github.com/bluekitchen/btstack/)                                                              | 1.6.1    | Common Clause  | Dependency for bluepad32              | Similar to BSD-3-Clause, with clause prohibiting Commercial use   |
-| [esp-idf](https://github.com/espressif/esp-idf)                                                                 | 4.4.8    | Apache-2.0    | cmd_nvs, cmd_system, pthread |  Espressif Build system |
+| [esp-idf](https://github.com/espressif/esp-idf)                                                                 | 5.3.2    | Apache-2.0    | cmd_nvs, cmd_system, pthread |  Espressif Build system |
 | [espsoftwareserial](https://github.com/plerup/espsoftwareserial/)                                               | 8.2.0    | LGPL-2.1      | Provide SoftwareSerial for ESP microcontrollers              | N/A   |
 | [ghostl](https://github.com/dok-net/ghostl/)                                                                    | 1.0.1    | LGPL-2.1      | Dependency for espsoftwareserial              | N/A   |
 | [maestro-arduino](https://github.com/pololu/maestro-arduino/)                                                   | 1.0.0    | MIT           | Interface to Maestro board(s) over UART              | N/A   |

@@ -1,9 +1,13 @@
 diff -Nruw --strip-trailing-cr --exclude=.git build/MP3Trigger/_org/CMakeLists.txt build/MP3Trigger/_new/CMakeLists.txt
 --- build/MP3Trigger/_org/CMakeLists.txt	1969-12-31 19:00:00
-+++ build/MP3Trigger/_new/CMakeLists.txt	2024-11-15 10:41:43
-@@ -0,0 +1,5 @@
++++ build/MP3Trigger/_new/CMakeLists.txt	2025-04-01 21:00:31
+@@ -0,0 +1,9 @@
 +set(srcs "MP3Trigger.cpp")
++
++set(requires 
++    "arduino")
 +
 +idf_component_register(
 +    SRCS "${srcs}"
-+    INCLUDE_DIRS ".")
++    INCLUDE_DIRS "."
++    REQUIRES "${requires}")
