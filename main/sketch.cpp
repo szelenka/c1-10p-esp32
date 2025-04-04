@@ -299,6 +299,10 @@ void processRightJoyCon(ControllerDecoratorPtr ctl) {
 
     if (ctl->miscStart()) {
         Console.println("+");
+        // Play a sound
+        // TODO: this will cancel any current sound that is playing, to start what is defined here
+        // TODO: should we queue the sound instead?
+        mp3Trigger.trigger(C110P_SOUND_HELLO);
     }
 
     if (ctl->thumbL()) {
@@ -498,6 +502,10 @@ void loop() {
         processControllers();
     }
     // Console.printf("Dome Position: %4d\n", domeSensor.getDomePosition());
+    
+    // We need to update the state of the MP3Trigger each clock cycle
+    // ref: https://learn.sparkfun.com/tutorials/mp3-trigger-hookup-guide-v24
+    mp3Trigger.update();
 
     // The main loop must have some kind of "yield to lower priority task" event.
     // Otherwise, the watchdog will get triggered.

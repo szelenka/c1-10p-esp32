@@ -24,6 +24,16 @@
 
 #define C110P_DRIVE_SYSTEM              0       // 0 = Arcade, 1 = Curve, 2 = Tank, 3 = ReelTwo
 
+// Per the VS1053 datasheet:
+// maximum volume is 0x00 (0)
+// values much above 0x40 (64) are too low to be audible
+#define C110P_SOUND_VOLUME              MP3TRIGGER_DEFAULT_VOLUME
+
+// TODO: create a list of all music file to make the code easier to read
+// Document what exists on the SD card in the MP3 Trigger
+#define C110P_SOUND_HELLO               1   // Sound file which says "Hello"
+
+
 #ifndef DOME_DIRECTION_CHANGE_THRESHOLD
 #define DOME_DIRECTION_CHANGE_THRESHOLD 5
 #endif
