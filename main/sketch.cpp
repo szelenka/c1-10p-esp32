@@ -460,7 +460,7 @@ void setupMaestro() {
 void setupMp3Trigger() {
     mp3Trigger.setup(&UART_MP3TRIGGER);
     UART_MP3TRIGGER_INIT(MP3TRIGGER_SERIAL_BAUD_RATE);
-    mp3Trigger.setVolume(MP3TRIGGER_DEFAULT_VOLUME);
+    mp3Trigger.setVolume(C110P_SOUND_VOLUME);
 }
 
 void setupOpenMV() {
