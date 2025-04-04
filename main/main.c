@@ -15,6 +15,8 @@
 #include <arduino_platform.h>
 #include <uni.h>
 
+#include "SettingsBluetooth.h"
+
 //
 // Autostart
 //
@@ -42,6 +44,29 @@ int app_main(void) {
 
     // Init Bluepad32.
     uni_init(0 /* argc */, NULL /* argv */);
+
+    // Array of human-readable Bluetooth addresses to add to the allowlist
+    const char* controller_addresses[] = {
+        C110P_CONTROLLER_LEFT_MAC_ADDRESS,
+        C110P_CONTROLLER_RIGHT_MAC_ADDRESS
+    };
+
+    // Loop through the addresses and add them to the allowlist
+    for (size_t i = 0; i < sizeof(controller_addresses) / sizeof(controller_addresses[0]); i++) {
+        bd_addr_t controller_addr;
+        // Parse human-readable Bluetooth address.
+        sscanf_bd_addr(controller_addresses[i], controller_addr);
+
+        // Notice that this address will be added in the Non-volatile-storage (NVS).
+        // If the device reboots, the address will still be stored.
+        // Adding a duplicate value will do nothing.
+        // You can add up to four entries in the allowlist.
+        uni_bt_allowlist_add_addr(controller_addr);
+    }
+    
+    // Finally, enable the allowlist.
+    // Similar to the "add_addr", its value gets stored in the NVS.
+    uni_bt_allowlist_set_enabled(true);
 
     // Does not return.
     btstack_run_loop_execute();
