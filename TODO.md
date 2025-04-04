@@ -4,7 +4,10 @@
 
 ## Button Control
 ### SyRen movement
-### MP3 trigger track
+### MP3 trigger
+- currently, this will cancel any current sound that is playing, to start what is .trigger()
+- should we queue the sound instead?
+
 ### LED Sequence
 ### Maestro trigger
 ### OpenMV Snapshot
