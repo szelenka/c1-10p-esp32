@@ -6,7 +6,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <Bluepad32.h>
 
 // #include <hal/FRCUsageReporting.h>
 // #include <wpi/sendable/SendableBuilder.h>
@@ -14,6 +13,7 @@
 
 #include "MathUtil.h"
 #include "chopper/motorController/MotorController.h"
+#include "SettingsSystem.h"
 
 // WPI_IGNORE_DEPRECATED
 
@@ -53,7 +53,7 @@ void DifferentialDrive::ArcadeDrive(double xSpeed, double zRotation,
   //   reported = true;
   // }
 
-  Console.printf("xS: %1.3f xR: %1.3f ", xSpeed, zRotation);
+  DRIVE_DEBUG_PRINTF("xS: %1.3f xR: %1.3f ", xSpeed, zRotation);
   // TODO: this seems to just subtract the deadband in all directions
   xSpeed = ApplyDeadband(xSpeed, m_deadband);
   zRotation = ApplyDeadband(zRotation, m_deadband);
@@ -140,7 +140,7 @@ DifferentialDrive::WheelSpeeds DifferentialDrive::ArcadeDriveIK(
 
   double leftSpeed = xSpeed - zRotation;
   double rightSpeed = xSpeed + zRotation;
-  Console.printf("lS: %1.3f rS: %1.3f ", leftSpeed, rightSpeed);
+  DRIVE_DEBUG_PRINTF("lS: %1.3f rS: %1.3f ", leftSpeed, rightSpeed);
 
   // Find the maximum possible value of (throttle + turn) along the vector that
   // the joystick is pointing, then desaturate the wheel speeds
