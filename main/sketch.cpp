@@ -95,22 +95,27 @@ ControllerDecoratorPtr myControllers[BP32_MAX_GAMEPADS];
 void adjustController(ControllerDecoratorPtr ctl)
 {
     switch(ctl->getProperties().type) {
-            case CONTROLLER_TYPE_SwitchJoyConLeft:
-                // type(uint8_t)
-                // switch(ctl->getProperties().btaddr) {
-                //      5C:52:1E:FF:6E:A2 = JoyCon(L) Pink
-                // }
-                // axisX is off by -41:-10, axisY is off by 0:14
-                ctl->setAxisXOffset(-30);
-                // JoyCon orentiation for single-hand position
-                ctl->setAxisXInvert(true);
-                ctl->setAxisYInvert(true);
-                // ctl->setAxisXSlew(1.0, -1.5);
-                // ctl->setAxisYSlew(1.0, -1.5);
-                break;
-            default:
-                break;
+        case CONTROLLER_TYPE_SwitchJoyConLeft:
+            ctl->setAxisXOffset(C110P_CONTROLLER_JOYSTICK_LEFT_OFFSET_X);
+            ctl->setAxisYOffset(C110P_CONTROLLER_JOYSTICK_LEFT_OFFSET_Y);
+            ctl->setAxisXInvert(C110P_CONTROLLER_JOYSTICK_LEFT_INVERT_X);
+            ctl->setAxisYInvert(C110P_CONTROLLER_JOYSTICK_LEFT_INVERT_Y);
+            ctl->setAxisXSlew(C110P_CONTROLLER_JOYSTICK_LEFT_SLEW_RATE_POSITIVE, C110P_CONTROLLER_JOYSTICK_LEFT_SLEW_RATE_NEGATIVE);
+            ctl->setAxisYSlew(C110P_CONTROLLER_JOYSTICK_LEFT_SLEW_RATE_POSITIVE, C110P_CONTROLLER_JOYSTICK_LEFT_SLEW_RATE_NEGATIVE);
+            break;
+        case CONTROLLER_TYPE_SwitchJoyConRight:
+            ctl->setAxisXOffset(C110P_CONTROLLER_JOYSTICK_RIGHT_OFFSET_X);
+            ctl->setAxisYOffset(C110P_CONTROLLER_JOYSTICK_RIGHT_OFFSET_Y);
+            ctl->setAxisXInvert(C110P_CONTROLLER_JOYSTICK_RIGHT_INVERT_X);
+            ctl->setAxisYInvert(C110P_CONTROLLER_JOYSTICK_RIGHT_INVERT_Y);
+            ctl->setAxisXSlew(C110P_CONTROLLER_JOYSTICK_RIGHT_SLEW_RATE_POSITIVE, C110P_CONTROLLER_JOYSTICK_RIGHT_SLEW_RATE_NEGATIVE);
+            ctl->setAxisYSlew(C110P_CONTROLLER_JOYSTICK_RIGHT_SLEW_RATE_POSITIVE, C110P_CONTROLLER_JOYSTICK_RIGHT_SLEW_RATE_NEGATIVE);
+            break;
+        default:
+            break;
     }
+    ctl->setInputRange(CONTROLLER_JOYSTICK_MIN_INPUT, CONTROLLER_JOYSTICK_MAX_INPUT);
+    ctl->setOutputRange(CONTROLLER_JOYSTICK_MIN_OUTPUT, CONTROLLER_JOYSTICK_MAX_OUTPUT);
 }
 
 // This callback gets called any time a new gamepad is connected.
@@ -238,7 +243,7 @@ void processLeftJoyCon(ControllerDecoratorPtr ctl) {
     }
 
     // Process joystick for drive system
-    Console.print(C110P_DRIVE_SYSTEM + " ");
+    DRIVE_DEBUG_PRINTF(C110P_DRIVE_SYSTEM + " ");
     if (C110P_DRIVE_SYSTEM == C110P_DRIVE_SYSTEM_ARCADE) {
         sabertoothDiff.ArcadeDrive(ctl->axisXslew(), ctl->axisYslew());
     } else if (C110P_DRIVE_SYSTEM == C110P_DRIVE_SYSTEM_CURVE) {
@@ -248,7 +253,7 @@ void processLeftJoyCon(ControllerDecoratorPtr ctl) {
     } else if (C110P_DRIVE_SYSTEM == C110P_DRIVE_SYSTEM_REELTWO) {
         sabertoothDiff.ReelTwoDrive(ctl->axisXslew(), ctl->axisYslew());
     }
-    Console.println("");
+    DRIVE_DEBUG_PRINTLN("");
 
 }
 
@@ -349,7 +354,9 @@ void setupBluepad32() {
     // Calling "forgetBluetoothKeys" in setup() just as an example.
     // Forgetting Bluetooth keys prevents "paired" gamepads to reconnect.
     // But it might also fix some connection / re-connection issues.
-    BP32.forgetBluetoothKeys();
+    if (C110P_CONTROLLER_FORGET_KEYS) {
+        BP32.forgetBluetoothKeys();
+    }
 
     // Enables mouse / touchpad support for gamepads that support them.
     // When enabled, controllers like DualSense and DualShock4 generate two connected devices:
@@ -363,10 +370,6 @@ void setupBluepad32() {
 void setupSabertooth() {
     // DimensionEngineering setup
     UART_SABERTOOTH_INIT(SABERTOOTH_SERIAL_BAUD_RATE);
-    // For HardwareSerial
-    // sabertoothSerial.begin(SABERTOOTH_SERIAL_BAUD_RATE, SERIAL_8N1, NOT_A_PIN, PIN_SABERTOOTH_TX);
-    // For EspSoftwareSerial
-    // sabertoothSerial.begin(SABERTOOTH_SERIAL_BAUD_RATE, SWSERIAL_8N1, NOT_A_PIN, PIN_SABERTOOTH_TX, false);
 
     // Autobaud is for the whole serial line -- you don't need to do
     // it for each individual motor driver. This is the version of
@@ -374,9 +377,8 @@ void setupSabertooth() {
     // Sabertooth object.
     Sabertooth::autobaud(UART_SABERTOOTH);
 
-    // setTimeout rounds up to the nearest 100 milliseconds
-    // A value of 0 disables the serial timeout.
-    UART_SABERTOOTH.setTimeout(C110P_MOTOR_TIMEOUT_MS);
+    UART_SABERTOOTH.setTimeout(C110P_MOTOR_SERIAL_TIMEOUT_MS);
+
     // This setting does not persist between power cycles.
     // See the Packet Serial section of the documentation for what values to use
     // for the minimum voltage command. It may vary between Sabertooth models
@@ -385,23 +387,23 @@ void setupSabertooth() {
     // On a Sabertooth 2x25, the value is (Desired Volts - 6) X 5.
     // So, in this sample, we'll make the low battery cutoff 12V: (12 - 6) X 5 = 30.
     // sabertoothDome.setMinVoltage(30);
-    // sabertoothDome.setMaxSpeed(100);
-    // sabertoothDome.setUseThrottle(false);
-    // sabertoothDome.setScaling(false);
-    // sabertoothDome.setChannelMixing(false);
-    // sabertoothDome.setDomePosition(&domeSensor);
 
-    // sabertoothTankController.setMinVoltage(30);
-    sabertoothDiff.SetSpeedLimit(0.65);
-    sabertoothDiff.SetSafetyEnabled(true);
+    // Setup the Drive motors
+    sabertoothDiff.SetSpeedLimit(C110P_DRIVE_MAXIMUM_SPEED);
+    sabertoothDiff.SetSafetyEnabled(C110P_MOTOR_SAFETY);
+    sabertoothDiff.SetExpiration(C110P_MOTOR_SAFETY_TIMEOUT_MS);
+    sabertoothDiff.SetRampingValue(C110P_DRIVE_RAMPING_PERIOD);
+    sabertoothDiff.SetDeadband(C110P_DRIVE_DEADBAND);
+
     sabertoothDiffDrive.GetMotor(1).SetInverted(true);
     sabertoothDiffDrive.GetMotor(2).SetInverted(false);
-
-    sabertoothSyRen.SetSpeedLimit(0.65);
-    sabertoothSyRen.SetSafetyEnabled(true);
-    // sabertoothTankController.setUseThrottle(false);
-    // sabertoothTankController.setScaling(false);
-    // sabertoothTankController.setChannelMixing(true);
+    
+    // Setup the Dome motor
+    sabertoothSyRen.SetSpeedLimit(C110P_DOME_MAXIMUM_SPEED);
+    sabertoothSyRen.SetSafetyEnabled(C110P_MOTOR_SAFETY);
+    sabertoothSyRen.SetExpiration(C110P_MOTOR_SAFETY_TIMEOUT_MS);
+    sabertoothSyRen.SetRampingValue(C110P_DOME_RAMPING_PERIOD);
+    sabertoothSyRen.SetDeadband(C110P_DOME_DEADBAND);
 
     // See the Packet Serial section of the documentation for what values to use
     // for the maximum voltage command. It may vary between Sabertooth models
