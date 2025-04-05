@@ -266,18 +266,22 @@ void processRightJoyCon(ControllerDecoratorPtr ctl) {
 
     if (ctl->a()) {
         Console.println("A");
+        mp3Trigger.trigger(C110P_SOUND_OKAYFOLLOWME);  
     }
 
     if (ctl->b()) {
         Console.println("X");
+        mp3Trigger.trigger(C110P_SOUND_YESIWOULD);  
     }
 
     if (ctl->x()) {
         Console.println("B");
+        mp3Trigger.trigger(C110P_SOUND_CHATTY);  
     }
     
     if (ctl->y()) {
         Console.println("Y");
+        mp3Trigger.trigger(C110P_SOUND_SWRSTINGER);  
     }
 
     if (ctl->l1()) {
@@ -307,7 +311,7 @@ void processRightJoyCon(ControllerDecoratorPtr ctl) {
         // Play a sound
         // TODO: this will cancel any current sound that is playing, to start what is defined here
         // TODO: should we queue the sound instead?
-        mp3Trigger.trigger(C110P_SOUND_HELLO);
+        mp3Trigger.trigger(C110P_SOUND_TADA);
     }
 
     if (ctl->thumbL()) {
@@ -488,7 +492,7 @@ void setup() {
     Serial.begin(115200);
     setupBluepad32();
     setupSabertooth();
-    setupMaestro();
+    //setupMaestro();
     setupMp3Trigger();
     setupOpenMV();
     setupLeds();
