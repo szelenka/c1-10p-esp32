@@ -62,12 +62,8 @@ SingleDrive sabertoothSyRen(sabertoothSyRenDrive.GetMotor(1));
 /*
     MP3 Configuration
 */
-#include <MP3Trigger.h>
-
-// RX and TX on pin from PINOUT.h connected to opposite TX/RX on MP3 Trigger board
-// EspSoftwareSerial::UART mp3TriggerSerial;
-
-MP3Trigger mp3Trigger;
+#include "chopper/sound/ExtendedMP3Trigger.h"
+ExtendedMP3Trigger mp3Trigger;
 
 /*
     OpenMV Configuration
@@ -266,7 +262,7 @@ void processRightJoyCon(ControllerDecoratorPtr ctl) {
 
     if (ctl->a()) {
         Console.println("A");
-        mp3Trigger.trigger(C110P_SOUND_OKAYFOLLOWME);  
+        mp3Trigger.trigger(C110P_SOUND_PURR3);  
     }
 
     if (ctl->b()) {
@@ -308,10 +304,7 @@ void processRightJoyCon(ControllerDecoratorPtr ctl) {
 
     if (ctl->miscStart()) {
         Console.println("+");
-        // Play a sound
-        // TODO: this will cancel any current sound that is playing, to start what is defined here
-        // TODO: should we queue the sound instead?
-        mp3Trigger.trigger(C110P_SOUND_TADA);
+        mp3Trigger.triggerRandom();
     }
 
     if (ctl->thumbL()) {
