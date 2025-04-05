@@ -25,8 +25,9 @@
 
 
 // Debug statements
-#define DEBUG_DRIVE_MOTOR                 true
-#define DEBUG_DOME_MOTOR                  true
+#define DEBUG_SOUND                     true
+#define DEBUG_DRIVE_MOTOR               true
+#define DEBUG_DOME_MOTOR                true
 
 #include <Bluepad32.h>
 #define DEBUG_PRINTLN(s) Console.println(s)

@@ -85,6 +85,30 @@
 
 
 
+// Per the VS1053 datasheet:
+// maximum volume is 0x00 (0)
+// values much above 0x40 (64) are too low to be audible
+#define C110P_SOUND_VOLUME              32
+
+// TODO: create a list of all music file to make the code easier to read
+// Document what exists on the SD card in the MP3 Trigger
+#define C110P_SOUND_GRUMBLY01               2   
+#define C110P_SOUND_OKAYOKAY                3
+#define C110P_SOUND_OKAYFOLLOWME            4
+#define C110P_SOUND_GRUMBLY02               5
+#define C110P_SOUND_YESIWOULD               6
+#define C110P_SOUND_GRUMPY03                8
+#define C110P_SOUND_NOW                     12
+#define C110P_SOUND_WHATGROAN               14
+#define C110P_SOUND_3WAH                    15
+#define C110P_SOUND_TADA                    16
+#define C110P_SOUND_CHATTY                  17
+#define C110P_SOUND_EXTENDEDGRUMBLE         20
+#define C110P_SOUND_GRUMBLY1                21
+#define C110P_SOUND_UHOH                    24
+#define C110P_SOUND_SWRSTINGER              32
+#define C110P_SOUND_PURR3                   33
+
 #ifndef DOME_DIRECTION_CHANGE_THRESHOLD
 #define DOME_DIRECTION_CHANGE_THRESHOLD 5
 #endif

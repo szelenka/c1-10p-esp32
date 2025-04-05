@@ -37,3 +37,9 @@ This is accomplished with diff/patch. The patches are created by the following p
 
 ## Libraries
 Refer to [components/README.md](components/README.md)
+
+## Bluetooth Mac Addresses
+Create a file in `main/include/SettingsBluetooth.h` with settings containing the MAC address of controllers you wish to restrict
+connecting to the ESP32.
+
+You can rename [main/include/SettingsBluetooth.h.example]() to `main/include/SettingsBluetooth.h` with your addresses.

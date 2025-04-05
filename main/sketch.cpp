@@ -62,12 +62,8 @@ SingleDrive sabertoothSyRen(sabertoothSyRenDrive.GetMotor(1));
 /*
     MP3 Configuration
 */
-#include <MP3Trigger.h>
-
-// RX and TX on pin from PINOUT.h connected to opposite TX/RX on MP3 Trigger board
-// EspSoftwareSerial::UART mp3TriggerSerial;
-
-MP3Trigger mp3Trigger;
+#include "chopper/sound/ExtendedMP3Trigger.h"
+ExtendedMP3Trigger mp3Trigger;
 
 /*
     OpenMV Configuration
@@ -277,7 +273,7 @@ void processRightJoyCon(ControllerDecoratorPtr ctl) {
     }
     
     if (ctl->y()) {
-        Console.println("Y");
+        Console.println("Y"); 
     }
 
     if (ctl->l1()) {
@@ -304,6 +300,7 @@ void processRightJoyCon(ControllerDecoratorPtr ctl) {
 
     if (ctl->miscStart()) {
         Console.println("+");
+        mp3Trigger.triggerRandom();
     }
 
     if (ctl->thumbL()) {
@@ -458,7 +455,7 @@ void setupMaestro() {
 void setupMp3Trigger() {
     mp3Trigger.setup(&UART_MP3TRIGGER);
     UART_MP3TRIGGER_INIT(MP3TRIGGER_SERIAL_BAUD_RATE);
-    mp3Trigger.setVolume(MP3TRIGGER_DEFAULT_VOLUME);
+    mp3Trigger.setVolume(C110P_SOUND_VOLUME);
 }
 
 void setupOpenMV() {
@@ -484,7 +481,7 @@ void setup() {
     Serial.begin(115200);
     setupBluepad32();
     setupSabertooth();
-    setupMaestro();
+    //setupMaestro();
     setupMp3Trigger();
     setupOpenMV();
     setupLeds();
@@ -501,7 +498,10 @@ void loop() {
     }
     // Console.printf("Dome Position: %4d\n", domeSensor.getDomePosition());
     
-    
+    // We need to update the state of the MP3Trigger each clock cycle
+    // ref: https://learn.sparkfun.com/tutorials/mp3-trigger-hookup-guide-v24
+    mp3Trigger.update();
+
     // The main loop must have some kind of "yield to lower priority task" event.
     // Otherwise, the watchdog will get triggered.
     // If your main loop doesn't have one, just add a simple `vTaskDelay(1)`.
