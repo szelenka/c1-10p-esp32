@@ -262,22 +262,18 @@ void processRightJoyCon(ControllerDecoratorPtr ctl) {
 
     if (ctl->a()) {
         Console.println("A");
-        mp3Trigger.trigger(C110P_SOUND_PURR3);  
     }
 
     if (ctl->b()) {
         Console.println("X");
-        mp3Trigger.trigger(C110P_SOUND_YESIWOULD);  
     }
 
     if (ctl->x()) {
         Console.println("B");
-        mp3Trigger.trigger(C110P_SOUND_CHATTY);  
     }
     
     if (ctl->y()) {
-        Console.println("Y");
-        mp3Trigger.trigger(C110P_SOUND_SWRSTINGER);  
+        Console.println("Y"); 
     }
 
     if (ctl->l1()) {
