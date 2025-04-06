@@ -14,6 +14,7 @@
 
 #include "MathUtil.h"
 #include "chopper/motorController/MotorController.h"
+#include "SettingsSystem.h"
 
 SingleDrive::SingleDrive(MotorController& motor)
     : SingleDrive{[&](double output) { motor.Set(output); }} {
@@ -25,12 +26,14 @@ SingleDrive::SingleDrive(std::function<void(double)> motor)
 
 void SingleDrive::ApplySpeedToMotor() {
   double motor = ApplySpeedLimit(m_output, m_speedLimit);
+  DOME_DEBUG_PRINTF("M: %1.3f ", motor);
   m_motor(motor);
   Feed();
 }
 
 void SingleDrive::Drive(double xSpeed, bool squareInputs) {
 
+  DOME_DEBUG_PRINTF("xS: %1.3f ", xSpeed);
   xSpeed = ApplyDeadband(xSpeed, m_deadband);
 
   double output = DriveIK(xSpeed, squareInputs);
@@ -49,6 +52,7 @@ double SingleDrive::DriveIK(double xSpeed, bool squareInputs) {
     xSpeed = std::copysign(xSpeed * xSpeed, xSpeed);
   }
 
+  DOME_DEBUG_PRINTF("xS: %1.3f ", xSpeed);
   // TODO: apply calculation here
   double speed = xSpeed;
 

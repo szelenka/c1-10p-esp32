@@ -26,7 +26,7 @@
 
 // Debug statements
 #define DEBUG_SOUND                     true
-#define DEBUG_DRIVE_MOTOR               true
+#define DEBUG_DRIVE_MOTOR               false
 #define DEBUG_DOME_MOTOR                true
 
 #include <Bluepad32.h>

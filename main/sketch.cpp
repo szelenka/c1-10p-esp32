@@ -223,7 +223,7 @@ void processLeftJoyCon(ControllerDecoratorPtr ctl) {
     if (ctl->r2()) {
         Console.println("ZL");
         // Spin the Dome to the Left
-        sabertoothSyRen.Drive(0.2);
+        sabertoothSyRen.Drive(0.5);
     }
 
     if (ctl->miscSelect()) {
@@ -294,7 +294,7 @@ void processRightJoyCon(ControllerDecoratorPtr ctl) {
     if (ctl->r2()) {
         Console.println("ZR");
         // Spin the Dome to the Right
-        sabertoothSyRen.Drive(-0.2);
+        sabertoothSyRen.Drive(-0.5);
     }
 
     if (ctl->miscSelect()) {
@@ -390,9 +390,8 @@ void setupSabertooth() {
     sabertoothDiff.SetExpiration(C110P_MOTOR_SAFETY_TIMEOUT_MS);
     sabertoothDiff.SetRampingValue(C110P_DRIVE_RAMPING_PERIOD);
     sabertoothDiff.SetDeadband(C110P_DRIVE_DEADBAND);
-
-    sabertoothDiffDrive.GetMotor(1).SetInverted(true);
-    sabertoothDiffDrive.GetMotor(2).SetInverted(false);
+    sabertoothDiffDrive.GetMotor(1).SetInverted(C110P_DRIVE_MOTOR_1_INVERTED);
+    sabertoothDiffDrive.GetMotor(2).SetInverted(C110P_DRIVE_MOTOR_2_INVERTED);
     
     // Setup the Dome motor
     sabertoothSyRen.SetSpeedLimit(C110P_DOME_MAXIMUM_SPEED);
@@ -400,6 +399,7 @@ void setupSabertooth() {
     sabertoothSyRen.SetExpiration(C110P_MOTOR_SAFETY_TIMEOUT_MS);
     sabertoothSyRen.SetRampingValue(C110P_DOME_RAMPING_PERIOD);
     sabertoothSyRen.SetDeadband(C110P_DOME_DEADBAND);
+    sabertoothSyRenDrive.GetMotor(1).SetInverted(C110P_DOME_MOTOR_1_INVERTED);
 
     // See the Packet Serial section of the documentation for what values to use
     // for the maximum voltage command. It may vary between Sabertooth models
@@ -512,5 +512,6 @@ void loop() {
     // https://stackoverflow.com/questions/66278271/task-watchdog-got-triggered-the-tasks-did-not-reset-the-watchdog-in-time
 
     //     vTaskDelay(1);
-    delay(150);
+    // delay(150);
+    vTaskDelay(pdMS_TO_TICKS(10));
 }

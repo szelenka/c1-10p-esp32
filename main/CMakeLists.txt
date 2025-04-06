@@ -17,6 +17,7 @@ set(srcs
         "chopper/drive/DifferentialDriveSabertooth.cpp"
         "chopper/drive/RobotDriveBase.cpp"
         "chopper/drive/SingleDrive.cpp"
+        "chopper/drive/SingleDriveSabertooth.cpp"
         "chopper/motorController/SabertoothController.cpp"
         "chopper/sensor/AnalogMonitor.cpp")
 

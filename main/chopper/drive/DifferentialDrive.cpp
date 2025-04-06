@@ -38,7 +38,7 @@ DifferentialDrive::DifferentialDrive(std::function<void(double)> leftMotor,
 void DifferentialDrive::ApplySpeedToMotors() {
   double left = ApplySpeedLimit(m_leftOutput, m_speedLimit);
   double right = ApplySpeedLimit(m_rightOutput, m_speedLimit);
-  Console.printf("L: %1.3f R: %1.3f ", left, right);
+  DRIVE_DEBUG_PRINTF("L: %1.3f R: %1.3f ", left, right);
   m_leftMotor(left);
   m_rightMotor(right);
   Feed();
