@@ -6,7 +6,9 @@
 
 class ControllerDecorator {
 public:
-    ControllerDecorator(ControllerPtr ctl) : m_ctl(ctl) {}
+    ControllerDecorator(ControllerPtr ctl) : m_ctl(ctl) {
+        m_macAddress = formatMacAddress(ctl->getProperties().btaddr);
+    }
     ~ControllerDecorator()
     {
         if (m_axisXslew) { delete m_axisXslew; }
@@ -14,6 +16,14 @@ public:
         if (m_axisRXslew) { delete m_axisRXslew; }
         if (m_axisRYslew) { delete m_axisRYslew; }
     }
+
+    static std::string formatMacAddress(const uint8_t btaddr[6]) {
+        char macStr[18]; // MAC address is 17 characters + null terminator
+        snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X", 
+                 btaddr[0], btaddr[1], btaddr[2], btaddr[3], btaddr[4], btaddr[5]);
+        return std::string(macStr);
+    }
+
     //
     // Gamepad Related
     //
@@ -40,22 +50,22 @@ public:
     uint16_t buttons() const { return m_ctl->buttons(); }
     uint16_t miscButtons() const { return m_ctl->miscButtons(); }
 
-    bool a() const { return m_ctl->a(); }
-    bool b() const { return m_ctl->b(); }
-    bool x() const { return m_ctl->x(); }
-    bool y() const { return m_ctl->y(); }
-    bool l1() const { return m_ctl->l1(); }
-    bool l2() const { return m_ctl->l2(); }
-    bool r1() const { return m_ctl->r1(); }
-    bool r2() const { return m_ctl->r2(); }
-    bool thumbL() const { return m_ctl->thumbL(); }
-    bool thumbR() const { return m_ctl->thumbR(); }
+    unsigned long a() const { return handleButtonState("a", m_ctl->a()); }
+    unsigned long b() const { return handleButtonState("b", m_ctl->b()); }
+    unsigned long x() const { return handleButtonState("x", m_ctl->x()); }
+    unsigned long y() const { return handleButtonState("y", m_ctl->y()); }
+    unsigned long l1() const { return handleButtonState("l1", m_ctl->l1()); }
+    unsigned long l2() const { return handleButtonState("l2", m_ctl->l2()); }
+    unsigned long r1() const { return handleButtonState("r1", m_ctl->r1()); }
+    unsigned long r2() const { return handleButtonState("r2", m_ctl->r2()); }
+    unsigned long thumbL() const { return handleButtonState("thumbL", m_ctl->thumbL()); }
+    unsigned long thumbR() const { return handleButtonState("thumbR", m_ctl->thumbR()); }
 
     // Misc buttons
-    bool miscSystem() const { return m_ctl->miscSystem(); }
-    bool miscSelect() const { return m_ctl->miscSelect(); }
-    bool miscStart() const { return m_ctl->miscStart(); }
-    bool miscCapture() const { return m_ctl->miscCapture(); }
+    unsigned long miscSystem() const { return handleButtonState("miscSystem", m_ctl->miscSystem()); }
+    unsigned long miscSelect() const { return handleButtonState("miscSelect", m_ctl->miscSelect()); }
+    unsigned long miscStart() const { return handleButtonState("miscStart", m_ctl->miscStart()); }
+    unsigned long miscCapture() const { return handleButtonState("miscCapture", m_ctl->miscCapture()); }
 
     //
     // Shared among all
@@ -77,6 +87,7 @@ public:
 
     bool isConnected() const { return m_ctl->isConnected(); }
     void disconnect() { m_ctl->disconnect(); }
+    bool isReady() const { return m_ctl->isConnected() && m_ctl->hasData(); }
 
     uni_controller_class_t getClass() const { return m_ctl->getClass(); }
     // Returns the controller model.
@@ -246,6 +257,34 @@ private:
     bool m_axisRYInvert = false;
 
     ControllerPtr m_ctl;
+
+    std::string m_macAddress;
+
+    mutable std::unordered_map<std::string, unsigned long> buttonPressStartTimes;
+
+    /**
+     * @brief Handles the state of a button and calculates the duration it has been pressed.
+     *
+     * This function tracks the press duration of a button identified by its name. If the button
+     * is pressed, it calculates the time elapsed since the button was first pressed. If the button
+     * is released, it resets the tracking for that button.
+     *
+     * @param buttonName The name of the button to track.
+     * @param isPressed A boolean indicating whether the button is currently pressed (true) or released (false).
+     * @return The duration in milliseconds that the button has been pressed. Returns 0 if the button is released.
+     */
+    unsigned long handleButtonState(const std::string& buttonName, bool isPressed) const {
+        unsigned long currentMillis = millis();
+        if (isPressed) {
+            if (buttonPressStartTimes.find(buttonName) == buttonPressStartTimes.end()) {
+                buttonPressStartTimes[buttonName] = currentMillis;
+            }
+            return currentMillis - buttonPressStartTimes[buttonName];
+        } else {
+            buttonPressStartTimes.erase(buttonName);
+            return 0;
+        }
+    }
 };
 
 typedef ControllerDecorator* ControllerDecoratorPtr;

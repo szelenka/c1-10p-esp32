@@ -10,6 +10,21 @@
 #include "include/PinMap.h"
 #include "include/SettingsSystem.h"
 #include "include/SettingsUser.h"
+#include "include/SettingsBluetooth.h"
+
+//
+// README FIRST, README FIRST, README FIRST
+//
+// Bluepad32 has a built-in interactive console.
+// By default, it is enabled (hey, this is a great feature!).
+// But it is incompatible with Arduino "Serial" class.
+//
+// Instead of using, "Serial" you can use Bluepad32 "Console" class instead.
+// It is somewhat similar to Serial but not exactly the same.
+//
+// Should you want to still use "Serial", you have to disable the Bluepad32's console
+// from "sdkconfig.defaults" with:
+//    CONFIG_BLUEPAD32_USB_CONSOLE_ENABLE=n
 
 /*
     Preferences
@@ -72,262 +87,17 @@ ExtendedMP3Trigger mp3Trigger;
 // HardwareSerial openMVSerial(UART_OPENMV);
 // EspSoftwareSerial::UART openMVSerial;
 
-//
-// README FIRST, README FIRST, README FIRST
-//
-// Bluepad32 has a built-in interactive console.
-// By default, it is enabled (hey, this is a great feature!).
-// But it is incompatible with Arduino "Serial" class.
-//
-// Instead of using, "Serial" you can use Bluepad32 "Console" class instead.
-// It is somewhat similar to Serial but not exactly the same.
-//
-// Should you want to still use "Serial", you have to disable the Bluepad32's console
-// from "sdkconfig.defaults" with:
-//    CONFIG_BLUEPAD32_USB_CONSOLE_ENABLE=n
-#include "chopper/core/ControllerDecorator.h"
-ControllerDecoratorPtr myControllers[BP32_MAX_GAMEPADS];
-
-void adjustController(ControllerDecoratorPtr ctl)
-{
-    switch(ctl->getProperties().type) {
-        case CONTROLLER_TYPE_SwitchJoyConLeft:
-            ctl->setAxisXOffset(C110P_CONTROLLER_JOYSTICK_LEFT_OFFSET_X);
-            ctl->setAxisYOffset(C110P_CONTROLLER_JOYSTICK_LEFT_OFFSET_Y);
-            ctl->setAxisXInvert(C110P_CONTROLLER_JOYSTICK_LEFT_INVERT_X);
-            ctl->setAxisYInvert(C110P_CONTROLLER_JOYSTICK_LEFT_INVERT_Y);
-            ctl->setAxisXSlew(C110P_CONTROLLER_JOYSTICK_LEFT_SLEW_RATE_POSITIVE, C110P_CONTROLLER_JOYSTICK_LEFT_SLEW_RATE_NEGATIVE);
-            ctl->setAxisYSlew(C110P_CONTROLLER_JOYSTICK_LEFT_SLEW_RATE_POSITIVE, C110P_CONTROLLER_JOYSTICK_LEFT_SLEW_RATE_NEGATIVE);
-            break;
-        case CONTROLLER_TYPE_SwitchJoyConRight:
-            ctl->setAxisXOffset(C110P_CONTROLLER_JOYSTICK_RIGHT_OFFSET_X);
-            ctl->setAxisYOffset(C110P_CONTROLLER_JOYSTICK_RIGHT_OFFSET_Y);
-            ctl->setAxisXInvert(C110P_CONTROLLER_JOYSTICK_RIGHT_INVERT_X);
-            ctl->setAxisYInvert(C110P_CONTROLLER_JOYSTICK_RIGHT_INVERT_Y);
-            ctl->setAxisXSlew(C110P_CONTROLLER_JOYSTICK_RIGHT_SLEW_RATE_POSITIVE, C110P_CONTROLLER_JOYSTICK_RIGHT_SLEW_RATE_NEGATIVE);
-            ctl->setAxisYSlew(C110P_CONTROLLER_JOYSTICK_RIGHT_SLEW_RATE_POSITIVE, C110P_CONTROLLER_JOYSTICK_RIGHT_SLEW_RATE_NEGATIVE);
-            break;
-        default:
-            break;
-    }
-    ctl->setInputRange(CONTROLLER_JOYSTICK_MIN_INPUT, CONTROLLER_JOYSTICK_MAX_INPUT);
-    ctl->setOutputRange(CONTROLLER_JOYSTICK_MIN_OUTPUT, CONTROLLER_JOYSTICK_MAX_OUTPUT);
-}
+#include "chopper/core/Controllers.h"
+Controllers myControllers(&sabertoothDiff, &sabertoothSyRen, &mp3Trigger, &domeSensor);
 
 // This callback gets called any time a new gamepad is connected.
 // Up to 4 gamepads can be connected at the same time.
 void onConnectedController(ControllerPtr ctl) {
-    bool foundEmptySlot = false;
-    for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
-        if (myControllers[i] == nullptr) {
-            Console.printf("CALLBACK: Controller is connected, index=%d\n", i);
-            // Additionally, you can get certain gamepad properties like:
-            // Model, VID, PID, BTAddr, flags, etc.
-            ControllerProperties properties = ctl->getProperties();
-            Console.printf("Controller model: %s, VID=0x%04x, PID=0x%04x\n", ctl->getModelName(), properties.vendor_id,
-                           properties.product_id);
-            myControllers[i] = new ControllerDecorator(ctl);
-            adjustController(myControllers[i]);
-            foundEmptySlot = true;
-            break;
-        }
-    }
-    if (!foundEmptySlot) {
-        Console.println("CALLBACK: Controller connected, but could not found empty slot");
-    }
+    myControllers.addController(ctl);
 }
 
 void onDisconnectedController(ControllerPtr ctl) {
-    bool foundController = false;
-
-    for (int i = 0; i < BP32_MAX_GAMEPADS; i++) {
-        if (myControllers[i] && myControllers[i]->index() == i) {
-            Console.printf("CALLBACK: Controller disconnected from index=%d\n", i);
-            delete myControllers[i];
-            myControllers[i] = nullptr;
-            foundController = true;
-            break;
-        }
-    }
-
-    if (!foundController) {
-        Console.println("CALLBACK: Controller disconnected, but not found in myControllers");
-    }
-}
-
-void dumpGamepad(ControllerDecoratorPtr ctl) {
-    Console.printf(
-        "idx=%d, dpad: 0x%02x, buttons: 0x%04x, axis L: %4d, %4d, axis R: %4d, %4d, brake: %4d, throttle: %4d, "
-        "misc: 0x%02x, gyro x:%6d y:%6d z:%6d, accel x:%6d y:%6d z:%6d\n",
-        ctl->index(),        // Controller Index
-        ctl->dpad(),         // D-pad
-        ctl->buttons(),      // bitmask of pressed buttons
-        ctl->axisX(),        // (-511 - 512) left X Axis
-        ctl->axisY(),        // (-511 - 512) left Y axis
-        ctl->axisRX(),       // (-511 - 512) right X axis
-        ctl->axisRY(),       // (-511 - 512) right Y axis
-        ctl->brake(),        // (0 - 1023): brake button
-        ctl->throttle(),     // (0 - 1023): throttle (AKA gas) button
-        ctl->miscButtons(),  // bitmask of pressed "misc" buttons
-        ctl->gyroX(),        // Gyro X
-        ctl->gyroY(),        // Gyro Y
-        ctl->gyroZ(),        // Gyro Z
-        ctl->accelX(),       // Accelerometer X
-        ctl->accelY(),       // Accelerometer Y
-        ctl->accelZ()        // Accelerometer Z
-    );
-}
-
-void processLeftJoyCon(ControllerDecoratorPtr ctl) {
-
-    if (!ctl->isConnected())
-    {
-        Console.println("Left JoyCon not connected");
-        return;
-    }
-
-    // process button inputs
-    if (ctl->a()) {
-        Console.println("Dpad Left");
-        // Turn Periscope Left
-    }
-
-    if (ctl->b()) {
-        Console.println("Dpad Down");
-        // Toggle Body Arm out/in
-    }
-
-    if (ctl->x()) {
-        Console.println("Dpad Up");
-        // Toggle Periscope up/down
-    }
-    
-    if (ctl->y()) {
-        Console.println("Dpad Right");
-        // Turn Periscope Right
-    }
-
-    if (ctl->l1()) {
-        Console.println("SL");
-    }
-
-    if (ctl->r1()) {
-        Console.println("SR");
-    }
-
-    if (ctl->l2()) {
-        Console.println("L");
-        // Raise Head up
-    }
-
-    if (ctl->r2()) {
-        Console.println("ZL");
-        // Spin the Dome to the Left
-        sabertoothSyRen.Drive(0.5);
-    }
-
-    if (ctl->miscSelect()) {
-        Console.println("-");
-    }
-
-    if (ctl->miscStart()) {
-        Console.println("Screen Capture");
-    }
-
-    if (ctl->thumbL()) {
-        Console.println("Joystick Push In");
-    }
-
-    // Process joystick for drive system
-    DRIVE_DEBUG_PRINTF(C110P_DRIVE_SYSTEM + " ");
-    if (C110P_DRIVE_SYSTEM == C110P_DRIVE_SYSTEM_ARCADE) {
-        sabertoothDiff.ArcadeDrive(ctl->axisXslew(), ctl->axisYslew());
-    } else if (C110P_DRIVE_SYSTEM == C110P_DRIVE_SYSTEM_CURVE) {
-        sabertoothDiff.CurvatureDrive(ctl->axisXslew(), ctl->axisYslew());
-    } else if (C110P_DRIVE_SYSTEM == C110P_DRIVE_SYSTEM_TANK) {
-        sabertoothDiff.TankDrive(ctl->axisXslew(), ctl->axisYslew());
-    } else if (C110P_DRIVE_SYSTEM == C110P_DRIVE_SYSTEM_REELTWO) {
-        sabertoothDiff.ReelTwoDrive(ctl->axisXslew(), ctl->axisYslew());
-    }
-    DRIVE_DEBUG_PRINTLN("");
-
-}
-
-void processRightJoyCon(ControllerDecoratorPtr ctl) {
-    if (!ctl->isConnected())
-    {
-        Console.println("Right JoyCon not connected");
-        return;
-    }
-
-    if (ctl->a()) {
-        Console.println("A");
-        mp3Trigger.trigger(C110P_SOUND_IMERIALCAROLBELLS);
-    }
-
-    if (ctl->b()) {
-        Console.println("X");
-        mp3Trigger.trigger(C110P_SOUND_MANDOLORIAN);
-    }
-
-    if (ctl->x()) {
-        Console.println("B");
-    }
-    
-    if (ctl->y()) {
-        Console.println("Y"); 
-    }
-
-    if (ctl->l1()) {
-        Console.println("SL");
-    }
-    
-    if (ctl->r1()) {
-        Console.println("SR");
-    }
-
-    if (ctl->l2()) {
-        Console.println("R");
-        // Raise Head down
-    }
-
-    if (ctl->r2()) {
-        Console.println("ZR");
-        // Spin the Dome to the Right
-        sabertoothSyRen.Drive(-0.5);
-    }
-
-    if (ctl->miscSelect()) {
-        Console.println("Home");
-    }
-
-    if (ctl->miscStart()) {
-        Console.println("+");
-        mp3Trigger.triggerRandom();
-    }
-
-    if (ctl->thumbL()) {
-        Console.println("Joystick Push In");
-    }
-
-    //TODO: process joystick for nod system?
-}
-
-void processControllers() {
-    for (auto myController : myControllers) {
-        if (myController && myController->isConnected()) {
-            if (myController->hasData()) {
-                switch(myController->getProperties().type) {
-                    case CONTROLLER_TYPE_SwitchJoyConLeft:
-                        processLeftJoyCon(myController);
-                        break;
-                    case CONTROLLER_TYPE_SwitchJoyConRight:
-                        processRightJoyCon(myController);
-                        break;
-                }
-            }
-        }
-    }
+    myControllers.deleteController(ctl);
 }
 
 void setupBluepad32() {
@@ -350,7 +120,7 @@ void setupBluepad32() {
     // Calling "forgetBluetoothKeys" in setup() just as an example.
     // Forgetting Bluetooth keys prevents "paired" gamepads to reconnect.
     // But it might also fix some connection / re-connection issues.
-    if (C110P_CONTROLLER_FORGET_KEYS) {
+    if (CONTROLLER_FORGET_MAC_ADDR) {
         BP32.forgetBluetoothKeys();
     }
 
@@ -497,13 +267,8 @@ void loop() {
     bool dataUpdated = BP32.update();
     if (dataUpdated)
     {
-        processControllers();
+        myControllers.processInputs();
     }
-    // Console.printf("Dome Position: %4d\n", domeSensor.getDomePosition());
-    
-    // We need to update the state of the MP3Trigger each clock cycle
-    // ref: https://learn.sparkfun.com/tutorials/mp3-trigger-hookup-guide-v24
-    mp3Trigger.update();
 
     // The main loop must have some kind of "yield to lower priority task" event.
     // Otherwise, the watchdog will get triggered.
@@ -512,6 +277,6 @@ void loop() {
     // https://stackoverflow.com/questions/66278271/task-watchdog-got-triggered-the-tasks-did-not-reset-the-watchdog-in-time
 
     //     vTaskDelay(1);
-    // delay(150);
-    vTaskDelay(pdMS_TO_TICKS(10));
+    delay(150);
+    // vTaskDelay(pdMS_TO_TICKS(10));
 }
