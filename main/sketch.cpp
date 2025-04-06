@@ -223,7 +223,7 @@ void processLeftJoyCon(ControllerDecoratorPtr ctl) {
     if (ctl->r2()) {
         Console.println("ZL");
         // Spin the Dome to the Left
-        
+        sabertoothSyRen.Drive(0.2);
     }
 
     if (ctl->miscSelect()) {
@@ -262,10 +262,12 @@ void processRightJoyCon(ControllerDecoratorPtr ctl) {
 
     if (ctl->a()) {
         Console.println("A");
+        mp3Trigger.trigger(C110P_SOUND_IMERIALCAROLBELLS);
     }
 
     if (ctl->b()) {
         Console.println("X");
+        mp3Trigger.trigger(C110P_SOUND_MANDOLORIAN);
     }
 
     if (ctl->x()) {
@@ -292,6 +294,7 @@ void processRightJoyCon(ControllerDecoratorPtr ctl) {
     if (ctl->r2()) {
         Console.println("ZR");
         // Spin the Dome to the Right
+        sabertoothSyRen.Drive(-0.2);
     }
 
     if (ctl->miscSelect()) {

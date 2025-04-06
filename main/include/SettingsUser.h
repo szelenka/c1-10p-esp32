@@ -108,6 +108,8 @@
 #define C110P_SOUND_UHOH                    24
 #define C110P_SOUND_SWRSTINGER              32
 #define C110P_SOUND_PURR3                   33
+#define C110P_SOUND_MANDOLORIAN             254
+#define C110P_SOUND_IMERIALCAROLBELLS       255
 
 #ifndef DOME_DIRECTION_CHANGE_THRESHOLD
 #define DOME_DIRECTION_CHANGE_THRESHOLD 5
