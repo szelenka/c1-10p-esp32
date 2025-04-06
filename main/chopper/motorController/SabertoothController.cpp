@@ -8,7 +8,7 @@ void SabertoothController::Set(double speed) {
         targetSpeed *= -1;
     int8_t motorSpeed = (int8_t)(targetSpeed * (int8_t)127);
     m_sabertoothDriver->motor(m_motorId, motorSpeed);
-    MOTOR_DEBUG_PRINTF("ST[%1d]:%3d ", m_motorId, motorSpeed);
+    DEBUG_MOTOR_PRINTF("ST[%1d]:%3d ", m_motorId, motorSpeed);
 }
 
 double SabertoothController::Get() const {

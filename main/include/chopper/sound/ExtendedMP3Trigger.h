@@ -12,17 +12,14 @@
 
 class ExtendedMP3Trigger : public MP3Trigger {
 public:
-    ExtendedMP3Trigger() : MP3Trigger() {
-        // Seed the random number generator
-        std::srand(static_cast<unsigned int>(std::time(nullptr)));
-    }
+    ExtendedMP3Trigger() : MP3Trigger() {}
 
     // Method to get a random sound define
     uint8_t getRandomSound() const {
         if (soundDefines.empty()) {
             return 0; // Default sound if the list is empty
         }
-        int randomIndex = std::rand() % soundDefines.size();
+        int randomIndex = esp_random() % soundDefines.size();
         return soundDefines[randomIndex];
     }
 
