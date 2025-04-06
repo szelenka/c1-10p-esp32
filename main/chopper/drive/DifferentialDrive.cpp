@@ -38,7 +38,7 @@ DifferentialDrive::DifferentialDrive(std::function<void(double)> leftMotor,
 void DifferentialDrive::ApplySpeedToMotors() {
   double left = ApplySpeedLimit(m_leftOutput, m_speedLimit);
   double right = ApplySpeedLimit(m_rightOutput, m_speedLimit);
-  DRIVE_DEBUG_PRINTF("L: %1.3f R: %1.3f ", left, right);
+  DEBUG_DRIVE_PRINTF("L: %1.3f R: %1.3f ", left, right);
   m_leftMotor(left);
   m_rightMotor(right);
   Feed();
@@ -53,7 +53,7 @@ void DifferentialDrive::ArcadeDrive(double xSpeed, double zRotation,
   //   reported = true;
   // }
 
-  DRIVE_DEBUG_PRINTF("xS: %1.3f xR: %1.3f ", xSpeed, zRotation);
+  DEBUG_DRIVE_PRINTF("xS: %1.3f xR: %1.3f ", xSpeed, zRotation);
   // TODO: this seems to just subtract the deadband in all directions
   xSpeed = ApplyDeadband(xSpeed, m_deadband);
   zRotation = ApplyDeadband(zRotation, m_deadband);
@@ -140,7 +140,7 @@ DifferentialDrive::WheelSpeeds DifferentialDrive::ArcadeDriveIK(
 
   double leftSpeed = xSpeed - zRotation;
   double rightSpeed = xSpeed + zRotation;
-  DRIVE_DEBUG_PRINTF("lS: %1.3f rS: %1.3f ", leftSpeed, rightSpeed);
+  DEBUG_DRIVE_PRINTF("lS: %1.3f rS: %1.3f ", leftSpeed, rightSpeed);
 
   // Find the maximum possible value of (throttle + turn) along the vector that
   // the joystick is pointing, then desaturate the wheel speeds
