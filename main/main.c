@@ -45,17 +45,17 @@ int app_main(void) {
     // Init Bluepad32.
     uni_init(0 /* argc */, NULL /* argv */);
 
-    // Array of human-readable Bluetooth addresses to add to the allowlist
-    const char* controller_addresses[] = {
-        C110P_CONTROLLER_LEFT_MAC_ADDRESS,
-        C110P_CONTROLLER_RIGHT_MAC_ADDRESS
-    };
+    if (CONTROLLER_FORGET_MAC_ADDR)
+    {
+        uni_bt_del_keys_safe();
+    }
 
     // Loop through the addresses and add them to the allowlist
-    for (size_t i = 0; i < sizeof(controller_addresses) / sizeof(controller_addresses[0]); i++) {
+    for (size_t i = 0; i < sizeof(CONTROLLER_MAC_ADDRS) / sizeof(CONTROLLER_MAC_ADDRS[0]); i++)
+    {
         bd_addr_t controller_addr;
         // Parse human-readable Bluetooth address.
-        sscanf_bd_addr(controller_addresses[i], controller_addr);
+        sscanf_bd_addr(CONTROLLER_MAC_ADDRS[i], controller_addr);
 
         // Notice that this address will be added in the Non-volatile-storage (NVS).
         // If the device reboots, the address will still be stored.
