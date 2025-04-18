@@ -13,7 +13,9 @@
 #include "chopper/sound/ExtendedMP3Trigger.h"
 #include "chopper/dome/DomePosition.h"
 #include "chopper/filter/SlewRateLimiter.h"
-
+#include "chopper/servo/Dispatch.h"
+#include "settings/ServoPinMap.h"
+#include "settings/ServoPWM.h"
 
 // Alias for a shared pointer to ControllerDecorator
 class Controllers
@@ -21,18 +23,24 @@ class Controllers
 public:
 
     // Default constructor
-    Controllers(DifferentialDrive* sabertoothDiff, SingleDrive* sabertoothSyRen, ExtendedMP3Trigger* mp3Trigger, DomePosition* domeSensor)
-        : _sabertoothDiff(sabertoothDiff), _sabertoothSyRen(sabertoothSyRen), _mp3Trigger(mp3Trigger), _domeSensor(domeSensor)
+    Controllers(DifferentialDrive* sabertoothDiff, SingleDrive* sabertoothSyRen, ExtendedMP3Trigger* mp3Trigger, DomePosition* domeSensor, ServoDispatch* maestroBody, ServoDispatch* maestroDome)
+        :   _sabertoothDiff(sabertoothDiff), 
+            _sabertoothSyRen(sabertoothSyRen),
+            _mp3Trigger(mp3Trigger), 
+            _domeSensor(domeSensor),
+            _maestroBody(maestroBody),
+            _maestroDome(maestroDome)
     {
         // Initialize the controller MAC addresses and their roles
-        _controllerMacAddresses = std::unordered_map<std::string, ControllerRoles>{
+        _controllerMacAddresses = std::unordered_map<std::string, ControllerRoles>
+        {
             {CONTROLLER_MAC_ADDRS[0], ControllerRoles::Drive},
             {CONTROLLER_MAC_ADDRS[1], ControllerRoles::Dome},
             {CONTROLLER_MAC_ADDRS[2], ControllerRoles::Animation},
             {CONTROLLER_MAC_ADDRS[3], ControllerRoles::Camera}
         };
         _domeSpinSlewRateLimiter = new SlewRateLimiter(C110P_DOME_SPIN_SLEW_RATE);
-    }
+    };
 
 
     // Destructor
@@ -59,6 +67,7 @@ public:
         _ctls[*optRole] = new ControllerDecorator(ctl);
         adjustController(_ctls[*optRole], *optRole);
     }
+
     // Method to delete a ControllerDecorator by role
     void deleteController(ControllerPtr ctl)
     {
@@ -110,52 +119,95 @@ public:
     {
         bool isCtlDriveValid = false;
         ControllerDecoratorPtr ctlDrive = _ctls[ControllerRoles::Drive];
-        if (ctlDrive == nullptr) {
+        if (ctlDrive == nullptr)
+        {
             // DEBUG_CONTROLLER_PRINTLN("Drive controller not found");
             isCtlDriveValid = false;
-        } else {
+        }
+        else
+        {
             isCtlDriveValid = ctlDrive->isReady();
         }
 
         bool isCtlDomeValid = false;
         ControllerDecoratorPtr ctlDome = _ctls[ControllerRoles::Dome];
-        if (ctlDome == nullptr) {
+        if (ctlDome == nullptr)
+        {
             // DEBUG_CONTROLLER_PRINTLN("Dome controller not found");
             isCtlDomeValid = false;
-        } else {
+        }
+        else
+        {
             isCtlDomeValid = ctlDome->isReady();
         }
 
         // process button inputs
-        if (isCtlDriveValid && ctlDrive->a()) {
-            DEBUG_CONTROLLER_PRINTLN("Dpad Left");
-            // Turn Periscope Left
+        if (isCtlDriveValid)
+        {
+            if (ctlDrive->a().isDoubleClicked())
+            {
+                DEBUG_CONTROLLER_PRINTLN("Dpad Left -- double click");
+            }
+            else if (ctlDrive->a())
+            {
+                DEBUG_CONTROLLER_PRINTLN("Dpad Left");
+                // Turn Periscope Left
+            }
         }
 
-        if (isCtlDriveValid && ctlDrive->b()) {
+        if (isCtlDriveValid && ctlDrive->b())
+        {
             DEBUG_CONTROLLER_PRINTLN("Dpad Down");
-            // Toggle Body Arm out/in
+            // Toggle Body Arm out/in based on how long the button has been held
+            // Move full range defined on Maestro in 1500ms
+            // TODO: handle press for half the time, release for a quarter, then press again 
+            // .. it should start moving where it left off after the release finished
+            int mappedValue = mapValue(ctlDrive->b().pressedDuration(), 0, 1500, 0, 254);
+            DEBUG_MAESTRO_PRINTLN("Body Arm (open): " + String(mappedValue));
+            _maestroBody->setTargetMiniSSC(MAESTRO_BODY_ARM, mappedValue);
+        }
+        else if (isCtlDriveValid && !ctlDrive->b())
+        {
+            // Toggle Body Arm out/in based on how long the button has been held
+            // Move full range defined on Maestro in 1500ms
+            uint16_t position = _maestroBody->getPosition(MAESTRO_BODY_ARM);
+            if (position != 0)
+            {
+                // TODO: how to verify it's at resting position? convert PWM to position 0 - 254?
+                int mappedValue = mapValue(ctlDrive->b().releasedDuration(), 0, 1500, 254, 0);
+                DEBUG_MAESTRO_PRINTLN("Body Arm (close): " + String(mappedValue));
+                _maestroBody->setTargetMiniSSC(MAESTRO_BODY_ARM, mappedValue);
+            }
+            else
+            {
+                _maestroBody->disable(MAESTRO_BODY_ARM);
+            }
         }
     
-        if (isCtlDriveValid && ctlDrive->x()) {
+        if (isCtlDriveValid && ctlDrive->x())
+        {
             DEBUG_CONTROLLER_PRINTLN("Dpad Up");
             // Toggle Periscope up/down
         }
         
-        if (isCtlDriveValid && ctlDrive->y()) {
+        if (isCtlDriveValid && ctlDrive->y())
+        {
             DEBUG_CONTROLLER_PRINTLN("Dpad Right");
             // Turn Periscope Right
         }
     
-        if (isCtlDriveValid && ctlDrive->l1()) {
+        if (isCtlDriveValid && ctlDrive->l1())
+        {
             DEBUG_CONTROLLER_PRINTLN("SL");
         }
     
-        if (isCtlDriveValid && ctlDrive->r1()) {
+        if (isCtlDriveValid && ctlDrive->r1())
+        {
             DEBUG_CONTROLLER_PRINTLN("SR");
         }
     
-        if (isCtlDriveValid && ctlDrive->l2()) {
+        if (isCtlDriveValid && ctlDrive->l2())
+        {
             DEBUG_CONTROLLER_PRINTLN("L");
             // Raise Head up
         }
@@ -171,45 +223,55 @@ public:
         //     DEBUG_CONTROLLER_PRINTLN("ZL");
         // }
     
-        if (isCtlDriveValid && ctlDrive->miscSelect()) {
+        if (isCtlDriveValid && ctlDrive->miscSelect())
+        {
             DEBUG_CONTROLLER_PRINTLN("-");
         }
     
-        if (isCtlDriveValid && ctlDrive->miscStart()) {
+        if (isCtlDriveValid && ctlDrive->miscStart())
+        {
             DEBUG_CONTROLLER_PRINTLN("Screen Capture");
         }
     
-        if (isCtlDriveValid && ctlDrive->thumbL()) {
+        if (isCtlDriveValid && ctlDrive->thumbL())
+        {
             DEBUG_CONTROLLER_PRINTLN("Joystick Push In");
         }
     
-        if (isCtlDomeValid && ctlDome->a()) {
+        if (isCtlDomeValid && ctlDome->a())
+        {
             DEBUG_CONTROLLER_PRINTLN("A");
             _mp3Trigger->trigger(C110P_SOUND_IMERIALCAROLBELLS);
         }
     
-        if (isCtlDomeValid && ctlDome->b()) {
+        if (isCtlDomeValid && ctlDome->b())
+        {
             DEBUG_CONTROLLER_PRINTLN("X");
             _mp3Trigger->trigger(C110P_SOUND_MANDOLORIAN);
         }
     
-        if (isCtlDomeValid && ctlDome->x()) {
+        if (isCtlDomeValid && ctlDome->x())
+        {
             DEBUG_CONTROLLER_PRINTLN("B");
         }
         
-        if (isCtlDomeValid && ctlDome->y()) {
+        if (isCtlDomeValid && ctlDome->y())
+        {
             DEBUG_CONTROLLER_PRINTLN("Y"); 
         }
     
-        if (isCtlDomeValid && ctlDome->l1()) {
+        if (isCtlDomeValid && ctlDome->l1())
+        {
             DEBUG_CONTROLLER_PRINTLN("SL");
         }
         
-        if (isCtlDomeValid && ctlDome->r1()) {
+        if (isCtlDomeValid && ctlDome->r1())
+        {
             DEBUG_CONTROLLER_PRINTLN("SR");
         }
     
-        if (isCtlDomeValid && ctlDome->l2()) {
+        if (isCtlDomeValid && ctlDome->l2())
+        {
             DEBUG_CONTROLLER_PRINTLN("R");
             // Raise Head down
         }
@@ -218,16 +280,19 @@ public:
         //     DEBUG_CONTROLLER_PRINTLN("ZR");
         // }
     
-        if (isCtlDomeValid && ctlDome->miscSelect()) {
+        if (isCtlDomeValid && ctlDome->miscSelect())
+        {
             DEBUG_CONTROLLER_PRINTLN("Home");
         }
     
-        if (isCtlDomeValid && ctlDome->miscStart()) {
+        if (isCtlDomeValid && ctlDome->miscStart())
+        {
             DEBUG_CONTROLLER_PRINTLN("+");
             _mp3Trigger->triggerRandom();
         }
     
-        if (isCtlDomeValid && ctlDome->thumbL()) {
+        if (isCtlDomeValid && ctlDome->thumbL())
+        {
             DEBUG_CONTROLLER_PRINTLN("Joystick Push In");
         }
     
@@ -256,7 +321,6 @@ private:
 
     void adjustController(ControllerDecoratorPtr ctl, ControllerRoles role)
     {
-        // TODO: switch on ControllerRoles rather than BP32 role
         switch(role)
         {
             case ControllerRoles::Drive:
@@ -331,6 +395,10 @@ private:
         DEBUG_DOME_PRINTF("Dome Position: %4d\n", _domeSensor->getDomePosition());
     }
 
+    std::function<int(int, int, int, int, int)> mapValue = [](int x, int in_min, int in_max, int out_min, int out_max) {
+        return min(out_max, max(out_min, (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min));
+    };
+
     // Map to store ControllerRole to MAC Address
     std::unordered_map<std::string, ControllerRoles> _controllerMacAddresses;
 
@@ -341,6 +409,9 @@ private:
     SingleDrive* _sabertoothSyRen = nullptr;
     ExtendedMP3Trigger* _mp3Trigger = nullptr;
     DomePosition* _domeSensor = nullptr;
+    ServoDispatch* _maestroBody = nullptr;
+    ServoDispatch* _maestroDome = nullptr;
 
     SlewRateLimiter* _domeSpinSlewRateLimiter = nullptr;
+
 };

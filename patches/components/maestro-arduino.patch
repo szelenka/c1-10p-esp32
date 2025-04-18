@@ -1,14 +1,133 @@
 diff -Nruw --strip-trailing-cr --exclude=.git build/maestro-arduino/_org/CMakeLists.txt build/maestro-arduino/_new/CMakeLists.txt
 --- build/maestro-arduino/_org/CMakeLists.txt	1969-12-31 19:00:00
-+++ build/maestro-arduino/_new/CMakeLists.txt	2025-04-01 21:02:12
++++ build/maestro-arduino/_new/CMakeLists.txt	2025-04-17 18:22:01
 @@ -0,0 +1,10 @@
 +set(srcs 
 +    "PololuMaestro.cpp")
 +
 +set(requires 
-+    "arduino"
++    "arduino")
 +
 +idf_component_register(
 +    SRCS "${srcs}"
 +    INCLUDE_DIRS "."
 +    REQUIRES "${requires}")
+diff -Nruw --strip-trailing-cr --exclude=.git build/maestro-arduino/_org/PololuMaestro.cpp build/maestro-arduino/_new/PololuMaestro.cpp
+--- build/maestro-arduino/_org/PololuMaestro.cpp	2025-04-17 18:21:43
++++ build/maestro-arduino/_new/PololuMaestro.cpp	2025-04-17 18:22:01
+@@ -11,8 +11,14 @@
+   _deviceNumber = deviceNumber;
+   _resetPin = resetPin;
+   _CRCEnabled = CRCEnabled;
++  _waitTimeout = 1000;
+ }
+ 
++void Maestro::setTimeout(uint16_t new_timeout)
++{
++  _waitTimeout = new_timeout;
++}
++
+ void Maestro::reset()
+ {
+   if (_resetPin != noResetPin)
+@@ -91,7 +97,14 @@
+   write7BitData(channelNumber);
+   writeCRC();
+ 
+-  while (_stream->available() < 2);
++  unsigned long startTime = millis();
++  while (_stream->available() < 2)
++  {
++    if (millis() - startTime > _waitTimeout)
++    {
++      return 0;
++    }
++  }
+   uint8_t lowerByte = _stream->read();
+   uint8_t upperByte = _stream->read();
+   return (upperByte << 8) | (lowerByte & 0xFF);
+@@ -102,7 +115,14 @@
+   writeCommand(getMovingStateCommand);
+   writeCRC();
+ 
+-  while (_stream->available() < 1);
++  unsigned long startTime = millis();
++  while (_stream->available() < 1)
++  {
++    if (millis() - startTime > _waitTimeout)
++    {
++      return 0;
++    }
++  }
+   return _stream->read();
+ }
+ 
+@@ -111,7 +131,14 @@
+   writeCommand(getErrorsCommand);
+   writeCRC();
+ 
+-  while (_stream->available() < 2);
++  unsigned long startTime = millis();
++  while (_stream->available() < 2)
++  {
++    if (millis() - startTime > _waitTimeout)
++    {
++      return 0;
++    }
++  }
+   uint8_t lowerByte = _stream->read();
+   uint8_t upperByte = _stream->read();
+   return (upperByte << 8) | (lowerByte & 0xFF);
+@@ -122,7 +149,14 @@
+   writeCommand(getScriptStatusCommand);
+   writeCRC();
+ 
+-  while (_stream->available() < 1);
++  unsigned long startTime = millis();
++  while (_stream->available() < 1)
++  {
++    if (millis() - startTime > _waitTimeout)
++    {
++      return 0;
++    }
++  }
+   return _stream->read();
+ }
+ 
+diff -Nruw --strip-trailing-cr --exclude=.git build/maestro-arduino/_org/PololuMaestro.h build/maestro-arduino/_new/PololuMaestro.h
+--- build/maestro-arduino/_org/PololuMaestro.h	2025-04-17 18:21:43
++++ build/maestro-arduino/_new/PololuMaestro.h	2025-04-17 18:22:01
+@@ -24,6 +24,7 @@
+  * the MicroMaestro or MiniMaestro subclasses instead.
+  */
+ class Maestro
++
+ {
+   public:
+     /** \brief The default device number, used to construct a MicroMaestro or
+@@ -36,6 +37,17 @@
+      */
+     static const uint8_t noResetPin = 255;
+ 
++    /**
++     * @brief Sets the timeout duration for communication with the Maestro.
++     *
++     * @param new_timeout The timeout duration in milliseconds. A value of 0 disables the timeout.
++     *
++     * If the timeout is enabled and no valid communication occurs within the specified duration,
++     * the Maestro will stop responding. This can be used to detect communication issues or
++     * prevent the Maestro from continuing operations in case of a failure.
++     */
++    void setTimeout(uint16_t new_timeout);
++
+     /** \brief Resets the Maestro by toggling the \p resetPin, if a \p resetPin
+      * was given.
+      *
+@@ -275,6 +287,7 @@
+     bool _CRCEnabled;
+     uint8_t _CRCByte;
+     Stream *_stream;
++    uint16_t _waitTimeout;
+ };
+ 
+ class MicroMaestro : public Maestro

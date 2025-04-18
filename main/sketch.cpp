@@ -63,16 +63,12 @@ SingleDrive sabertoothSyRen(sabertoothSyRenDrive.GetMotor(1));
 /*
     Maestro Configuration
 */
-#include <PololuMaestro.h>
+#include "chopper/servo/Dispatch.h"
 
 // RX and TX on pin from PINOUT.h connected to opposite TX/RX on Maestro board
-// HardwareSerial maestroBodySerial(UART_MAESTRO_BODY);
-// HardwareSerial maestroDomeSerial(UART_MAESTRO_DOME);
-// EspSoftwareSerial::UART maestroBodySerial;
-// EspSoftwareSerial::UART maestroDomeSerial;
-
-// MiniMaestro maestroBody(maestroBodySerial);
-// MiniMaestro maestroDome(maestroDomeSerial);
+// ref: https://www.pololu.com/docs/0J40/5.g
+ServoDispatch maestroBody(UART_MAESTRO_BODY, Maestro::noResetPin, MAESTRO_BODY_ID, false);
+ServoDispatch maestroDome(UART_MAESTRO_DOME, Maestro::noResetPin, MAESTRO_DOME_ID, false);
 
 /*
     MP3 Configuration
@@ -88,7 +84,14 @@ ExtendedMP3Trigger mp3Trigger;
 // EspSoftwareSerial::UART openMVSerial;
 
 #include "chopper/core/Controllers.h"
-Controllers myControllers(&sabertoothDiff, &sabertoothSyRen, &mp3Trigger, &domeSensor);
+Controllers myControllers(
+    &sabertoothDiff, 
+    &sabertoothSyRen, 
+    &mp3Trigger, 
+    &domeSensor,
+    &maestroBody,
+    &maestroDome
+);
 
 // This callback gets called any time a new gamepad is connected.
 // Up to 4 gamepads can be connected at the same time.
@@ -215,14 +218,27 @@ void setupMaestro() {
     // Set the serial baud rate.
     UART_MAESTRO_BODY_INIT(MAESTRO_SERIAL_BAUD_RATE);
     UART_MAESTRO_DOME_INIT(MAESTRO_SERIAL_BAUD_RATE);
-    /* 
-        setTarget takes the channel number you want to control, and
-        the target position in units of 1/4 microseconds. A typical
-        RC hobby servo responds to pulses between 1 ms (4000) and 2
-        ms (8000). 
-    */
-    // Set the target of channel 0 to 1500 us, and wait 2 seconds.
-    //   maestro.setTarget(0, 6000);
+    // TODO: should all servers return to their home poistion on startup?
+
+    // ref: https://github.com/plerup/espsoftwareserial/blob/main/README.md
+    // set timeout for get commands which wait for 4 bytes of data 
+    // maestro-arduio library only blocks for 2 bytes, but we double to 4 it to be safe
+    // assume 8 bit, even parity, 2 stop bits = 11 bits per byte (worst case)
+    uint16_t timeout = ceil(4.0 / ceil(MAESTRO_SERIAL_BAUD_RATE / 11.0 / 1000.0));
+    Console.printf("Maestro timeout: %u %u %u\n", timeout, MAESTRO_SERIAL_BAUD_RATE, ceil(MAESTRO_SERIAL_BAUD_RATE / 11 / 1000));
+
+    // Ensure timeout is less than CONFIG_ESP_TASK_WDT_TIMEOUT_S by at least 100
+    if (timeout >= CONFIG_ESP_TASK_WDT_TIMEOUT_S * 1000 - 100) {
+        Console.printf("Maestro timeout exceeds TASK WATCHDOG changing: %u -> %u\n", timeout, CONFIG_ESP_TASK_WDT_TIMEOUT_S * 1000 - 100);
+        timeout = CONFIG_ESP_TASK_WDT_TIMEOUT_S * 1000 - 100;
+    }
+
+    maestroBody.setTimeout(timeout);
+    maestroDome.setTimeout(timeout);
+
+    // Disable PWM signals to servos
+    maestroBody.disableAll();
+    maestroDome.disableAll();
 }
 
 void setupMp3Trigger() {
@@ -254,7 +270,7 @@ void setup() {
     Serial.begin(115200);
     setupBluepad32();
     setupSabertooth();
-    //setupMaestro();
+    setupMaestro();
     setupMp3Trigger();
     setupOpenMV();
     setupLeds();
