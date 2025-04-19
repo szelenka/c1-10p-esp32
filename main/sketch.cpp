@@ -293,6 +293,7 @@ void loop() {
     // https://stackoverflow.com/questions/66278271/task-watchdog-got-triggered-the-tasks-did-not-reset-the-watchdog-in-time
 
     //     vTaskDelay(1);
+    digitalWrite(PIN_LED_FRONT, HIGH);
     delay(150);
     // vTaskDelay(pdMS_TO_TICKS(10));
 }
