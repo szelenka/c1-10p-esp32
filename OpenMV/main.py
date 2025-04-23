@@ -41,20 +41,20 @@ group = AnimationGroup(
     Pulse(
         pixel_eye_right,
         speed=0.01, # duration until next initenxity increase (in seconds)
-        color=calculate_intensity(BLUE, 0.1),
+        color=BLUE,
         period=5,
         breath=0,
         min_intensity=0.01,
-        max_intensity=0.5
+        max_intensity=0.1
     ),
     Pulse(
         pixel_eye_left,
         speed=0.01, # duration until next initenxity increase (in seconds)
-        color=calculate_intensity(BLUE, 0.1),
+        color=BLUE,
         period=5,
         breath=0,
         min_intensity=0.01,
-        max_intensity=0.5
+        max_intensity=0.1
     )
 )
 
