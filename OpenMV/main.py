@@ -45,7 +45,7 @@ group = AnimationGroup(
         period=5,
         breath=0,
         min_intensity=0.01,
-        max_intensity=0.1
+        max_intensity=0.3
     ),
     Pulse(
         pixel_eye_left,
@@ -54,7 +54,7 @@ group = AnimationGroup(
         period=5,
         breath=0,
         min_intensity=0.01,
-        max_intensity=0.1
+        max_intensity=0.3
     )
 )
 
