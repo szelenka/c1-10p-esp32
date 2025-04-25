@@ -299,6 +299,6 @@ void loop() {
 
     //     vTaskDelay(1);
     analogWrite(PIN_LED_FRONT, brightness);
-    delay(30);
+    delay(150);
     // vTaskDelay(pdMS_TO_TICKS(10));
 }
