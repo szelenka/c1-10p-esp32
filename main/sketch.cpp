@@ -266,7 +266,6 @@ void setup() {
     // Set system clock to 0
     // struct timeval raw_time = {};
     // int err = settimeofday(&raw_time, NULL);
-
     Serial.begin(115200);
     setupBluepad32();
     setupSabertooth();
@@ -276,6 +275,8 @@ void setup() {
     setupLeds();
 }
 
+int brightness = 0;  // how bright the LED is
+int fadeAmount = 5;  // how many points to fade the LED by
 // Arduino loop function. Runs in CPU 1.
 void loop() {
     // This call fetches all the controllers' data.
@@ -286,6 +287,10 @@ void loop() {
         myControllers.processInputs();
     }
 
+    brightness = brightness + fadeAmount;
+    if (brightness <= 0 || brightness >= 255) {
+      fadeAmount = -fadeAmount;
+    }
     // The main loop must have some kind of "yield to lower priority task" event.
     // Otherwise, the watchdog will get triggered.
     // If your main loop doesn't have one, just add a simple `vTaskDelay(1)`.
@@ -293,7 +298,7 @@ void loop() {
     // https://stackoverflow.com/questions/66278271/task-watchdog-got-triggered-the-tasks-did-not-reset-the-watchdog-in-time
 
     //     vTaskDelay(1);
-    digitalWrite(PIN_LED_FRONT, HIGH);
-    delay(150);
+    analogWrite(PIN_LED_FRONT, brightness);
+    delay(30);
     // vTaskDelay(pdMS_TO_TICKS(10));
 }
