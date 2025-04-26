@@ -25,10 +25,10 @@
 
 
 // Debug statements
-#define DEBUG_SOUND                     true
+#define DEBUG_SOUND                     false
 #define DEBUG_DRIVE_MOTOR               false
-#define DEBUG_DOME_MOTOR                true
-#define DEBUG_MOTORS                   false
+#define DEBUG_DOME_MOTOR                false
+#define DEBUG_MOTORS                    false
 #define DEBUG_CONTROLLER                true
 
 #include <Bluepad32.h>
@@ -40,12 +40,12 @@
 #define DEBUG_FLUSH() Console.flush()
 
 #if DEBUG_DRIVE_MOTOR
-#define DRIVE_DEBUG_PRINTLN(s) DEBUG_PRINTLN(s);
-#define DRIVE_DEBUG_PRINT(s) DEBUG_PRINT(s);
-#define DRIVE_DEBUG_PRINTF(...) DEBUG_PRINTF(__VA_ARGS__);
-#define DRIVE_DEBUG_PRINTLN_HEX(s) DEBUG_PRINTLN_HEX(s);
-#define DRIVE_DEBUG_PRINT_HEX(s) DEBUG_PRINT_HEX(s);
-#define DRIVE_DEBUG_FLUSH() DEBUG_FLUSH();
+#define DEBUG_DRIVE_PRINTLN(s) DEBUG_PRINTLN(s);
+#define DEBUG_DRIVE_PRINT(s) DEBUG_PRINT(s);
+#define DEBUG_DRIVE_PRINTF(...) DEBUG_PRINTF(__VA_ARGS__);
+#define DEBUG_DRIVE_PRINTLN_HEX(s) DEBUG_PRINTLN_HEX(s);
+#define DEBUG_DRIVE_PRINT_HEX(s) DEBUG_PRINT_HEX(s);
+#define DEBUG_DRIVE_FLUSH() DEBUG_FLUSH();
 #else
 #define DEBUG_DRIVE_PRINTLN(s)
 #define DEBUG_DRIVE_PRINT(s)

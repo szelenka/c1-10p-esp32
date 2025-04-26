@@ -289,7 +289,7 @@ private:
 
     void processDrive(ControllerDecoratorPtr ctl) 
     {
-        DEBUG_DRIVE_PRINTF(C110P_DRIVE_SYSTEM + " ");
+        DEBUG_DRIVE_PRINTF("%d ", C110P_DRIVE_SYSTEM);
         if (C110P_DRIVE_SYSTEM == C110P_DRIVE_SYSTEM_ARCADE)
         {
             _sabertoothDiff->ArcadeDrive(ctl->axisXslew(), ctl->axisYslew());
