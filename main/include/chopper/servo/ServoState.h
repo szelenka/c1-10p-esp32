@@ -26,7 +26,7 @@ public:
         }
     }
 
-    void setRange(uint16_t startPulse, uint16_t finishPulse) {
+    void setRange(uint16_t startPulse, uint16_t finishPulse, uint16_t neutralPulse) {
         if (startPulse == 0 || finishPulse == 0) {
             DEBUG_MAESTRO_PRINTF("Start or finish pulse is zero: %d, %d\n", startPulse, finishPulse);
             return;
@@ -37,6 +37,7 @@ public:
         }
         _startPulse = startPulse;
         _finishPulse = finishPulse;
+        _currentPosition = neutralPulse;
     }
 
     void disable() {
@@ -46,11 +47,19 @@ public:
 
     void enable(uint16_t position) {
         _isDisabled = false;
-        _currentPosition = position;
+        if (position > 0)
+        {
+            // zero is not a valid position, only set when position is greater than zero
+            _currentPosition = position;
+        }
     }
 
     void setTargets(uint16_t startPosition, uint16_t finishPosition, uint32_t duration)
     {
+        if (startPosition == _startPosition && finishPosition == _finishPosition) {
+            // don't re-compute the startTime/finishTime if the positions are the same
+            return;
+        }
         uint32_t startTime = millis();
         setTargets(startPosition, finishPosition, startTime, startTime + duration);
     }
@@ -64,6 +73,7 @@ public:
         _finishPosition = finishPosition;
         _startTime = startTime;
         _finishTime = finishTime;
+        _totalDuration = finishTime - startTime;
     }
 
     uint16_t getNextPulse(uint32_t currentTime)
@@ -73,25 +83,27 @@ public:
             return 0;
         }
         uint16_t newPosition = _currentPosition;
+        float progress = 1.0f;
+        float easingFactor = 1.0f;
+        int16_t distanceToMove = 0;
         if (currentTime >= _startTime && currentTime <= _finishTime)
         {
             // Update the target position based on the time elapsed
             uint32_t elapsedDuration = currentTime - _startTime;
-            uint32_t totalDuration = _finishTime - _startTime;
-            float progress = static_cast<float>(elapsedDuration) / totalDuration;
-            float easingFactor = _easingMethod(progress); 
-            uint16_t distanceToMove = (_finishPosition - _currentPosition) * easingFactor;
+            progress = static_cast<float>(elapsedDuration) / _totalDuration;
+            easingFactor = _easingMethod(progress); 
+            distanceToMove = (_finishPosition - _currentPosition) * easingFactor;
             newPosition = _startPosition + distanceToMove;
-            DEBUG_MAESTRO_PRINTF("progress: %d , easingFactor: %f , distanceToMove: %d , newPosition: %d\n", 
-                progress, easingFactor, distanceToMove, newPosition);
-            _currentPosition = newPosition;
         }
         else if (currentTime > _finishTime)
         {
             // If the time is past the finish time, set the position to the finish position
+            distanceToMove = _finishPosition - _currentPosition;
             newPosition = _finishPosition;
-            _currentPosition = newPosition;
         }
+        DEBUG_MAESTRO_PRINTF("progress: %.3f , easingFactor: %.3f , distanceToMove: %d , newPosition: %d\n", 
+            progress, easingFactor, distanceToMove, newPosition);
+        _currentPosition = newPosition;
         return newPosition;
     }
 
@@ -101,6 +113,7 @@ private:
     uint16_t _finishPulse;
     uint32_t _startTime;
     uint32_t _finishTime;
+    uint32_t _totalDuration;
     uint16_t _startPosition;
     uint16_t _currentPosition; 
     uint16_t _finishPosition;

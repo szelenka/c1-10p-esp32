@@ -29,7 +29,7 @@
 // Debug statements
 #define DEBUG_SOUND                     false
 #define DEBUG_DRIVE_MOTOR               false
-#define DEBUG_DOME_MOTOR                true
+#define DEBUG_DOME_MOTOR                false
 #define DEBUG_MOTORS                    false
 #define DEBUG_MAESTRO                   true
 #define DEBUG_CONTROLLER                true

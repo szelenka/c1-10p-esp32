@@ -20,22 +20,22 @@ public:
         {
             switch(i)
             {
-                case MAESTRO_BODY_ARM:
-                    _servoStates[i].setRange(MAESTRO_BODY_ARM_MIN, MAESTRO_BODY_ARM_MAX);
-                    _servoStates[i].setEasingMethod(Easing::LinearInterpolation);
+                case MAESTRO_UTILITY_ARM:
+                    _servoStates[i].setRange(MAESTRO_UTILITY_ARM_MIN, MAESTRO_UTILITY_ARM_MAX, MAESTRO_UTILITY_ARM_NEUTRAL);
+                    _servoStates[i].setEasingMethod(Easing::SineEaseInOut);
                     break;
-                case MAESTRO_BODY_NOD_A:
-                    _servoStates[i].setRange(MAESTRO_BODY_NOD_A_MIN, MAESTRO_BODY_NOD_A_MAX);
-                    _servoStates[i].setEasingMethod(Easing::LinearInterpolation);
-                    break;
-                case MAESTRO_BODY_NOD_B:
-                    _servoStates[i].setRange(MAESTRO_BODY_NOD_B_MIN, MAESTRO_BODY_NOD_B_MAX);
-                    _servoStates[i].setEasingMethod(Easing::LinearInterpolation);
-                    break;
-                case MAESTRO_BODY_NOD_C:
-                    _servoStates[i].setRange(MAESTRO_BODY_NOD_C_MIN, MAESTRO_BODY_NOD_C_MAX);
-                    _servoStates[i].setEasingMethod(Easing::LinearInterpolation);
-                    break;
+                // case MAESTRO_BODY_NECK_A:
+                //     _servoStates[i].setRange(MAESTRO_BODY_NECK_A_MIN, MAESTRO_BODY_NECK_A_MAX);
+                //     _servoStates[i].setEasingMethod(Easing::LinearInterpolation);
+                //     break;
+                // case MAESTRO_BODY_NECK_B:
+                //     _servoStates[i].setRange(MAESTRO_BODY_NECK_B_MIN, MAESTRO_BODY_NECK_B_MAX);
+                //     _servoStates[i].setEasingMethod(Easing::LinearInterpolation);
+                //     break;
+                // case MAESTRO_BODY_NECK_C:
+                //     _servoStates[i].setRange(MAESTRO_BODY_NECK_C_MIN, MAESTRO_BODY_NECK_C_MAX);
+                //     _servoStates[i].setEasingMethod(Easing::LinearInterpolation);
+                //     break;
                 default:
                     break;
             }
@@ -85,29 +85,21 @@ public:
         animate();
     }
 
-    void setNextPosition(uint8_t channel, uint16_t target, uint16_t targetMax,  uint16_t speed, uint16_t endPosition)
-    {
-        uint16_t position = MiniMaestro::getPosition(channel);
-        uint16_t newPosition = 0; 
-        if (position != 0)
-        {
-            newPosition = mapValue(newPosition, 0, targetMax, position - speed, position + speed);
-        }
-        _channelTargets[channel] = newPosition;
-    }
-
-    std::function<int(int, int, int, int, int)> mapValue = [](int x, int in_min, int in_max, int out_min, int out_max) {
-        return min(out_max, max(out_min, (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min));
-    };
-
     void setTimedMovement(uint8_t channel, uint16_t startPosition, uint16_t finishPosition, uint16_t duration)
     {
         uint16_t currentPosition = MiniMaestro::getPosition(channel);
-        _servoStates[channel].setTargets(
-            startPosition, 
-            finishPosition, 
-            duration);
-        _servoStates[channel].enable(currentPosition);
+        if (currentPosition == finishPosition)
+        {
+            _servoStates[channel].disable();
+        }
+        else
+        {
+            _servoStates[channel].setTargets(
+                startPosition, 
+                finishPosition, 
+                duration);
+            _servoStates[channel].enable(currentPosition);
+        }
     }
 
 
