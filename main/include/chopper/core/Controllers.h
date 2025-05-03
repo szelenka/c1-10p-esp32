@@ -56,14 +56,19 @@ public:
             DEBUG_CONTROLLER_PRINTF("Invalid MAC address: %s\n", macAddress.c_str());
             return;
         }
+        ctl->setPlayerLEDs(static_cast<int>(*optRole));
+        ctl->playDualRumble(10, 1250, 0x80, 0x40);
         if (_ctls[*optRole] != nullptr)
         {
-            DEBUG_CONTROLLER_PRINTF("Controller already exists for role: %d\n", *optRole);
+            DEBUG_CONTROLLER_PRINTF("Controller already exists for role: %d\n", optRole);
             return;
         }
         ControllerProperties properties = ctl->getProperties();
-        DEBUG_CONTROLLER_PRINTF("Controller model: %s, VID=0x%04x, PID=0x%04x, index=%d\n", ctl->getModelName(), properties.vendor_id,
-                        properties.product_id, *optRole);
+        DEBUG_CONTROLLER_PRINTF("Controller model: %s, VID=0x%04x, PID=0x%04x, role=%d\n", 
+            ctl->getModelName().c_str(), 
+            properties.vendor_id,
+            properties.product_id, 
+            optRole);
         _ctls[*optRole] = new ControllerDecorator(ctl);
         adjustController(_ctls[*optRole], *optRole);
     }

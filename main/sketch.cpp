@@ -113,20 +113,10 @@ void setupBluepad32() {
     // By default, if the "startScanning" parameter is not passed, it will do the "start scanning".
     // Notice that "Start scanning" will try to auto-connect to devices that are compatible with Bluepad32.
     // E.g: if a Gamepad, keyboard or mouse are detected, it will try to auto connect to them.
-    bool startScanning = true;
-    BP32.setup(&onConnectedController, &onDisconnectedController, startScanning);
+    BP32.setup(&onConnectedController, &onDisconnectedController, true);
 
     // Notice that scanning can be stopped / started at any time by calling:
     // BP32.enableNewBluetoothConnections(enabled);
-
-    // "forgetBluetoothKeys()" should be called when the user performs
-    // a "device factory reset", or similar.
-    // Calling "forgetBluetoothKeys" in setup() just as an example.
-    // Forgetting Bluetooth keys prevents "paired" gamepads to reconnect.
-    // But it might also fix some connection / re-connection issues.
-    if (CONTROLLER_FORGET_MAC_ADDR) {
-        BP32.forgetBluetoothKeys();
-    }
 
     // Enables mouse / touchpad support for gamepads that support them.
     // When enabled, controllers like DualSense and DualShock4 generate two connected devices:
