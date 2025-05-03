@@ -11,6 +11,7 @@
 #include "include/SettingsSystem.h"
 #include "include/SettingsUser.h"
 #include "include/SettingsBluetooth.h"
+#include "include/settings/ServoPinMap.h"
 
 //
 // README FIRST, README FIRST, README FIRST
@@ -67,8 +68,8 @@ SingleDrive sabertoothSyRen(sabertoothSyRenDrive.GetMotor(1));
 
 // RX and TX on pin from PINOUT.h connected to opposite TX/RX on Maestro board
 // ref: https://www.pololu.com/docs/0J40/5.g
-ServoDispatch maestroBody(UART_MAESTRO_BODY, Maestro::noResetPin, MAESTRO_BODY_ID, false);
-ServoDispatch maestroDome(UART_MAESTRO_DOME, Maestro::noResetPin, MAESTRO_DOME_ID, false);
+ServoDispatch maestroBody(UART_MAESTRO_BODY, Maestro::noResetPin, MAESTRO_BODY_ID, false, MAESTRO_BODY_CHANNELS);
+ServoDispatch maestroDome(UART_MAESTRO_DOME, Maestro::noResetPin, MAESTRO_DOME_ID, false, MAESTRO_DOME_CHANNELS);
 
 /*
     MP3 Configuration

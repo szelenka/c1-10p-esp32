@@ -162,26 +162,23 @@ public:
             // Move full range defined on Maestro in 1500ms
             // TODO: handle press for half the time, release for a quarter, then press again 
             // .. it should start moving where it left off after the release finished
-            int mappedValue = mapValue(ctlDrive->b().pressedDuration(), 0, 1500, 0, 254);
-            DEBUG_MAESTRO_PRINTLN("Body Arm (open): " + String(mappedValue));
-            _maestroBody->setTargetMiniSSC(MAESTRO_BODY_ARM, mappedValue);
+            _maestroBody->setNextPosition(
+                MAESTRO_BODY_ARM, 
+                ctlDrive->b().pressedDuration(), 
+                1500,
+                0, 
+                MAESTRO_BODY_ARM_MAX);
         }
         else if (isCtlDriveValid && !ctlDrive->b())
         {
             // Toggle Body Arm out/in based on how long the button has been held
             // Move full range defined on Maestro in 1500ms
-            uint16_t position = _maestroBody->getPosition(MAESTRO_BODY_ARM);
-            if (position != 0)
-            {
-                // TODO: how to verify it's at resting position? convert PWM to position 0 - 254?
-                int mappedValue = mapValue(ctlDrive->b().releasedDuration(), 0, 1500, 254, 0);
-                DEBUG_MAESTRO_PRINTLN("Body Arm (close): " + String(mappedValue));
-                _maestroBody->setTargetMiniSSC(MAESTRO_BODY_ARM, mappedValue);
-            }
-            else
-            {
-                _maestroBody->disable(MAESTRO_BODY_ARM);
-            }
+            _maestroBody->setNextPosition(
+                MAESTRO_BODY_ARM, 
+                ctlDrive->b().releasedDuration(), 
+                1500,
+                0, 
+                MAESTRO_BODY_ARM_MIN);
         }
     
         if (isCtlDriveValid && ctlDrive->x())
@@ -302,6 +299,10 @@ public:
             processDrive(ctlDrive);
         }
     
+        // Process Servo motions
+        maestroBody.animate();
+        maestroDome.animate();
+
         // We need to update the state of the MP3Trigger each clock cycle
         // ref: https://learn.sparkfun.com/tutorials/mp3-trigger-hookup-guide-v24
         _mp3Trigger->update();
