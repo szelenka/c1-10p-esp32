@@ -47,6 +47,7 @@ int app_main(void) {
 
     if (CONTROLLER_FORGET_MAC_ADDR)
     {
+        uni_bt_allowlist_remove_all();
         uni_bt_del_keys_safe();
     }
 
@@ -67,6 +68,7 @@ int app_main(void) {
     // Finally, enable the allowlist.
     // Similar to the "add_addr", its value gets stored in the NVS.
     uni_bt_allowlist_set_enabled(true);
+    uni_bt_allowlist_list();
 
     // Does not return.
     btstack_run_loop_execute();
