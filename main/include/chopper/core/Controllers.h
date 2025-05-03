@@ -168,22 +168,22 @@ public:
             // TODO: handle press for half the time, release for a quarter, then press again 
             // .. it should start moving where it left off after the release finished
             _maestroBody->setNextPosition(
-                MAESTRO_BODY_ARM, 
+                MAESTRO_UTILITY_ARM, 
                 ctlDrive->b().pressedDuration(), 
                 1500,
                 0, 
-                MAESTRO_BODY_ARM_MAX);
+                MAESTRO_UTILITY_ARM_MAX);
         }
         else if (isCtlDriveValid && !ctlDrive->b())
         {
             // Toggle Body Arm out/in based on how long the button has been held
             // Move full range defined on Maestro in 1500ms
             _maestroBody->setNextPosition(
-                MAESTRO_BODY_ARM, 
+                MAESTRO_UTILITY_ARM, 
                 ctlDrive->b().releasedDuration(), 
                 1500,
                 0, 
-                MAESTRO_BODY_ARM_MIN);
+                MAESTRO_UTILITY_ARM_MIN);
         }
     
         if (isCtlDriveValid && ctlDrive->x())
