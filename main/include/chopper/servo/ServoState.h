@@ -5,7 +5,7 @@
 #include "include/chopper/servo/Easing.h"
 #include "include/chopper/filter/SlewRateLimiter.h"
 #include "SettingsSystem.h"
-#include "include/Timer.h"
+#include "include/chopper/Timer.h"
 
 class ServoState {
 public:

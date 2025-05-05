@@ -6,7 +6,7 @@
 // https://www.pololu.com/docs/0J40/5.f
 #include "include/chopper/servo/ServoState.h"
 #include "include/settings/ServoPWM.h"
-#include "include/Timer.h"
+#include "include/chopper/Timer.h"
 
 class ServoDispatch : public MiniMaestro
 {

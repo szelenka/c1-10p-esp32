@@ -256,6 +256,12 @@ public:
         if (isCtlDomeValid && ctlDome->x())
         {
             DEBUG_CONTROLLER_PRINTLN("B");
+            //Increse speed
+            _sabertoothDiff->SetSpeedLimit(C110P_DRIVE_MAXIMUM_SPEED + 0.15);
+        }
+        else
+        {
+            _sabertoothDiff->SetSpeedLimit(C110P_DRIVE_MAXIMUM_SPEED);
         }
         
         if (isCtlDomeValid && ctlDome->y())
