@@ -3,6 +3,7 @@
 #include <Bluepad32.h>
 #include <ArduinoController.h>
 #include "chopper/filter/SlewRateLimiter.h"
+#include "chopper/core/ButtonState.h"
 
 class ControllerDecorator {
 public:
@@ -50,16 +51,20 @@ public:
     uint16_t buttons() const { return m_ctl->buttons(); }
     uint16_t miscButtons() const { return m_ctl->miscButtons(); }
 
-    unsigned long a() const { return handleButtonState("a", m_ctl->a()); }
-    unsigned long b() const { return handleButtonState("b", m_ctl->b()); }
-    unsigned long x() const { return handleButtonState("x", m_ctl->x()); }
-    unsigned long y() const { return handleButtonState("y", m_ctl->y()); }
-    unsigned long l1() const { return handleButtonState("l1", m_ctl->l1()); }
-    unsigned long l2() const { return handleButtonState("l2", m_ctl->l2()); }
-    unsigned long r1() const { return handleButtonState("r1", m_ctl->r1()); }
-    unsigned long r2() const { return handleButtonState("r2", m_ctl->r2()); }
-    unsigned long thumbL() const { return handleButtonState("thumbL", m_ctl->thumbL()); }
-    unsigned long thumbR() const { return handleButtonState("thumbR", m_ctl->thumbR()); }
+    ButtonState a() const { return handleButtonState("a", m_ctl->a()); }
+    ButtonState b() const { return handleButtonState("b", m_ctl->b()); }
+    ButtonState x() const { return handleButtonState("x", m_ctl->x()); }
+    ButtonState y() const { return handleButtonState("y", m_ctl->y()); }
+    ButtonState l1() const { return handleButtonState("l1", m_ctl->l1()); }
+    ButtonState l2() const { return handleButtonState("l2", m_ctl->l2()); }
+    ButtonState r1() const { return handleButtonState("r1", m_ctl->r1()); }
+    ButtonState r2() const { return handleButtonState("r2", m_ctl->r2()); }
+    ButtonState thumbL() const { return handleButtonState("thumbL", m_ctl->thumbL()); }
+    ButtonState thumbR() const { return handleButtonState("thumbR", m_ctl->thumbR()); }
+
+    ButtonState getButtonState(const std::string& buttonName) const {
+        return buttonStates[buttonName];
+    }
 
     // Misc buttons
     unsigned long miscSystem() const { return handleButtonState("miscSystem", m_ctl->miscSystem()); }
@@ -260,7 +265,7 @@ private:
 
     std::string m_macAddress;
 
-    mutable std::unordered_map<std::string, unsigned long> buttonPressStartTimes;
+    mutable std::unordered_map<std::string, ButtonState> buttonStates;
 
     /**
      * @brief Handles the state of a button and calculates the duration it has been pressed.
@@ -273,17 +278,12 @@ private:
      * @param isPressed A boolean indicating whether the button is currently pressed (true) or released (false).
      * @return The duration in milliseconds that the button has been pressed. Returns 0 if the button is released.
      */
-    unsigned long handleButtonState(const std::string& buttonName, bool isPressed) const {
-        unsigned long currentMillis = millis();
-        if (isPressed) {
-            if (buttonPressStartTimes.find(buttonName) == buttonPressStartTimes.end()) {
-                buttonPressStartTimes[buttonName] = currentMillis;
-            }
-            return currentMillis - buttonPressStartTimes[buttonName];
-        } else {
-            buttonPressStartTimes.erase(buttonName);
-            return 0;
+    ButtonState handleButtonState(const std::string& buttonName, bool isPressed) const {
+        if (buttonStates.find(buttonName) == buttonStates.end()) {
+            buttonStates.emplace(buttonName, ButtonState());
         }
+        buttonStates[buttonName].updateState(isPressed);
+        return buttonStates[buttonName];
     }
 };
 

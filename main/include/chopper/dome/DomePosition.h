@@ -2,6 +2,7 @@
 
 // #include "ReelTwo.h"
 #include "chopper/dome/DomePositionProvider.h"
+#include "include/Timer.h"
 
 class DomePosition
 {
@@ -39,7 +40,7 @@ public:
     void setDomeMode(Mode mode)
     {
         fDomeMode = mode;
-        fLastChangeMS = millis();
+        fLastChangeMS = Timer::GetFPGATimestamp();
     }
 
     void setDomeDefaultMode(Mode mode)
@@ -211,7 +212,7 @@ public:
                 fRelativeDegrees += shortestDistance(fLastAngle, angle);
             else
                 fRelativeDegrees -= shortestDistance(angle, fLastAngle);
-            fLastChangeMS = millis();
+            fLastChangeMS = Timer::GetFPGATimestamp();
             fLastAngle = angle;
         }
         return angle;
@@ -231,7 +232,7 @@ public:
 
     void resetWatchdog()
     {
-        fLastChangeMS = millis();
+        fLastChangeMS = Timer::GetFPGATimestamp();
     }
 
     void setTimeout(uint8_t timeout)
@@ -241,7 +242,7 @@ public:
 
     bool isTimeout()
     {
-        return (ready() && fLastAngle != ~0u) ? uint32_t(fTimeout)*1000 < millis() - fLastChangeMS : true;
+        return (ready() && fLastAngle != ~0u) ? uint32_t(fTimeout)*1000 < Timer::GetFPGATimestamp() - fLastChangeMS : true;
     }
 
     unsigned getHomeRelativeDomePosition()

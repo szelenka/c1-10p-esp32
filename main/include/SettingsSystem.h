@@ -8,6 +8,8 @@
 
 // Maestro Settings
 #define MAESTRO_SERIAL_BAUD_RATE        9600
+#define MAESTRO_BODY_ID                 12
+#define MAESTRO_DOME_ID                 13
 
 // OpemMV Settings
 // TODO: is this fast enough for images?
@@ -29,6 +31,7 @@
 #define DEBUG_DRIVE_MOTOR               false
 #define DEBUG_DOME_MOTOR                false
 #define DEBUG_MOTORS                    false
+#define DEBUG_MAESTRO                   true
 #define DEBUG_CONTROLLER                true
 
 #include <Bluepad32.h>
@@ -87,6 +90,21 @@
 #define DEBUG_MOTOR_FLUSH()
 #endif
 
+#if DEBUG_MAESTRO
+#define DEBUG_MAESTRO_PRINTLN(s) DEBUG_PRINTLN(s);
+#define DEBUG_MAESTRO_PRINT(s) DEBUG_PRINT(s);
+#define DEBUG_MAESTRO_PRINTF(...) DEBUG_PRINTF(__VA_ARGS__);
+#define DEBUG_MAESTRO_PRINTLN_HEX(s) DEBUG_PRINTLN_HEX(s,HEX);
+#define DEBUG_MAESTRO_PRINT_HEX(s) DEBUG_PRINT_HEX(s,HEX);
+#define DEBUG_MAESTRO_FLUSH() DEBUG_FLUSH();
+#else
+#define DEBUG_MAESTRO_PRINTLN(s)
+#define DEBUG_MAESTRO_PRINT(s)
+#define DEBUG_MAESTRO_PRINTF(...)
+#define DEBUG_MAESTRO_PRINTLN_HEX(s)
+#define DEBUG_MAESTRO_PRINT_HEX(s)
+#define DEBUG_MAESTRO_FLUSH()
+#endif
 
 #if DEBUG_CONTROLLER
 #define DEBUG_CONTROLLER_PRINTLN(s) DEBUG_PRINTLN(s);
@@ -94,7 +112,7 @@
 #define DEBUG_CONTROLLER_PRINTF(...) DEBUG_PRINTF(__VA_ARGS__);
 #define DEBUG_CONTROLLER_PRINTLN_HEX(s) DEBUG_PRINTLN_HEX(s,HEX);
 #define DEBUG_CONTROLLER_PRINT_HEX(s) DEBUG_PRINT_HEX(s,HEX);
-#define DEBUG_CONTROLLER_FLUSH()  DEBUG_FLUSH();
+#define DEBUG_CONTROLLER_FLUSH() DEBUG_FLUSH();
 #else
 #define DEBUG_CONTROLLER_PRINTLN(s)
 #define DEBUG_CONTROLLER_PRINT(s)
