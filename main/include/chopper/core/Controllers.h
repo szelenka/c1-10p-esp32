@@ -164,24 +164,27 @@ public:
         {
             DEBUG_CONTROLLER_PRINTLN("Dpad Down");
             // Toggle Body Arm out/in based on how long the button has been held
-            // Move full range defined on Maestro in 1500ms
+            // Move full range defined on Maestro in 800ms
             // TODO: handle press for half the time, release for a quarter, then press again 
             // .. it should start moving where it left off after the release finished
             _maestroBody->setTimedMovement(
                 MAESTRO_UTILITY_ARM, 
                 MAESTRO_UTILITY_ARM_NEUTRAL, 
                 MAESTRO_UTILITY_ARM_MAX, 
-                1500);
+                ctlDrive->getButtonState("b").lastPressTime(),
+                800
+            );
         }
         else if (isCtlDriveValid && !ctlDrive->b())
         {
             // Toggle Body Arm out/in based on how long the button has been held
-            // Move full range defined on Maestro in 1500ms
+            // Move full range defined on Maestro in 800ms
             _maestroBody->setTimedMovement(
                 MAESTRO_UTILITY_ARM, 
                 MAESTRO_UTILITY_ARM_MAX, 
                 MAESTRO_UTILITY_ARM_NEUTRAL,
-                1500);
+                ctlDrive->getButtonState("b").lastReleaseTime(),
+                800);
         }
     
         if (isCtlDriveValid && ctlDrive->x())
@@ -215,11 +218,11 @@ public:
         // handle dome spin
         if (isCtlDriveValid && isCtlDomeValid)
         {
-            processDomeSpin(ctlDrive->r2() > 0, ctlDome->r2() > 0);
+            processDomeSpin(ctlDrive->r2(), ctlDome->r2());
         }
-            
-        // }
-        // if (isCtlDriveValid && ctlDrive->r2()) {
+        
+        // if (isCtlDriveValid && ctlDrive->r2())
+        // {
         //     DEBUG_CONTROLLER_PRINTLN("ZL");
         // }
     
@@ -276,7 +279,8 @@ public:
             // Raise Head down
         }
     
-        // if (isCtlDomeValid && ctlDome->r2()) {
+        // if (isCtlDomeValid && ctlDome->r2())
+        // {
         //     DEBUG_CONTROLLER_PRINTLN("ZR");
         // }
     
@@ -302,7 +306,7 @@ public:
             processDrive(ctlDrive);
         }
     
-        // Process Servo motions
+        // Process Servo motions all at once
         maestroBody.animate();
         maestroDome.animate();
 
@@ -398,10 +402,6 @@ private:
         }
         DEBUG_DOME_PRINTF("Dome Position: %4d\n", _domeSensor->getDomePosition());
     }
-
-    std::function<int(int, int, int, int, int)> mapValue = [](int x, int in_min, int in_max, int out_min, int out_max) {
-        return min(out_max, max(out_min, (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min));
-    };
 
     // Map to store ControllerRole to MAC Address
     std::unordered_map<std::string, ControllerRoles> _controllerMacAddresses;

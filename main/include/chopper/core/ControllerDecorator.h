@@ -62,6 +62,10 @@ public:
     ButtonState thumbL() const { return handleButtonState("thumbL", m_ctl->thumbL()); }
     ButtonState thumbR() const { return handleButtonState("thumbR", m_ctl->thumbR()); }
 
+    ButtonState getButtonState(const std::string& buttonName) const {
+        return buttonStates[buttonName];
+    }
+
     // Misc buttons
     unsigned long miscSystem() const { return handleButtonState("miscSystem", m_ctl->miscSystem()); }
     unsigned long miscSelect() const { return handleButtonState("miscSelect", m_ctl->miscSelect()); }

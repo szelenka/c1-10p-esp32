@@ -3,6 +3,7 @@
 
 #include <cstdint>
 #include <Bluepad32.h>
+#inclue "include/Timer.h"
 
 class ButtonState {
 public:
@@ -29,7 +30,7 @@ public:
     void updateState(bool button_down)
     {
 
-        unsigned long currentMillis = millis();
+        unsigned long currentMillis = Timer::GetFPGATimestamp();
         if (button_down)
         {
             if (!is_pressed)
@@ -55,28 +56,38 @@ public:
             last_release_time = currentMillis;
         }
     }
+
+    uint32_t lastPressTime() const
+    {
+        return last_press_time;
+    }
+
+    uint32_t lastReleaseTime() const
+    {
+        return last_release_time;
+    }
     
     uint32_t pressedDuration() const
     {
-        unsigned long currentMillis = millis();
+        unsigned long currentMillis = Timer::GetFPGATimestamp();
         return ((state_ & PRESSED) ? (currentMillis - last_press_time) : 0);
     }
 
     bool isPressedFor(uint32_t holdThreshold = 1000) const
     {
-        unsigned long currentMillis = millis();
+        unsigned long currentMillis = Timer::GetFPGATimestamp();
         return pressedDuration() >= holdThreshold;
     }
 
     uint32_t releasedDuration() const
     {
-        unsigned long currentMillis = millis();
+        unsigned long currentMillis = Timer::GetFPGATimestamp();
         return ((state_ & PRESSED) == 0 ? (currentMillis - last_release_time) : 0);
     }
 
     bool isReleasedFor(uint32_t releaseThreshold = 1000) const
     {
-        unsigned long currentMillis = millis();
+        unsigned long currentMillis = Timer::GetFPGATimestamp();
         return releasedDuration() >= releaseThreshold;
     }
 

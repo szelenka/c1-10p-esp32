@@ -82,5 +82,8 @@ bool Timer::IsRunning() const {
 }
 
 uint64_t Timer::GetFPGATimestamp() {
+  // TODO: 
+  // could replace with millis() or micros() if we want to use the Arduino
+  // clock instead of the system clock.
   return GetTime();
 }

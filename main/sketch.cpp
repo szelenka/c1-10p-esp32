@@ -47,10 +47,6 @@ DomePosition domeSensor = DomePosition(domeAnalogProvider);
 #include <SoftwareSerial.h>
 #include "chopper/drive/SabertoothDrive.h"
 
-// RX on no pin (unused), TX on pin from PINOUT.h connected to S1 bus
-// HardwareSerial sabertoothSerial(3);
-// EspSoftwareSerial::UART sabertoothSerial; 
-
 // Setup Sabertooth Driver for Feet
 #include "chopper/drive/DifferentialDriveSabertooth.h"
 SabertoothDrive sabertoothDiffDrive(SABERTOOTH_TANK_DRIVE_ID, UART_SABERTOOTH, 2);
@@ -194,17 +190,6 @@ void setupSabertooth() {
 
 }
 
-// void debugMaestroPosition(Maestro &maestro) {
-//     for (uint8_t i = 0; i < 12; i++)
-//     {
-//         uint16_t position = maestro.getPosition(i);
-//         Serial.print("Channel: ");
-//         Serial.print(i);
-//         Serial.print(" Position: ");
-//         Serial.println(position);
-//     }
-// }
-
 void setupMaestro() {
     // Set the serial baud rate.
     UART_MAESTRO_BODY_INIT(MAESTRO_SERIAL_BAUD_RATE);
@@ -216,11 +201,11 @@ void setupMaestro() {
     // maestro-arduio library only blocks for 2 bytes, but we double to 4 it to be safe
     // assume 8 bit, even parity, 2 stop bits = 11 bits per byte (worst case)
     uint16_t timeout = ceil(4.0 / ceil(MAESTRO_SERIAL_BAUD_RATE / 11.0 / 1000.0));
-    Console.printf("Maestro timeout: %u %u %u\n", timeout, MAESTRO_SERIAL_BAUD_RATE, ceil(MAESTRO_SERIAL_BAUD_RATE / 11 / 1000));
+    DEBUG_MAESTRO_PRINTF("Maestro timeout: %u %u %u\n", timeout, MAESTRO_SERIAL_BAUD_RATE, ceil(MAESTRO_SERIAL_BAUD_RATE / 11 / 1000));
 
     // Ensure timeout is less than CONFIG_ESP_TASK_WDT_TIMEOUT_S by at least 100
     if (timeout >= CONFIG_ESP_TASK_WDT_TIMEOUT_S * 1000 - 100) {
-        Console.printf("Maestro timeout exceeds TASK WATCHDOG changing: %u -> %u\n", timeout, CONFIG_ESP_TASK_WDT_TIMEOUT_S * 1000 - 100);
+        DEBUG_MAESTRO_PRINTF("Maestro timeout exceeds TASK WATCHDOG changing: %u -> %u\n", timeout, CONFIG_ESP_TASK_WDT_TIMEOUT_S * 1000 - 100);
         timeout = CONFIG_ESP_TASK_WDT_TIMEOUT_S * 1000 - 100;
     }
 
@@ -290,6 +275,6 @@ void loop() {
 
     //     vTaskDelay(1);
     analogWrite(PIN_LED_FRONT, brightness);
-    delay(150);
-    // vTaskDelay(pdMS_TO_TICKS(10));
+    // delay(150);
+    vTaskDelay(pdMS_TO_TICKS(10));
 }

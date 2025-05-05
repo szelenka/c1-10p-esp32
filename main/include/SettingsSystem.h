@@ -8,8 +8,8 @@
 
 // Maestro Settings
 #define MAESTRO_SERIAL_BAUD_RATE        9600
-#define MAESTRO_BODY_ID                 1
-#define MAESTRO_DOME_ID                 2
+#define MAESTRO_BODY_ID                 12
+#define MAESTRO_DOME_ID                 13
 
 // OpemMV Settings
 // TODO: is this fast enough for images?
