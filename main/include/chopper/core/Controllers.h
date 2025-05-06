@@ -257,7 +257,7 @@ public:
         {
             DEBUG_CONTROLLER_PRINTLN("B");
             //Increse speed
-            _sabertoothDiff->SetSpeedLimit(C110P_DRIVE_MAXIMUM_SPEED + 0.15);
+            _sabertoothDiff->SetSpeedLimit(C110P_DRIVE_MAXIMUM_SPEED + C110P_DRIVE_SPEED_BOOST);
         }
         else
         {

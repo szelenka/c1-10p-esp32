@@ -24,6 +24,7 @@
 
 // Top speed limiter - percentage 0.0 - 1.0
 #define C110P_DRIVE_MAXIMUM_SPEED       0.25f
+#define C110P_DRIVE_SPEED_BOOST         0.25f
 
 #define C110P_DRIVE_DEADBAND            0.05
 #define C110P_DRIVE_MOTOR_1_INVERTED   true
