@@ -3,7 +3,7 @@
 
 #include <cstdint>
 #include <Bluepad32.h>
-#inclue "include/Timer.h"
+#include "include/chopper/Timer.h"
 
 class ButtonState {
 public:
