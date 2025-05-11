@@ -26,7 +26,7 @@
 #define C110P_DRIVE_MAXIMUM_SPEED       0.25f
 #define C110P_DRIVE_SPEED_BOOST         0.25f
 
-#define C110P_DRIVE_DEADBAND            0.05
+#define C110P_DRIVE_DEADBAND            0.05f
 #define C110P_DRIVE_MOTOR_1_INVERTED   true
 #define C110P_DRIVE_MOTOR_2_INVERTED   false
 
@@ -51,23 +51,27 @@
 /*
     CONTROLLER settings
 */
-#define C110P_CONTROLLER_DRIVE_OFFSET_X       -30
-#define C110P_CONTROLLER_DRIVE_OFFSET_Y       0
+#define C110P_CONTROLLER_DRIVE_OFFSET_X             -30
+#define C110P_CONTROLLER_DRIVE_OFFSET_Y             0
+#define C110P_CONTROLLER_DRIVE_INVERT_X             true
+#define C110P_CONTROLLER_DRIVE_INVERT_Y             false
+#define C110P_CONTROLLER_DRIVE_SLEW_RATE_POSITIVE   3.00f
+#define C110P_CONTROLLER_DRIVE_SLEW_RATE_NEGATIVE   -C110P_CONTROLLER_DRIVE_SLEW_RATE_POSITIVE
+#define C110P_CONTROLLER_DRIVE_SCALE_MIN            CONTROLLER_JOYSTICK_MIN_OUTPUT
+#define C110P_CONTROLLER_DRIVE_SCALE_MAX            CONTROLLER_JOYSTICK_MAX_OUTPUT
 
+#define C110P_CONTROLLER_DOME_OFFSET_X               0
+#define C110P_CONTROLLER_DOME_OFFSET_Y               0
+#define C110P_CONTROLLER_DOME_INVERT_X              false
+#define C110P_CONTROLLER_DOME_INVERT_Y              true
+#define C110P_CONTROLLER_DOME_SLEW_RATE_POSITIVE    1.0f
+#define C110P_CONTROLLER_DOME_SLEW_RATE_NEGATIVE    -C110P_CONTROLLER_DOME_SLEW_RATE_POSITIVE
+#define C110P_CONTROLLER_DOME_SCALE_MIN             -RSS_MECHANISM_LIMIT_NORMAL_VECTOR
+#define C110P_CONTROLLER_DOME_SCALE_MAX             RSS_MECHANISM_LIMIT_NORMAL_VECTOR
 
-#define C110P_CONTROLLER_DRIVE_INVERT_X       true
-#define C110P_CONTROLLER_DRIVE_INVERT_Y       false
-#define C110P_CONTROLLER_DRIVE_SLEW_RATE_POSITIVE  3.00
-#define C110P_CONTROLLER_DRIVE_SLEW_RATE_NEGATIVE  -3.00
-
-#define C110P_CONTROLLER_DOME_OFFSET_X       0
-#define C110P_CONTROLLER_DOME_OFFSET_Y       0
-
-#define C110P_CONTROLLER_DOME_INVERT_X      true
-#define C110P_CONTROLLER_DOME_INVERT_Y      true
-#define C110P_CONTROLLER_DOME_SLEW_RATE_POSITIVE  0.75
-#define C110P_CONTROLLER_DOME_SLEW_RATE_NEGATIVE  -0.75
-
+/* 
+    Drive system settings
+*/
 
 #define C110P_DRIVE_SYSTEM_ARCADE       0
 #define C110P_DRIVE_SYSTEM_CURVE        1
@@ -77,6 +81,54 @@
 // Select the drive system to use
 #define C110P_DRIVE_SYSTEM              C110P_DRIVE_SYSTEM_CURVE
 
+/*
+    RSS Mechanism settings
+
+    [Fusion360] 
+        Main-Altercations
+            > neck-movement
+                > Sketches
+                    > servo-movement
+
+    [minimm height]
+    -2.729 degree from reference 180 ~ 182.729 theoretical
+    26.360 mm from reference 180 angle for minimum height
+
+    [maximm height]
+    59.900 degree from reference 180 ~ 120.100 theoretical
+    68.430 mm from reference 180 angle for maximum height
+
+    [rotational servo arms]
+    45.000 mm length for bottom link (joint-to-joint)
+    31.000 mm length for top link (joint-to-joint)
+
+    [Fusion360] 
+        Main-Altercations
+            > Sketches
+                > rss-measurments
+
+    [Base]
+    149.053 mm altitude for Base
+    258.167 mm side for Base
+
+    [Platform]
+    193.350 mm altitude for Platform (spherical-joint)
+    334.893 mm side for Platform (spherical-joint)
+    215.378 mm altitude for Platform (connection to lazy-susan)
+    373.045 mm side for Platform (connection to lazy-susan)
+
+    [Rotation]
+    -30.00 degree conter-clockwise from reference 0 degree (front of body)
+*/
+#define C110P_RSS_MECHANISM_BASE_ALTITUDE         149.053f
+#define C110P_RSS_MECHANISM_END_EFFECTOR_ALTITUDE 193.350f
+#define C110P_RSS_MECHANISM_BOTTOM_LINK_LENGTH    45.0f
+#define C110P_RSS_MECHANISM_TOP_LINK_LENGTH       31.0f
+#define C110P_RSS_MECHANISM_MIN_HEIGHT            28.621f
+#define C110P_RSS_MECHANISM_LIMIT_NORMAL_VECTOR   RSS_MECHANISM_LIMIT_NORMAL_VECTOR
+#define C110P_RSS_MECHANISM_BEND_OUT              true
+#define C110P_RSS_MECHANISM_ACTUATION_RANGE       270
+#define C110P_RSS_MECHANISM_ROTATION_OFFSET       -30.0f
 
 /*
     SOUND settings
