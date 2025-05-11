@@ -21,18 +21,21 @@
 
 // Controller settings
 #define CONTROLLER_JOYSTICK_MAX_INPUT  512
-#define CONTROLLER_JOYSTICK_MIN_INPUT  -512
-#define CONTROLLER_JOYSTICK_MAX_OUTPUT 1.0
-#define CONTROLLER_JOYSTICK_MIN_OUTPUT -1.0
+#define CONTROLLER_JOYSTICK_MIN_INPUT  -CONTROLLER_JOYSTICK_MAX_INPUT
+#define CONTROLLER_JOYSTICK_MAX_OUTPUT 1.0f
+#define CONTROLLER_JOYSTICK_MIN_OUTPUT -CONTROLLER_JOYSTICK_MAX_OUTPUT
 
+// RSS Mechanism settings
+#define RSS_MECHANISM_LIMIT_NORMAL_VECTOR      0.25f
 
 // Debug statements
-#define DEBUG_SOUND                     false
-#define DEBUG_DRIVE_MOTOR               false
-#define DEBUG_DOME_MOTOR                false
-#define DEBUG_MOTORS                    false
-#define DEBUG_MAESTRO                   true
-#define DEBUG_CONTROLLER                true
+#define DEBUG_SOUND                    false
+#define DEBUG_DRIVE_MOTOR              false
+#define DEBUG_DOME_MOTOR               false
+#define DEBUG_MOTORS                   false
+#define DEBUG_MAESTRO                  true
+#define DEBUG_CONTROLLER               true
+#define DEBUG_RSS_MACHINE              true
 
 #include <Bluepad32.h>
 #define DEBUG_PRINTLN(s) Console.println(s)
@@ -120,6 +123,22 @@
 #define DEBUG_CONTROLLER_PRINTLN_HEX(s)
 #define DEBUG_CONTROLLER_PRINT_HEX(s)
 #define DEBUG_CONTROLLER_FLUSH()
+#endif
+
+#if DEBUG_RSS_MACHINE
+#define DEBUG_RSS_MACHINE_PRINTLN(s) DEBUG_PRINTLN(s);
+#define DEBUG_RSS_MACHINE_PRINT(s) DEBUG_PRINT(s);
+#define DEBUG_RSS_MACHINE_PRINTF(...) DEBUG_PRINTF(__VA_ARGS__);
+#define DEBUG_RSS_MACHINE_PRINTLN_HEX(s) DEBUG_PRINTLN_HEX(s,HEX);
+#define DEBUG_RSS_MACHINE_PRINT_HEX(s) DEBUG_PRINT_HEX(s,HEX);
+#define DEBUG_RSS_MACHINE_FLUSH() DEBUG_FLUSH();
+#else
+#define DEBUG_RSS_MACHINE_PRINTLN(s)
+#define DEBUG_RSS_MACHINE_PRINT(s)
+#define DEBUG_RSS_MACHINE_PRINTF(...)
+#define DEBUG_RSS_MACHINE_PRINTLN_HEX(s)
+#define DEBUG_RSS_MACHINE_PRINT_HEX(s)
+#define DEBUG_RSS_MACHINE_FLUSH()
 #endif
 
 #endif

@@ -11,10 +11,13 @@
 // #include "frc/DriverStation.h"
 // #include "RobotController.h"
 
-void Wait(uint64_t milliseconds) {
-  std::this_thread::sleep_for(std::chrono::duration<double>(milliseconds/1000.0));}
+void Wait(uint64_t milliseconds)
+{
+  std::this_thread::sleep_for(std::chrono::duration<double>(milliseconds/1000.0));
+}
 
-uint64_t GetTime() {
+uint64_t GetTime()
+{
   // using std::chrono::duration;
   using std::chrono::duration_cast;
   using std::chrono::system_clock;
@@ -23,11 +26,13 @@ uint64_t GetTime() {
           .count();
 }
 
-Timer::Timer() {
+Timer::Timer()
+{
   Reset();
 }
 
-uint64_t Timer::Get() const {
+uint64_t Timer::Get() const
+{
   if (m_running) {
     return (GetFPGATimestamp() - m_startTime) + m_accumulatedTime;
   } else {
@@ -35,19 +40,22 @@ uint64_t Timer::Get() const {
   }
 }
 
-void Timer::Reset() {
+void Timer::Reset()
+{
   m_accumulatedTime = 0;
   m_startTime = GetFPGATimestamp();
 }
 
-void Timer::Start() {
+void Timer::Start()
+{
   if (!m_running) {
     m_startTime = GetFPGATimestamp();
     m_running = true;
   }
 }
 
-void Timer::Restart() {
+void Timer::Restart()
+{
   if (m_running) {
     Stop();
   }
@@ -55,18 +63,21 @@ void Timer::Restart() {
   Start();
 }
 
-void Timer::Stop() {
+void Timer::Stop()
+{
   if (m_running) {
     m_accumulatedTime = Get();
     m_running = false;
   }
 }
 
-bool Timer::HasElapsed(uint64_t period) const {
+bool Timer::HasElapsed(uint64_t period) const
+{
   return Get() >= period;
 }
 
-bool Timer::AdvanceIfElapsed(uint64_t period) {
+bool Timer::AdvanceIfElapsed(uint64_t period)
+{
   if (Get() >= period) {
     // Advance the start time by the period.
     m_startTime += period;
@@ -77,11 +88,13 @@ bool Timer::AdvanceIfElapsed(uint64_t period) {
   }
 }
 
-bool Timer::IsRunning() const {
+bool Timer::IsRunning() const
+{
   return m_running;
 }
 
-uint64_t Timer::GetFPGATimestamp() {
+uint64_t Timer::GetFPGATimestamp()
+{
   // TODO: 
   // could replace with millis() or micros() if we want to use the Arduino
   // clock instead of the system clock.
