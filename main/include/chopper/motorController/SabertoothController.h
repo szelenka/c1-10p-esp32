@@ -21,9 +21,9 @@ class SabertoothController : virtual public MotorController
   }
   // ~SabertoothController() override = default;
   
-  void Set(double speed) override;
+  void Set(float speed) override;
 
-  double Get() const override;
+  float Get() const override;
 
   void SetInverted(bool isInverted) override;
 

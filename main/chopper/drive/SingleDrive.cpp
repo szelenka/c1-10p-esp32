@@ -17,34 +17,39 @@
 #include "SettingsSystem.h"
 
 SingleDrive::SingleDrive(MotorController& motor)
-    : SingleDrive{[&](double output) { motor.Set(output); }} {
+    : SingleDrive{[&](float output) { motor.Set(output); }}
+{
 }
 
-SingleDrive::SingleDrive(std::function<void(double)> motor)
-    : m_motor{std::move(motor)} {
+SingleDrive::SingleDrive(std::function<void(float)> motor)
+    : m_motor{std::move(motor)}
+{
 }
 
-void SingleDrive::ApplySpeedToMotor() {
-  double motor = ApplySpeedLimit(m_output, m_speedLimit);
+void SingleDrive::ApplySpeedToMotor()
+{
+  float motor = ApplySpeedLimit(m_output, m_speedLimit);
   DEBUG_DOME_PRINTF("M: %1.3f ", motor);
   m_motor(motor);
   Feed();
 }
 
-void SingleDrive::Drive(double xSpeed, bool squareInputs) {
+void SingleDrive::Drive(float xSpeed, bool squareInputs)
+{
 
   DEBUG_DOME_PRINTF("xS: %1.3f ", xSpeed);
   xSpeed = ApplyDeadband(xSpeed, m_deadband);
 
-  double output = DriveIK(xSpeed, squareInputs);
+  float output = DriveIK(xSpeed, squareInputs);
 
   m_output = output * m_maxOutput;
 
   ApplySpeedToMotor();
 }
 
-double SingleDrive::DriveIK(double xSpeed, bool squareInputs) {
-  xSpeed = std::clamp(xSpeed, -1.0, 1.0);
+float SingleDrive::DriveIK(float xSpeed, bool squareInputs)
+{
+  xSpeed = std::clamp(xSpeed, -1.0f, 1.0f);
 
   // Square the inputs (while preserving the sign) to increase fine control
   // while permitting full power.
@@ -54,20 +59,22 @@ double SingleDrive::DriveIK(double xSpeed, bool squareInputs) {
 
   DEBUG_DOME_PRINTF("xS: %1.3f ", xSpeed);
   // TODO: apply calculation here
-  double speed = xSpeed;
+  float speed = xSpeed;
 
   return speed;
 }
 
-void SingleDrive::StopMotor() {
-  m_output = 0.0;
+void SingleDrive::StopMotor()
+{
+  m_output = 0.0f;
 
-  m_motor(0.0);
+  m_motor(0.0f);
 
   Feed();
 }
 
-std::string SingleDrive::GetDescription() const {
+std::string SingleDrive::GetDescription() const
+{
   return "SingleDrive";
 }
 

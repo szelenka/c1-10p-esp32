@@ -19,33 +19,40 @@
 
 DifferentialDrive::DifferentialDrive(MotorController& leftMotor,
                                      MotorController& rightMotor)
-    : DifferentialDrive{[&](double output) { leftMotor.Set(output); },
-                        [&](double output) { rightMotor.Set(output); }} {
+ :
+  DifferentialDrive{
+    [&](float output) { leftMotor.Set(output); }, 
+    [&](float output) { rightMotor.Set(output); }}
+{
   // wpi::SendableRegistry::AddChild(this, &leftMotor);
   // wpi::SendableRegistry::AddChild(this, &rightMotor);
 }
 
 // WPI_UNIGNORE_DEPRECATED
 
-DifferentialDrive::DifferentialDrive(std::function<void(double)> leftMotor,
-                                     std::function<void(double)> rightMotor)
-    : m_leftMotor{std::move(leftMotor)}, m_rightMotor{std::move(rightMotor)} {
+DifferentialDrive::DifferentialDrive(std::function<void(float)> leftMotor,
+                                     std::function<void(float)> rightMotor)
+    :
+    m_leftMotor{std::move(leftMotor)}, 
+    m_rightMotor{std::move(rightMotor)}
+{
   // static int instances = 0;
   // ++instances;
   // wpi::SendableRegistry::AddLW(this, "DifferentialDrive", instances);
 }
 
 void DifferentialDrive::ApplySpeedToMotors() {
-  double left = ApplySpeedLimit(m_leftOutput, m_speedLimit);
-  double right = ApplySpeedLimit(m_rightOutput, m_speedLimit);
+  float left = ApplySpeedLimit(m_leftOutput, m_speedLimit);
+  float right = ApplySpeedLimit(m_rightOutput, m_speedLimit);
   DEBUG_DRIVE_PRINTF("L: %1.3f R: %1.3f ", left, right);
   m_leftMotor(left);
   m_rightMotor(right);
   Feed();
 }
 
-void DifferentialDrive::ArcadeDrive(double xSpeed, double zRotation,
-                                    bool squareInputs /* = true */) {
+void DifferentialDrive::ArcadeDrive(float xSpeed, float zRotation,
+                                    bool squareInputs /* = true */)
+{
   // static bool reported = false;
   // if (!reported) {
   //   // HAL_Report(HALUsageReporting::kResourceType_RobotDrive,
@@ -66,8 +73,9 @@ void DifferentialDrive::ArcadeDrive(double xSpeed, double zRotation,
   ApplySpeedToMotors();
 }
 
-void DifferentialDrive::CurvatureDrive(double xSpeed, double zRotation,
-                                        bool allowTurnInPlace /* = true */) {
+void DifferentialDrive::CurvatureDrive(float xSpeed, float zRotation,
+                                        bool allowTurnInPlace /* = true */)
+{
   // static bool reported = false;
   // if (!reported) {
   //   // HAL_Report(HALUsageReporting::kResourceType_RobotDrive,
@@ -86,8 +94,9 @@ void DifferentialDrive::CurvatureDrive(double xSpeed, double zRotation,
   ApplySpeedToMotors();
 }
 
-void DifferentialDrive::ReelTwoDrive(double xSpeed, double zRotation,
-                                      bool squareInputs /* = true */) {
+void DifferentialDrive::ReelTwoDrive(float xSpeed, float zRotation,
+                                      bool squareInputs /* = true */)
+{
   // static bool reported = false;
   // if (!reported) {
   //   // HAL_Report(HALUsageReporting::kResourceType_RobotDrive,
@@ -106,8 +115,9 @@ void DifferentialDrive::ReelTwoDrive(double xSpeed, double zRotation,
   ApplySpeedToMotors();
 }
 
-void DifferentialDrive::TankDrive(double leftSpeed, double rightSpeed,
-                                  bool squareInputs /* = true */) {
+void DifferentialDrive::TankDrive(float leftSpeed, float rightSpeed,
+                                  bool squareInputs /* = true */)
+{
   // static bool reported = false;
   // if (!reported) {
   //   // HAL_Report(HALUsageReporting::kResourceType_RobotDrive,
@@ -127,9 +137,10 @@ void DifferentialDrive::TankDrive(double leftSpeed, double rightSpeed,
 }
 
 DifferentialDrive::WheelSpeeds DifferentialDrive::ArcadeDriveIK(
-    double xSpeed, double zRotation, bool squareInputs) {
-  xSpeed = std::clamp(xSpeed, -1.0, 1.0);
-  zRotation = std::clamp(zRotation, -1.0, 1.0);
+    float xSpeed, float zRotation, bool squareInputs)
+{
+  xSpeed = std::clamp(xSpeed, -1.0f, 1.0f);
+  zRotation = std::clamp(zRotation, -1.0f, 1.0f);
 
   // Square the inputs (while preserving the sign) to increase fine control
   // while permitting full power.
@@ -138,18 +149,18 @@ DifferentialDrive::WheelSpeeds DifferentialDrive::ArcadeDriveIK(
     zRotation = std::copysign(zRotation * zRotation, zRotation);
   }
 
-  double leftSpeed = xSpeed - zRotation;
-  double rightSpeed = xSpeed + zRotation;
+  float leftSpeed = xSpeed - zRotation;
+  float rightSpeed = xSpeed + zRotation;
   DEBUG_DRIVE_PRINTF("lS: %1.3f rS: %1.3f ", leftSpeed, rightSpeed);
 
   // Find the maximum possible value of (throttle + turn) along the vector that
   // the joystick is pointing, then desaturate the wheel speeds
-  double greaterInput = (std::max)(std::abs(xSpeed), std::abs(zRotation));
-  double lesserInput = (std::min)(std::abs(xSpeed), std::abs(zRotation));
-  if (greaterInput == 0.0) {
-    return {0.0, 0.0};
+  float greaterInput = (std::max)(std::abs(xSpeed), std::abs(zRotation));
+  float lesserInput = (std::min)(std::abs(xSpeed), std::abs(zRotation));
+  if (greaterInput == 0.0f) {
+    return {0.0f, 0.0f};
   }
-  double saturatedInput = (greaterInput + lesserInput) / greaterInput;
+  float saturatedInput = (greaterInput + lesserInput) / greaterInput;
   leftSpeed /= saturatedInput;
   rightSpeed /= saturatedInput;
 
@@ -157,12 +168,13 @@ DifferentialDrive::WheelSpeeds DifferentialDrive::ArcadeDriveIK(
 }
 
 DifferentialDrive::WheelSpeeds DifferentialDrive::CurvatureDriveIK(
-    double xSpeed, double zRotation, bool allowTurnInPlace) {
-  xSpeed = std::clamp(xSpeed, -1.0, 1.0);
-  zRotation = std::clamp(zRotation, -1.0, 1.0);
+    float xSpeed, float zRotation, bool allowTurnInPlace)
+{
+  xSpeed = std::clamp(xSpeed, -1.0f, 1.0f);
+  zRotation = std::clamp(zRotation, -1.0f, 1.0f);
 
-  double leftSpeed = 0.0;
-  double rightSpeed = 0.0;
+  float leftSpeed = 0.0f;
+  float rightSpeed = 0.0f;
 
   // TODO: when at very small values just outside deadzone, this can cause creap b/c it's not squared
   if (allowTurnInPlace) {
@@ -174,8 +186,8 @@ DifferentialDrive::WheelSpeeds DifferentialDrive::CurvatureDriveIK(
   }
 
   // Desaturate wheel speeds
-  double maxMagnitude = std::max(std::abs(leftSpeed), std::abs(rightSpeed));
-  if (maxMagnitude > 1.0) {
+  float maxMagnitude = std::max(std::abs(leftSpeed), std::abs(rightSpeed));
+  if (maxMagnitude > 1.0f) {
     leftSpeed /= maxMagnitude;
     rightSpeed /= maxMagnitude;
   }
@@ -184,9 +196,10 @@ DifferentialDrive::WheelSpeeds DifferentialDrive::CurvatureDriveIK(
 }
 
 DifferentialDrive::WheelSpeeds DifferentialDrive::ReelTwoDriveIK(
-    double xSpeed, double zRotation, bool squareInputs) {
-  xSpeed = std::clamp(xSpeed, -1.0, 1.0);
-  zRotation = std::clamp(zRotation, -1.0, 1.0);
+    float xSpeed, float zRotation, bool squareInputs)
+{
+  xSpeed = std::clamp(xSpeed, -1.0f, 1.0f);
+  zRotation = std::clamp(zRotation, -1.0f, 1.0f);
 
   // exagerate the zRotation by 1.4
   // if (std::abs(zRotation) > m_deadband)
@@ -201,8 +214,8 @@ DifferentialDrive::WheelSpeeds DifferentialDrive::ReelTwoDriveIK(
 
   // Convert the cartesian coordinates to planar coordnates
   // ref: https://en.wikipedia.org/wiki/Atan2
-  double ray = std::hypot(xSpeed, zRotation);
-  double theta = std::atan2(zRotation, xSpeed);
+  float ray = std::hypot(xSpeed, zRotation);
+  float theta = std::atan2(zRotation, xSpeed);
   /*
   By rotating the joystick’s (x, y) coordinates by 45 degrees (i.e. pi/4 radians), we align the 
   joystick directions with the left and right motor requirements:
@@ -214,8 +227,8 @@ DifferentialDrive::WheelSpeeds DifferentialDrive::ReelTwoDriveIK(
   control because it "tilts" the input space
   */
   theta += M_PI_4;
-  double leftSpeed = ray * std::cos(theta);
-  double rightSpeed = ray * std::sin(theta);
+  float leftSpeed = ray * std::cos(theta);
+  float rightSpeed = ray * std::sin(theta);
 
   /*
   After rotating by 45 degrees, the maximum values in each direction would be reduced to about 
@@ -231,7 +244,7 @@ DifferentialDrive::WheelSpeeds DifferentialDrive::ReelTwoDriveIK(
   in each quadrant, so we need to desaturated the wheel speeds to get back in the [-1.0, 1.0] range
   for all directions
   */
-  double maxMagnitude = std::max(std::abs(leftSpeed), std::abs(rightSpeed));
+  float maxMagnitude = std::max(std::abs(leftSpeed), std::abs(rightSpeed));
   if (maxMagnitude > 1.0) {
     leftSpeed /= maxMagnitude;
     rightSpeed /= maxMagnitude;
@@ -241,9 +254,10 @@ DifferentialDrive::WheelSpeeds DifferentialDrive::ReelTwoDriveIK(
 }
 
 DifferentialDrive::WheelSpeeds DifferentialDrive::TankDriveIK(
-    double leftSpeed, double rightSpeed, bool squareInputs) {
-  leftSpeed = std::clamp(leftSpeed, -1.0, 1.0);
-  rightSpeed = std::clamp(rightSpeed, -1.0, 1.0);
+    float leftSpeed, float rightSpeed, bool squareInputs)
+{
+  leftSpeed = std::clamp(leftSpeed, -1.0f, 1.0f);
+  rightSpeed = std::clamp(rightSpeed, -1.0f, 1.0f);
 
   // Square the inputs (while preserving the sign) to increase fine control
   // while permitting full power.
@@ -255,17 +269,19 @@ DifferentialDrive::WheelSpeeds DifferentialDrive::TankDriveIK(
   return {leftSpeed, rightSpeed};
 }
 
-void DifferentialDrive::StopMotor() {
-  m_leftOutput = 0.0;
-  m_rightOutput = 0.0;
+void DifferentialDrive::StopMotor()
+{
+  m_leftOutput = 0.0f;
+  m_rightOutput = 0.0f;
 
-  m_leftMotor(0.0);
-  m_rightMotor(0.0);
+  m_leftMotor(0.0f);
+  m_rightMotor(0.0f);
 
   Feed();
 }
 
-std::string DifferentialDrive::GetDescription() const {
+std::string DifferentialDrive::GetDescription() const
+{
   return "DifferentialDrive";
 }
 

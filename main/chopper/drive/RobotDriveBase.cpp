@@ -37,26 +37,29 @@ void RobotDriveBase::SetRampingValue(int ramping) {
   m_rampingValue = std::clamp(ramping, 0, 80);
 }
 
-void RobotDriveBase::SetDeadband(double deadband) {
+void RobotDriveBase::SetDeadband(float deadband)
+{
   m_deadband = deadband;
 }
 
-void RobotDriveBase::SetMaxOutput(double maxOutput) {
+void RobotDriveBase::SetMaxOutput(float maxOutput)
+{
   m_maxOutput = maxOutput;
 }
 
-void RobotDriveBase::SetSpeedLimit(double limit) {
-  m_speedLimit = std::clamp(limit, 0.0, 1.0);
+void RobotDriveBase::SetSpeedLimit(float limit)
+{
+  m_speedLimit = std::clamp(limit, 0.0f, 1.0f);
 }
 
 void RobotDriveBase::FeedWatchdog() {
   Feed();
 }
 
-// void RobotDriveBase::Desaturate(std::span<double> wheelSpeeds) {
-//   double maxMagnitude = std::abs(wheelSpeeds[0]);
+// void RobotDriveBase::Desaturate(std::span<float> wheelSpeeds) {
+//   float maxMagnitude = std::abs(wheelSpeeds[0]);
 //   for (size_t i = 1; i < wheelSpeeds.size(); i++) {
-//     double temp = std::abs(wheelSpeeds[i]);
+//     float temp = std::abs(wheelSpeeds[i]);
 //     if (maxMagnitude < temp) {
 //       maxMagnitude = temp;
 //     }

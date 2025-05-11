@@ -434,7 +434,7 @@ private:
     void (*fHomeTargetReached)() = nullptr;
     void (*fAutoTargetReached)() = nullptr;
 
-    static bool withinArc(double p1, double p2, double p3)
+    static bool withinArc(float p1, float p2, float p3)
     {
         return fmod(p2 - p1 + 2*360, 360) >= fmod(p3 - p1 + 2*360, 360);
     }

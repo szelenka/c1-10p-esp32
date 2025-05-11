@@ -18,7 +18,7 @@ class DifferentialDriveSabertooth : public DifferentialDrive
   //   return DifferentialDriveSabertooth(m_leftMotor, m_rightMotor);
   // }
   void SetRampingValue(int ramping);
-  void SetDeadband(double deadband);
+  void SetDeadband(float deadband);
   void SetExpiration(uint64_t expirationTime);
 
  protected:
