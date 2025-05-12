@@ -33,9 +33,9 @@
 #define DEBUG_DRIVE_MOTOR              false
 #define DEBUG_DOME_MOTOR               false
 #define DEBUG_MOTORS                   false
-#define DEBUG_MAESTRO                  true
+#define DEBUG_MAESTRO                  false
 #define DEBUG_CONTROLLER               true
-#define DEBUG_RSS_MACHINE              true
+#define DEBUG_RSS_MACHINE              false
 
 #include <Bluepad32.h>
 #define DEBUG_PRINTLN(s) Console.println(s)
