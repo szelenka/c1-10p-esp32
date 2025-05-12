@@ -127,7 +127,7 @@ void setupBluepad32() {
     BP32.setup(&onConnectedController, &onDisconnectedController, true);
 
     // Notice that scanning can be stopped / started at any time by calling:
-    // BP32.enableNewBluetoothConnections(enabled);
+    BP32.enableNewBluetoothConnections(false);
 
     // Enables mouse / touchpad support for gamepads that support them.
     // When enabled, controllers like DualSense and DualShock4 generate two connected devices:
@@ -135,7 +135,6 @@ void setupBluepad32() {
     // - Second one, which is a "virtual device", is a mouse.
     // By default, it is disabled.
     BP32.enableVirtualDevice(false);
-
 }
 
 void setupSabertooth() {
