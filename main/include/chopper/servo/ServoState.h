@@ -96,7 +96,7 @@ public:
         setPosition(pulseWidth);
     }
 
-    void setTargets(uint16_t startPosition, uint16_t finishPosition, uint32_t startTime, uint32_t finishTime)
+    void setTargets(uint16_t startPosition, uint16_t finishPosition, uint64_t startTime, uint64_t finishTime)
     {
         if (startPosition == _startPosition && finishPosition == _finishPosition)
         {
@@ -121,8 +121,8 @@ public:
             // if we are already in motion, we need to adjust the start and finish times
             // based on the current position and the new start and finish positions
             float existingProgress = fabs(static_cast<float>(_currentPosition - _startPosition) / (_finishPosition - _startPosition));
-            _startTime = startTime - static_cast<uint32_t>(existingProgress * (_finishTime - startTime));
-            _finishTime = finishTime - static_cast<uint32_t>(existingProgress * (_finishTime - startTime));
+            _startTime = startTime - static_cast<uint64_t>(existingProgress * (_finishTime - startTime));
+            _finishTime = finishTime - static_cast<uint64_t>(existingProgress * (_finishTime - startTime));
         }
         _totalDuration = _finishTime - _startTime;
         DEBUG_MAESTRO_PRINTF("start: %d, finish: %d, current: %d, startTime: %d, startTime: %d, finishTime: %d, finishTime: %d, totalDuration: %d\n", 
@@ -136,7 +136,7 @@ public:
             _totalDuration);
     }
 
-    uint16_t getNextPulse(uint32_t currentTime)
+    uint16_t getNextPulse(uint64_t currentTime)
     {
         if (_isDisabled)
         {
@@ -149,7 +149,7 @@ public:
         uint16_t newPosition = _currentPosition;
         float easingFactor = 1.0f;
         int16_t distanceToMove = 0;
-        uint32_t elapsedDuration = currentTime - _startTime;
+        uint64_t elapsedDuration = currentTime - _startTime;
         float progress = static_cast<float>(elapsedDuration) / _totalDuration;
         if (progress < 1.0f)
         {
@@ -179,9 +179,9 @@ private:
     uint16_t _startPulse;
     uint16_t _finishPulse;
     uint16_t _neutralPulse;
-    uint32_t _startTime;
-    uint32_t _finishTime;
-    uint32_t _totalDuration;
+    uint64_t _startTime;
+    uint64_t _finishTime;
+    uint64_t _totalDuration;
     uint16_t _startPosition;
     uint16_t _currentPosition; 
     uint16_t _finishPosition;

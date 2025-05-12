@@ -242,7 +242,7 @@ public:
 
     bool isTimeout()
     {
-        return (ready() && fLastAngle != ~0u) ? uint32_t(fTimeout)*1000 < Timer::GetFPGATimestamp() - fLastChangeMS : true;
+        return (ready() && fLastAngle != ~0u) ? uint64_t(fTimeout)*1000 < Timer::GetFPGATimestamp() - fLastChangeMS : true;
     }
 
     unsigned getHomeRelativeDomePosition()
@@ -428,7 +428,7 @@ private:
     uint8_t fDomeSpeedAuto = 30;
     uint8_t fTimeout = 5;
     unsigned fLastAngle = ~0;
-    uint32_t fLastChangeMS = 0;
+    uint64_t fLastChangeMS = 0;
     unsigned fRelativeDegrees = 0;
     void (*fTargetReached)() = nullptr;
     void (*fHomeTargetReached)() = nullptr;
@@ -436,6 +436,6 @@ private:
 
     static bool withinArc(float p1, float p2, float p3)
     {
-        return fmod(p2 - p1 + 2*360, 360) >= fmod(p3 - p1 + 2*360, 360);
+        return fmod(p2 - p1 + 2.0f * 360.0f, 360.0f) >= fmod(p3 - p1 + 2.0f * 360.0f, 360.0f);
     }
 };

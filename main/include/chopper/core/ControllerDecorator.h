@@ -242,12 +242,12 @@ public:
 
 private:
 
-    static constexpr float kDefaultPositiveLimit = 0.75;
-    static constexpr float kDefaultNegativeLimit = -0.75;
+    static constexpr float kDefaultPositiveLimit = 0.75f;
+    static constexpr float kDefaultNegativeLimit = -0.75f;
     static constexpr int32_t kMaxInput = 512;
     static constexpr int32_t kMinInput = -512;
-    static constexpr float kMaxOutput = 1.0;
-    static constexpr float kMinOutput = -1.0;
+    static constexpr float kMaxOutput = 1.0f;
+    static constexpr float kMinOutput = -1.0f;
   
     int32_t m_maxInput = kMaxInput;
     int32_t m_minInput = kMinInput;

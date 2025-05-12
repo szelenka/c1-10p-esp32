@@ -25,7 +25,7 @@ public:
 
     void setEnabled(bool enabled)
     {
-        uint32_t currentTime = Timer::GetFPGATimestamp();
+        uint64_t currentTime = Timer::GetFPGATimestamp();
         if (currentTime - _debounceTimeout < _lastEnabledChange)
         {
             DEBUG_RSS_MACHINE_PRINTF("RSSMachine: setEnabled: %d - debounce\n", enabled);
@@ -164,7 +164,7 @@ public:
     {
         if (!_isEnabled)
         {
-            uint32_t currentTime = Timer::GetFPGATimestamp();
+            uint64_t currentTime = Timer::GetFPGATimestamp();
             if (currentTime - _debounceTimeout < _lastEnabledChange)
             {
                 x = 0.0f;

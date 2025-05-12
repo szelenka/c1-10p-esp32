@@ -91,7 +91,7 @@ public:
 
     void animate()
     {
-        uint32_t currentTime = Timer::GetFPGATimestamp();
+        uint64_t currentTime = Timer::GetFPGATimestamp();
         for (uint8_t i = 0; i < _channels; ++i)
         {
             // setMultiTarget command requires the target to be in 1/4 microsecond units, so we multiply by 4
