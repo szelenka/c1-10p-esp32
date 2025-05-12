@@ -1,5 +1,6 @@
 #pragma once
 
+#include "include/MathUtil.h"
 #include "include/chopper/Timer.h"
 #include "include/chopper/dome/RSSMachine.h"
 
@@ -37,7 +38,8 @@ public:
         {
             // go to midpoint
             DEBUG_RSS_MACHINE_PRINTF("RSSMachine: setEnabled: %d - go to mid\n", _isEnabled);
-            setHeight(_platformMaxHeight);
+            // real-world testing showed that slighly lower than max looked best
+            setHeight(_platformMaxHeight - 5.0f);
         }
         else
         {
@@ -48,7 +50,8 @@ public:
 
     void setRotationAngleOffset(float angle)
     {
-        _rotationAngleOffset = angle;
+        // compute radians to make other calculations easier
+        _rotationRadianOffset = constrain(angle, 0.0f, 160.0f) * (M_PI / 180.0f);;
     }
 
     void setActuationRange(uint16_t actuationRange)
@@ -144,17 +147,17 @@ public:
         }
     }
     
-    void adjustJoystickToAngleOffset(float& x, float& y)
+    std::tuple<float, float> adjustJoystickToAngleOffset(float& x, float& y)
     {
         // Adjust the joystick input based on the rotation angle offset
         // This is a simple rotation transformation
         // around the origin (0, 0) by the specified angle
         // This allows joystick input for straight up, to align with straight up on the triangle of the RSS Mechanism
-        float radians = _rotationAngleOffset * (M_PI / 180.0f);
-        float rotatedX = x * cos(radians) - y * sin(radians);
-        float rotatedY = x * sin(radians) + y * cos(radians);
-        x = rotatedX;
-        y = rotatedY;
+        x = round(ApplyDeadband(x, m_deadband) * 10.0f) / 10.0f;
+        y = round(ApplyDeadband(y, m_deadband) * 10.0f) / 10.0f;
+        float rotatedX = x * cos(_rotationRadianOffset) - y * sin(_rotationRadianOffset);
+        float rotatedY = x * sin(_rotationRadianOffset) + y * cos(_rotationRadianOffset);
+        return std::make_tuple(rotatedX, rotatedY);
     }
 
     std::array<float, 3> getLegAnglesFromJoystick(float x, float y)
@@ -174,7 +177,7 @@ public:
             x = 0.0f;
             y = 0.0f;
         }
-        adjustJoystickToAngleOffset(x, y);
+        std::tie(x, y) = adjustJoystickToAngleOffset(x, y);
         std::array<float, 3> legs = getLegAngles(x, y, _platformCurrentHeight);
         for (size_t i = 0; i < legs.size(); ++i)
         {
@@ -199,7 +202,7 @@ public:
                 return {0, 0, 0};
             }
         }
-        adjustJoystickToAngleOffset(x, y);
+        std::tie(x, y) = adjustJoystickToAngleOffset(x, y);
         std::array<float, 3> legs = getLegAngles(x, y, _platformCurrentHeight);
         std::array<uint16_t, 3> leg_pwm = {0, 0, 0};
         for (size_t i = 0; i < legs.size(); ++i)
@@ -209,6 +212,12 @@ public:
         DEBUG_RSS_MACHINE_PRINTF("A: %4u, B: %4u, C: %4u\n", leg_pwm[0], leg_pwm[1], leg_pwm[2]);
         return leg_pwm;
     }
+
+protected:
+  /// Default input deadband.
+  static constexpr float kDefaultDeadband = 0.05f; // 0.125f ?
+  /// Input deadband.
+  float m_deadband = kDefaultDeadband;
 
 private:
     float mapPWMToAngle(uint16_t pulseWidth)
@@ -256,7 +265,7 @@ private:
     uint64_t _lastEnabledChange = Timer::GetFPGATimestamp();
     uint16_t _debounceTimeout = 1000;
     bool _isEnabled = false;
-    float _rotationAngleOffset = 0.0f;
-    float _platformCurrentHeight;
+    float _rotationRadianOffset = 0.0f;
+    float _platformCurrentHeight = 0.0f;
     float _platformPreviousHeight = 0.0f;
 };
