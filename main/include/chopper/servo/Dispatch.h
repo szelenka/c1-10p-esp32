@@ -15,7 +15,8 @@ public:
         MiniMaestro(stream, resetPin, deviceNumber, CRCEnabled), 
         _channels(channels), 
         _servoStates(channels, ServoState()),
-        _channelTargets(channels, 0)
+        _channelTargets(channels, 0),
+        _previousTargets(channels, 0)
     {
         setupBodyMaestro(deviceNumber);
         setupDomeMaestro(deviceNumber);
@@ -96,7 +97,17 @@ public:
             // setMultiTarget command requires the target to be in 1/4 microsecond units, so we multiply by 4
             _channelTargets[i] = _servoStates[i].getNextPulse(currentTime) * 4;
         }
-        MiniMaestro::setMultiTarget(_channels, 0, _channelTargets.data());
+        if (!std::equal(_channelTargets.begin(), _channelTargets.end(), _previousTargets.begin()))
+        {
+            DEBUG_MAESTRO_PRINTF("Setting targets: ");
+            for (uint8_t i = 0; i < _channels; ++i)
+            {
+                DEBUG_MAESTRO_PRINTF("%d ", _channelTargets[i]);
+            }
+            DEBUG_MAESTRO_PRINTF("\n");
+            MiniMaestro::setMultiTarget(_channels, 0, _channelTargets.data());
+            _previousTargets = _channelTargets;
+        }
     }
 
     void enable(uint8_t channel)
@@ -152,6 +163,7 @@ public:
 private:
     uint8_t _channels;
     std::vector<uint16_t> _channelTargets;
+    std::vector<uint16_t> _previousTargets;
     std::vector<ServoState> _servoStates;
 };
 
