@@ -53,7 +53,8 @@ class MotorController;
  * or curvatureDrive methods should be called periodically to avoid Motor
  * Safety timeouts.
  */
-class DifferentialDrive : public RobotDriveBase { //
+class DifferentialDrive : public RobotDriveBase 
+{
                           // public wpi::Sendable,
                           // public wpi::SendableHelper<DifferentialDrive> {
  public:
@@ -62,11 +63,12 @@ class DifferentialDrive : public RobotDriveBase { //
    *
    * Uses normalized voltage [-1.0..1.0].
    */
-  struct WheelSpeeds {
+  struct WheelSpeeds
+  {
     /// Left wheel speed.
-    double left = 0.0;
+    float left = 0.0f;
     /// Right wheel speed.
-    double right = 0.0;
+    float right = 0.0f;
   };
 
   // WPI_IGNORE_DEPRECATED
@@ -95,8 +97,8 @@ class DifferentialDrive : public RobotDriveBase { //
    * @param leftMotor Left motor setter.
    * @param rightMotor Right motor setter.
    */
-  DifferentialDrive(std::function<void(double)> leftMotor,
-                    std::function<void(double)> rightMotor);
+  DifferentialDrive(std::function<void(float)> leftMotor,
+                    std::function<void(float)> rightMotor);
 
   ~DifferentialDrive() override = default;
 
@@ -118,7 +120,7 @@ class DifferentialDrive : public RobotDriveBase { //
    *                      [-1.0..1.0]. Counterclockwise is positive.
    * @param squareInputs  If set, decreases the input sensitivity at low speeds.
    */
-  void ArcadeDrive(double xSpeed, double zRotation, bool squareInputs = true);
+  void ArcadeDrive(float xSpeed, float zRotation, bool squareInputs = true);
 
   /**
    * Curvature drive method for differential drive platform.
@@ -135,7 +137,7 @@ class DifferentialDrive : public RobotDriveBase { //
    *                         turn-in-place maneuvers. zRotation will control
    *                         turning rate instead of curvature.
    */
-  void CurvatureDrive(double xSpeed, double zRotation, bool allowTurnInPlace = true);
+  void CurvatureDrive(float xSpeed, float zRotation, bool allowTurnInPlace = true);
 
   /**
    * ReelTwo drive method for differential drive platform.
@@ -150,7 +152,7 @@ class DifferentialDrive : public RobotDriveBase { //
    *                         Counterclockwise is positive.
    * @param squareInputs     If set, decreases the input sensitivity at low speeds.
    */
-  void ReelTwoDrive(double xSpeed, double zRotation, bool squareInputs = true);
+  void ReelTwoDrive(float xSpeed, float zRotation, bool squareInputs = true);
 
   /**
    * Tank drive method for differential drive platform.
@@ -161,7 +163,7 @@ class DifferentialDrive : public RobotDriveBase { //
    *                      [-1.0..1.0]. Forward is positive.
    * @param squareInputs If set, decreases the input sensitivity at low speeds.
    */
-  void TankDrive(double leftSpeed, double rightSpeed, bool squareInputs = true);
+  void TankDrive(float leftSpeed, float rightSpeed, bool squareInputs = true);
 
   /**
    * Arcade drive inverse kinematics for differential drive platform.
@@ -176,7 +178,7 @@ class DifferentialDrive : public RobotDriveBase { //
    * @param squareInputs If set, decreases the input sensitivity at low speeds.
    * @return Wheel speeds [-1.0..1.0].
    */
-  static WheelSpeeds ArcadeDriveIK(double xSpeed, double zRotation,
+  static WheelSpeeds ArcadeDriveIK(float xSpeed, float zRotation,
                                    bool squareInputs = true);
 
   /**
@@ -195,10 +197,10 @@ class DifferentialDrive : public RobotDriveBase { //
    *                         turning rate instead of curvature.
    * @return Wheel speeds [-1.0..1.0].
    */
-  static WheelSpeeds CurvatureDriveIK(double xSpeed, double zRotation,
+  static WheelSpeeds CurvatureDriveIK(float xSpeed, float zRotation,
                                       bool allowTurnInPlace);
 
-  static WheelSpeeds ReelTwoDriveIK(double xSpeed, double zRotation,
+  static WheelSpeeds ReelTwoDriveIK(float xSpeed, float zRotation,
                                       bool squareInputs);
 
   /**
@@ -211,7 +213,7 @@ class DifferentialDrive : public RobotDriveBase { //
    * @param squareInputs If set, decreases the input sensitivity at low speeds.
    * @return Wheel speeds [-1.0..1.0].
    */
-  static WheelSpeeds TankDriveIK(double leftSpeed, double rightSpeed,
+  static WheelSpeeds TankDriveIK(float leftSpeed, float rightSpeed,
                                  bool squareInputs = true);
 
   void StopMotor() override;
@@ -220,10 +222,10 @@ class DifferentialDrive : public RobotDriveBase { //
   // void InitSendable(wpi::SendableBuilder& builder) override;
 
  private:
-  std::function<void(double)> m_leftMotor;
-  std::function<void(double)> m_rightMotor;
+  std::function<void(float)> m_leftMotor;
+  std::function<void(float)> m_rightMotor;
 
   // Used for Sendable property getters
-  double m_leftOutput = 0.0;
-  double m_rightOutput = 0.0;
+  float m_leftOutput = 0.0f;
+  float m_rightOutput = 0.0f;
 };

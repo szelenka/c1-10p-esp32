@@ -11,7 +11,8 @@
 
 class MotorController;
 
-class SingleDrive : public RobotDriveBase {
+class SingleDrive : public RobotDriveBase
+{
  public:
     /**
      * Construct a SingleDrive.
@@ -20,7 +21,7 @@ class SingleDrive : public RobotDriveBase {
      */
     SingleDrive(MotorController& motor);
 
-    SingleDrive(std::function<void(double)> motor);
+    SingleDrive(std::function<void(float)> motor);
 
     ~SingleDrive() override = default;
 
@@ -36,8 +37,8 @@ class SingleDrive : public RobotDriveBase {
      *                     Forward is positive.
      * @param squareInputs If set, decreases the input sensitivity at low speeds.
      */
-    void Drive(double speed, bool squareInputs = true);
-    static double DriveIK(double speed, bool squareInputs = true);
+    void Drive(float speed, bool squareInputs = true);
+    static float DriveIK(float speed, bool squareInputs = true);
     
     /**
      * Stops the motor.
@@ -52,8 +53,8 @@ class SingleDrive : public RobotDriveBase {
     std::string GetDescription() const override;
 
  private:
-    std::function<void(double)> m_motor;
+    std::function<void(float)> m_motor;
 
     // Used for motor output
-    double m_output = 0.0;
+    float m_output = 0.0f;
 };

@@ -15,7 +15,7 @@ class MotorController {
    *
    * @param speed The speed to set.  Value should be between -1.0 and 1.0.
    */
-  virtual void Set(double speed) = 0;
+  virtual void Set(float speed) = 0;
 
   /**
    * Sets the voltage output of the MotorController.  Compensates for
@@ -36,7 +36,7 @@ class MotorController {
    *
    * @return The current set speed.  Value is between -1.0 and 1.0.
    */
-  virtual double Get() const = 0;
+  virtual float Get() const = 0;
 
   /**
    * Common interface for inverting direction of a motor controller.
@@ -67,8 +67,8 @@ class MotorController {
   static constexpr bool kDefaultIsInverted = false;
 
   // Default Scale
-  static constexpr double kDefaultScale = 1.0;
+  static constexpr float kDefaultScale = 1.0f;
 
   bool m_IsInverted = kDefaultIsInverted;
-  double m_scale = kDefaultScale;
+  float m_scale = kDefaultScale;
 };

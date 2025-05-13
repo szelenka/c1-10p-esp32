@@ -10,6 +10,6 @@ class SingleDriveSabertooth : public SingleDrive
 { 
  public:
   void SetRampingValue(int ramping);
-  void SetDeadband(double deadband);
+  void SetDeadband(float deadband);
   void SetExpiration(uint64_t expirationTime);
 };

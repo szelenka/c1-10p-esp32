@@ -16,6 +16,7 @@
 #include "chopper/servo/Dispatch.h"
 #include "settings/ServoPinMap.h"
 #include "settings/ServoPWM.h"
+#include "chopper/servo/RSSMechanism.h"
 
 // Alias for a shared pointer to ControllerDecorator
 class Controllers
@@ -23,13 +24,14 @@ class Controllers
 public:
 
     // Default constructor
-    Controllers(DifferentialDrive* sabertoothDiff, SingleDrive* sabertoothSyRen, ExtendedMP3Trigger* mp3Trigger, DomePosition* domeSensor, ServoDispatch* maestroBody, ServoDispatch* maestroDome)
+    Controllers(DifferentialDrive* sabertoothDiff, SingleDrive* sabertoothSyRen, ExtendedMP3Trigger* mp3Trigger, DomePosition* domeSensor, ServoDispatch* maestroBody, ServoDispatch* maestroDome, RSSMechanism* rssMachine)
         :   _sabertoothDiff(sabertoothDiff), 
             _sabertoothSyRen(sabertoothSyRen),
             _mp3Trigger(mp3Trigger), 
             _domeSensor(domeSensor),
             _maestroBody(maestroBody),
-            _maestroDome(maestroDome)
+            _maestroDome(maestroDome),
+            _rssMachine(rssMachine)
     {
         // Initialize the controller MAC addresses and their roles
         _controllerMacAddresses = std::unordered_map<std::string, ControllerRoles>
@@ -238,7 +240,7 @@ public:
     
         if (isCtlDriveValid && ctlDrive->thumbL())
         {
-            DEBUG_CONTROLLER_PRINTLN("Joystick Push In");
+            DEBUG_CONTROLLER_PRINTLN("Joystick Push In [Drive]");
         }
     
         if (isCtlDomeValid && ctlDome->a())
@@ -272,11 +274,13 @@ public:
         if (isCtlDomeValid && ctlDome->l1())
         {
             DEBUG_CONTROLLER_PRINTLN("SL");
+            _rssMachine->decrementHeight(1);
         }
         
         if (isCtlDomeValid && ctlDome->r1())
         {
             DEBUG_CONTROLLER_PRINTLN("SR");
+            _rssMachine->incrementHeight(1);
         }
     
         if (isCtlDomeValid && ctlDome->l2())
@@ -301,9 +305,17 @@ public:
             _mp3Trigger->triggerRandom();
         }
     
-        if (isCtlDomeValid && ctlDome->thumbL())
+        if (isCtlDomeValid && ctlDome->thumbL().isDoubleClicked())
         {
-            DEBUG_CONTROLLER_PRINTLN("Joystick Push In");
+            DEBUG_CONTROLLER_PRINTLN("Joystick Push In [Dome] -- double click");
+            if (_rssMachine->isEnabled())
+            {
+                _rssMachine->setEnabled(false);
+            }
+            else
+            {
+                _rssMachine->setEnabled(true);
+            }
         }
     
         // Process joystick for drive system
@@ -311,10 +323,16 @@ public:
         {
             processDrive(ctlDrive);
         }
+
+        if (isCtlDomeValid)
+        {
+            // Process joystick for RSSMachine
+            processRSSMachine(ctlDome);
+        }
     
         // Process Servo motions all at once
-        maestroBody.animate();
-        maestroDome.animate();
+        _maestroBody->animate();
+        _maestroDome->animate();
 
         // We need to update the state of the MP3Trigger each clock cycle
         // ref: https://learn.sparkfun.com/tutorials/mp3-trigger-hookup-guide-v24
@@ -342,6 +360,7 @@ private:
                 ctl->setAxisYOffset(C110P_CONTROLLER_DRIVE_OFFSET_Y);
                 ctl->setAxisXInvert(C110P_CONTROLLER_DRIVE_INVERT_X);
                 ctl->setAxisYInvert(C110P_CONTROLLER_DRIVE_INVERT_Y);
+                ctl->setOutputRange(C110P_CONTROLLER_DRIVE_SCALE_MIN, C110P_CONTROLLER_DRIVE_SCALE_MAX);
                 ctl->setAxisXSlew(C110P_CONTROLLER_DRIVE_SLEW_RATE_POSITIVE, C110P_CONTROLLER_DRIVE_SLEW_RATE_NEGATIVE);
                 ctl->setAxisYSlew(C110P_CONTROLLER_DRIVE_SLEW_RATE_POSITIVE, C110P_CONTROLLER_DRIVE_SLEW_RATE_NEGATIVE);
                 break;
@@ -350,6 +369,7 @@ private:
                 ctl->setAxisYOffset(C110P_CONTROLLER_DOME_OFFSET_Y);
                 ctl->setAxisXInvert(C110P_CONTROLLER_DOME_INVERT_X);
                 ctl->setAxisYInvert(C110P_CONTROLLER_DOME_INVERT_Y);
+                ctl->setOutputRange(C110P_CONTROLLER_DOME_SCALE_MIN, C110P_CONTROLLER_DOME_SCALE_MAX);
                 ctl->setAxisXSlew(C110P_CONTROLLER_DOME_SLEW_RATE_POSITIVE, C110P_CONTROLLER_DOME_SLEW_RATE_NEGATIVE);
                 ctl->setAxisYSlew(C110P_CONTROLLER_DOME_SLEW_RATE_POSITIVE, C110P_CONTROLLER_DOME_SLEW_RATE_NEGATIVE);
                 break;
@@ -362,7 +382,6 @@ private:
                 return;
         }
         ctl->setInputRange(CONTROLLER_JOYSTICK_MIN_INPUT, CONTROLLER_JOYSTICK_MAX_INPUT);
-        ctl->setOutputRange(CONTROLLER_JOYSTICK_MIN_OUTPUT, CONTROLLER_JOYSTICK_MAX_OUTPUT);
     }
 
     void processDrive(ControllerDecoratorPtr ctl) 
@@ -399,14 +418,27 @@ private:
         else if (!leftPressed && rightPressed)
         {
             DEBUG_DOME_PRINTLN("Spin the Dome in Negatie Direction");
-            _sabertoothSyRen->Drive(_domeSpinSlewRateLimiter->Calculate(C110P_DOME_MOTOR_1_INVERTED ? C110P_DOME_MAXIMUM_SPEED : C110P_DOME_MAXIMUM_SPEED*-1));
+            _sabertoothSyRen->Drive(_domeSpinSlewRateLimiter->Calculate(C110P_DOME_MOTOR_1_INVERTED ? C110P_DOME_MAXIMUM_SPEED : C110P_DOME_MAXIMUM_SPEED * -1.0f));
         }
         else if (leftPressed && !rightPressed)
         {
             DEBUG_DOME_PRINTLN("Spin the Dome in Positive Direction");
-            _sabertoothSyRen->Drive(_domeSpinSlewRateLimiter->Calculate(C110P_DOME_MOTOR_1_INVERTED ? C110P_DOME_MAXIMUM_SPEED*-1 : C110P_DOME_MAXIMUM_SPEED));
+            _sabertoothSyRen->Drive(_domeSpinSlewRateLimiter->Calculate(C110P_DOME_MOTOR_1_INVERTED ? C110P_DOME_MAXIMUM_SPEED * -1.0f : C110P_DOME_MAXIMUM_SPEED));
         }
         DEBUG_DOME_PRINTF("Dome Position: %4d\n", _domeSensor->getDomePosition());
+    }
+
+    void processRSSMachine(ControllerDecoratorPtr ctl)
+    {
+        std::array<uint16_t, 3> legs = _rssMachine->getLegPWMFromJoystick(
+            // The oreintation of the JoyCon has the X and Y swapped
+            ctl->axisXslew(),
+            ctl->axisYslew()
+        );
+
+        _maestroBody->setPosition(MAESTRO_BODY_NECK_A, legs[0]);
+        _maestroBody->setPosition(MAESTRO_BODY_NECK_B, legs[1]);
+        _maestroBody->setPosition(MAESTRO_BODY_NECK_C, legs[2]);
     }
 
     // Map to store ControllerRole to MAC Address
@@ -421,7 +453,7 @@ private:
     DomePosition* _domeSensor = nullptr;
     ServoDispatch* _maestroBody = nullptr;
     ServoDispatch* _maestroDome = nullptr;
-
+    RSSMechanism* _rssMachine = nullptr;
     SlewRateLimiter* _domeSpinSlewRateLimiter = nullptr;
 
 };

@@ -68,6 +68,20 @@ ServoDispatch maestroBody(UART_MAESTRO_BODY, Maestro::noResetPin, MAESTRO_BODY_I
 ServoDispatch maestroDome(UART_MAESTRO_DOME, Maestro::noResetPin, MAESTRO_DOME_ID, false, MAESTRO_DOME_CHANNELS);
 
 /*
+    RSS Machine Configuration
+*/
+#include "chopper/servo/RSSMechanism.h"
+RSSMechanism rssMachine(
+    C110P_RSS_MECHANISM_BASE_ALTITUDE,
+    C110P_RSS_MECHANISM_END_EFFECTOR_ALTITUDE,
+    C110P_RSS_MECHANISM_BOTTOM_LINK_LENGTH,
+    C110P_RSS_MECHANISM_TOP_LINK_LENGTH,
+    C110P_RSS_MECHANISM_MIN_HEIGHT,
+    C110P_RSS_MECHANISM_LIMIT_NORMAL_VECTOR,
+    C110P_RSS_MECHANISM_BEND_OUT
+);
+
+/*
     MP3 Configuration
 */
 #include "chopper/sound/ExtendedMP3Trigger.h"
@@ -87,7 +101,8 @@ Controllers myControllers(
     &mp3Trigger, 
     &domeSensor,
     &maestroBody,
-    &maestroDome
+    &maestroDome,
+    &rssMachine
 );
 
 // This callback gets called any time a new gamepad is connected.
@@ -112,7 +127,7 @@ void setupBluepad32() {
     BP32.setup(&onConnectedController, &onDisconnectedController, true);
 
     // Notice that scanning can be stopped / started at any time by calling:
-    // BP32.enableNewBluetoothConnections(enabled);
+    BP32.enableNewBluetoothConnections(false);
 
     // Enables mouse / touchpad support for gamepads that support them.
     // When enabled, controllers like DualSense and DualShock4 generate two connected devices:
@@ -120,7 +135,6 @@ void setupBluepad32() {
     // - Second one, which is a "virtual device", is a mouse.
     // By default, it is disabled.
     BP32.enableVirtualDevice(false);
-
 }
 
 void setupSabertooth() {
@@ -200,7 +214,7 @@ void setupMaestro() {
     // set timeout for get commands which wait for 4 bytes of data 
     // maestro-arduio library only blocks for 2 bytes, but we double to 4 it to be safe
     // assume 8 bit, even parity, 2 stop bits = 11 bits per byte (worst case)
-    uint16_t timeout = ceil(4.0 / ceil(MAESTRO_SERIAL_BAUD_RATE / 11.0 / 1000.0));
+    uint16_t timeout = ceil(4.0f / ceil(static_cast<float>((MAESTRO_SERIAL_BAUD_RATE) / 11.0f / 1000.0f)));
     DEBUG_MAESTRO_PRINTF("Maestro timeout: %u %u %u\n", timeout, MAESTRO_SERIAL_BAUD_RATE, ceil(MAESTRO_SERIAL_BAUD_RATE / 11 / 1000));
 
     // Ensure timeout is less than CONFIG_ESP_TASK_WDT_TIMEOUT_S by at least 100
@@ -221,6 +235,19 @@ void setupMp3Trigger() {
     mp3Trigger.setup(&UART_MP3TRIGGER);
     UART_MP3TRIGGER_INIT(MP3TRIGGER_SERIAL_BAUD_RATE);
     mp3Trigger.setVolume(C110P_SOUND_VOLUME);
+}
+
+void setupRssMachine()
+{
+    // 2500 at 500us is the max range for 270 degree servo
+    rssMachine.setRotationAngleOffset(C110P_RSS_MECHANISM_ROTATION_OFFSET);
+    rssMachine.setActuationRange(C110P_RSS_MECHANISM_ACTUATION_RANGE);
+    rssMachine.setLegMinPulse(MAESTRO_BODY_NECK_A_MIN, MAESTRO_BODY_NECK_B_MIN, MAESTRO_BODY_NECK_C_MIN);
+    rssMachine.setLegMaxPulse(MAESTRO_BODY_NECK_A_MAX, MAESTRO_BODY_NECK_B_MAX, MAESTRO_BODY_NECK_C_MAX);
+    rssMachine.printSettings();
+    maestroBody.enable(MAESTRO_BODY_NECK_A);
+    maestroBody.enable(MAESTRO_BODY_NECK_B);
+    maestroBody.enable(MAESTRO_BODY_NECK_C);
 }
 
 void setupOpenMV() {
@@ -247,12 +274,13 @@ void setup() {
     setupSabertooth();
     setupMaestro();
     setupMp3Trigger();
+    setupRssMachine();
     setupOpenMV();
     setupLeds();
 }
 
-int brightness = 0;  // how bright the LED is
-int fadeAmount = 5;  // how many points to fade the LED by
+uint8_t brightness = 0;  // how bright the LED is
+uint8_t fadeAmount = 5;  // how many points to fade the LED by
 // Arduino loop function. Runs in CPU 1.
 void loop() {
     // This call fetches all the controllers' data.

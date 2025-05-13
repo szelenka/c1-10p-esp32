@@ -15,7 +15,8 @@
  *
  * MotorSafety is enabled by default.
  */
-class RobotDriveBase : public MotorSafety {
+class RobotDriveBase : public MotorSafety
+{
  public:
   /**
    * The location of a motor on the robot for the purpose of driving.
@@ -54,7 +55,7 @@ class RobotDriveBase : public MotorSafety {
    *
    * @param deadband The deadband to set.
    */
-  void SetDeadband(double deadband);
+  void SetDeadband(float deadband);
 
   /**
    * Configure the scaling factor for using RobotDrive with motor controllers in
@@ -63,7 +64,7 @@ class RobotDriveBase : public MotorSafety {
    * @param maxInput Multiplied with the Input percentage computed by the
    *                  drive functions.
    */
-  void SetMaxInput(double maxInput);
+  void SetMaxInput(float maxInput);
 
   /**
    * Configure the scaling factor for using RobotDrive with motor controllers in
@@ -72,7 +73,7 @@ class RobotDriveBase : public MotorSafety {
    * @param minInput Multiplied with the Input percentage computed by the
    *                  drive functions.
    */
-  void SetMinInput(double minInput);
+  void SetMinInput(float minInput);
 
   /**
    * Configure the scaling factor for using RobotDrive with motor controllers in
@@ -81,7 +82,7 @@ class RobotDriveBase : public MotorSafety {
    * @param maxOutput Multiplied with the output percentage computed by the
    *                  drive functions.
    */
-  void SetMaxOutput(double maxOutput);
+  void SetMaxOutput(float maxOutput);
 
   /**
    * Configure the scaling factor for using RobotDrive with motor controllers in
@@ -90,11 +91,11 @@ class RobotDriveBase : public MotorSafety {
    * @param minOutput Multiplied with the output percentage computed by the
    *                  drive functions.
    */
-  void SetMinOutput(double minOutput);
+  void SetMinOutput(float minOutput);
   
-  // void SetVoltageRange(double minOutput, double maxOutput);
+  // void SetVoltageRange(float minOutput, float maxOutput);
 
-  void SetSpeedLimit(double limit);
+  void SetSpeedLimit(float limit);
 
   /**
    * Feed the motor safety object. Resets the timer that will stop the motors if
@@ -113,29 +114,29 @@ class RobotDriveBase : public MotorSafety {
   static constexpr int kDefaultRampingValue = 80;
 
   /// Default input deadband.
-  static constexpr double kDefaultDeadband = 0.05;
+  static constexpr float kDefaultDeadband = 0.05f;
 
   /// Default maximum output.
-  static constexpr double kDefaultMaxOutput = 1.0;
+  static constexpr float kDefaultMaxOutput = 1.0f;
 
   // Default speed limit
-  static constexpr double kDefaultSpeedLimit = 0.8;
+  static constexpr float kDefaultSpeedLimit = 0.8f;
 
   /**
    * Renormalize all wheel speeds if the magnitude of any wheel is greater than
    * 1.0.
    */
-  // static void Desaturate(std::span<double> wheelSpeeds);
+  // static void Desaturate(std::span<float> wheelSpeeds);
 
   /// Input ramping.
-  double m_rampingValue = kDefaultRampingValue;
+  float m_rampingValue = kDefaultRampingValue;
 
   /// Input deadband.
-  double m_deadband = kDefaultDeadband;
+  float m_deadband = kDefaultDeadband;
 
   /// Maximum output.
-  double m_maxOutput = kDefaultMaxOutput;
+  float m_maxOutput = kDefaultMaxOutput;
 
   /// Speedlimit
-  double m_speedLimit = kDefaultSpeedLimit;
+  float m_speedLimit = kDefaultSpeedLimit;
 };

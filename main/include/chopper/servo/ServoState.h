@@ -7,7 +7,8 @@
 #include "SettingsSystem.h"
 #include "include/chopper/Timer.h"
 
-class ServoState {
+class ServoState
+{
 public:
     ServoState() : 
         _currentPosition(0),
@@ -22,7 +23,8 @@ public:
         setEasingMethod(nullptr);
     }
 
-    void setEasingMethod(float (*easingMethod)(float completion)) {
+    void setEasingMethod(float (*easingMethod)(float completion))
+    {
         _easingMethod = easingMethod;
         if (_easingMethod == nullptr) {
             DEBUG_MAESTRO_PRINTF("Easing method is null, using default linear interpolation\n");
@@ -30,7 +32,8 @@ public:
         }
     }
 
-    void setRange(uint16_t startPulse, uint16_t finishPulse, uint16_t neutralPulse) {
+    void setRange(uint16_t startPulse, uint16_t finishPulse, uint16_t neutralPulse)
+    {
         if (startPulse == 0 || finishPulse == 0) {
             DEBUG_MAESTRO_PRINTF("Start or finish pulse is zero: %d, %d\n", startPulse, finishPulse);
             return;
@@ -44,23 +47,57 @@ public:
         _neutralPulse = constrain(neutralPulse, startPulse, finishPulse);
     }
 
-    void disable() {
-        _isDisabled = true;
+    void setEnable(bool isEnabled)
+    {
+        _isDisabled = !isEnabled;
     }
 
-    void enable() {
-        _isDisabled = false;
+    void setManual(bool isManual)
+    {
+        _isManual = isManual;
+        if (isManual) {
+            _startPosition = _currentPosition;
+            _finishPosition = _currentPosition;
+            _startTime = Timer::GetFPGATimestamp();
+            _finishTime = Timer::GetFPGATimestamp();
+            _totalDuration = 0;
+        }
     }
 
-    bool isFinishedMoving() {
+    bool isFinishedMoving()
+    {
         return (Timer::GetFPGATimestamp() > _finishTime && _currentPosition == _finishPosition);
     }
 
-    void setPosition(uint16_t position) {
+    void setPosition(uint16_t position)
+    {
+        if (position == 0) {
+            // this effectively disables the servo, manual controls may want to do this
+            _currentPosition = 0;
+            return;
+        }
         _currentPosition = constrain(position, _startPulse, _finishPulse);
     }
 
-    void setTargets(uint16_t startPosition, uint16_t finishPosition, uint32_t startTime, uint32_t finishTime) {
+    void setAngle(float angle, uint16_t actuationRange, uint16_t minPulse, uint16_t maxPulse)
+    {
+        if (isnan(angle) || isinf(angle) || angle < 0.0f || angle > static_cast<float>(actuationRange)) {
+            DEBUG_MAESTRO_PRINTF("Angle out of range: %.2f\n", angle);
+            return;
+        }
+        // Convert angle to pulse width
+        uint16_t pulseWidth = map(
+            static_cast<uint16_t>(round(angle)), 
+            0, 
+            actuationRange, 
+            minPulse,       // theoretical min pulse width
+            maxPulse);      // theoretical max pulse width
+        DEBUG_MAESTRO_PRINTF("Angle: %.2f, Pulse Width: %d\n", angle, pulseWidth);
+        setPosition(pulseWidth);
+    }
+
+    void setTargets(uint16_t startPosition, uint16_t finishPosition, uint64_t startTime, uint64_t finishTime)
+    {
         if (startPosition == _startPosition && finishPosition == _finishPosition)
         {
             // duplicate call to something already in motion, no need to reassign
@@ -84,8 +121,8 @@ public:
             // if we are already in motion, we need to adjust the start and finish times
             // based on the current position and the new start and finish positions
             float existingProgress = fabs(static_cast<float>(_currentPosition - _startPosition) / (_finishPosition - _startPosition));
-            _startTime = startTime - static_cast<uint32_t>(existingProgress * (_finishTime - startTime));
-            _finishTime = finishTime - static_cast<uint32_t>(existingProgress * (_finishTime - startTime));
+            _startTime = startTime - static_cast<uint64_t>(existingProgress * (_finishTime - startTime));
+            _finishTime = finishTime - static_cast<uint64_t>(existingProgress * (_finishTime - startTime));
         }
         _totalDuration = _finishTime - _startTime;
         DEBUG_MAESTRO_PRINTF("start: %d, finish: %d, current: %d, startTime: %d, startTime: %d, finishTime: %d, finishTime: %d, totalDuration: %d\n", 
@@ -99,7 +136,7 @@ public:
             _totalDuration);
     }
 
-    uint16_t getNextPulse(uint32_t currentTime)
+    uint16_t getNextPulse(uint64_t currentTime)
     {
         if (_isDisabled)
         {
@@ -112,7 +149,7 @@ public:
         uint16_t newPosition = _currentPosition;
         float easingFactor = 1.0f;
         int16_t distanceToMove = 0;
-        uint32_t elapsedDuration = currentTime - _startTime;
+        uint64_t elapsedDuration = currentTime - _startTime;
         float progress = static_cast<float>(elapsedDuration) / _totalDuration;
         if (progress < 1.0f)
         {
@@ -142,9 +179,9 @@ private:
     uint16_t _startPulse;
     uint16_t _finishPulse;
     uint16_t _neutralPulse;
-    uint32_t _startTime;
-    uint32_t _finishTime;
-    uint32_t _totalDuration;
+    uint64_t _startTime;
+    uint64_t _finishTime;
+    uint64_t _totalDuration;
     uint16_t _startPosition;
     uint16_t _currentPosition; 
     uint16_t _finishPosition;

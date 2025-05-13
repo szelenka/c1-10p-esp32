@@ -146,15 +146,17 @@ public:
     void setInputRange(int32_t _min, int32_t _max) {
         if (_max <= _min)
         {
-            Console.println("[ControllerDecorator::setInputRange] max is less-than-or-equal-to min");
+            DEBUG_CONTROLLER_PRINTLN("[ControllerDecorator::setInputRange] max is less-than-or-equal-to min");
+            return;
         }
         m_maxInput = _max;
         m_minInput = _min;
     }
-    void setOutputRange(int32_t _min, int32_t _max) {
+    void setOutputRange(float _min, float _max) {
         if (_max <= _min)
         {
-            Console.println("[ControllerDecorator::setOutputRange] max is less-than-or-equal-to min");
+            DEBUG_CONTROLLER_PRINTLN("[ControllerDecorator::setOutputRange] max is less-than-or-equal-to min");
+            return;
         }
         m_maxOutput = _max;
         m_minOutput = _min;
@@ -171,12 +173,13 @@ public:
 
     void setAxisXSlew(int32_t positiveStep, int32_t negativeStep)
     { 
-        setAxisXSlew(normalizeInput(positiveStep), normalizeInput(negativeStep)); 
+        setAxisXSlew(normalizeInput(static_cast<float>(positiveStep)), normalizeInput(static_cast<float>(negativeStep))); 
     }
-    void setAxisXSlew(double positiveStep, double negativeStep)
+
+    void setAxisXSlew(float positiveStep, float negativeStep)
     {
         if (positiveStep <= negativeStep) {
-            Console.println("[ControllerDecorator::setAxisXSlew] positiveStep is less-than-or-equal-to negativeStep");
+            DEBUG_CONTROLLER_PRINTLN("[ControllerDecorator::setAxisXSlew] positiveStep is less-than-or-equal-to negativeStep");
         }
         if (m_axisXslew)
         {
@@ -187,13 +190,16 @@ public:
             m_axisXslew = new SlewRateLimiter(positiveStep, negativeStep);
         }
     }
+
     void setAxisYSlew(int32_t positiveStep, int32_t negativeStep)
     { 
-        setAxisYSlew(normalizeInput(positiveStep), normalizeInput(negativeStep)); 
+        setAxisYSlew(normalizeInput(static_cast<float>(positiveStep)), normalizeInput(static_cast<float>(negativeStep))); 
     }
-    void setAxisYSlew(double positiveStep, double negativeStep) {
+
+    void setAxisYSlew(float positiveStep, float negativeStep)
+    {
         if (positiveStep <= negativeStep) {
-            Console.println("[ControllerDecorator::setAxisYSlew] positiveStep is less-than-or-equal-to negativeStep");
+            DEBUG_CONTROLLER_PRINTLN("[ControllerDecorator::setAxisYSlew] positiveStep is less-than-or-equal-to negativeStep");
         }
         if (m_axisYslew)
         {
@@ -204,29 +210,31 @@ public:
             m_axisYslew = new SlewRateLimiter(positiveStep, negativeStep);
         }
     }
-    // void SetAxisRXSlew(double positiveStep, double negativeStep) { m_axisRXslew(positiveStep, negativeStep); }
-    // void SetAxisRYSlew(double positiveStep, double negativeStep) { m_axisRYslew(positiveStep, negativeStep); }
-    double axisXslew() { 
+    // void SetAxisRXSlew(float positiveStep, float negativeStep) { m_axisRXslew(positiveStep, negativeStep); }
+    // void SetAxisRYSlew(float positiveStep, float negativeStep) { m_axisRYslew(positiveStep, negativeStep); }
+    float axisXslew()
+    { 
         if (!m_axisXslew)
         {
             m_axisXslew = new SlewRateLimiter(kDefaultPositiveLimit, kDefaultNegativeLimit);
         }
         return m_axisXslew->Calculate(normalizeInput(axisX()+m_axisXOffset));
     }
-    double axisYslew() {
+    float axisYslew()
+    {
         if (!m_axisYslew)
         {
             m_axisYslew = new SlewRateLimiter(kDefaultPositiveLimit, kDefaultNegativeLimit);
         }
         return m_axisYslew->Calculate(normalizeInput(axisY()+m_axisYOffset));
     }
-    // double axisRXslew() const { return m_axisRXslew.Calculate(normalizeInput(this->axisRX()+m_axisRXOffset)); }
-    // double axisRYslew() const { return m_axisRYslew.Calculate(normalizeInput(this->axisRY()+m_axisRYOffset)); }
+    // float axisRXslew() const { return m_axisRXslew.Calculate(normalizeInput(this->axisRX()+m_axisRXOffset)); }
+    // float axisRYslew() const { return m_axisRYslew.Calculate(normalizeInput(this->axisRY()+m_axisRYOffset)); }
 
-    double normalizeInput(int32_t rawValue) 
+    float normalizeInput(int32_t rawValue) 
     {
         return std::clamp(
-            (m_maxOutput-m_minOutput)*((rawValue-m_minInput)/(double)(m_maxInput-m_minInput))+(m_minOutput),
+            (m_maxOutput-m_minOutput)*(static_cast<float>(rawValue-m_minInput)/static_cast<float>(m_maxInput-m_minInput))+(m_minOutput),
             m_minOutput, 
             m_maxOutput
         );
@@ -234,17 +242,17 @@ public:
 
 private:
 
-    static constexpr double kDefaultPositiveLimit = 0.75;
-    static constexpr double kDefaultNegativeLimit = -0.75;
+    static constexpr float kDefaultPositiveLimit = 0.75f;
+    static constexpr float kDefaultNegativeLimit = -0.75f;
     static constexpr int32_t kMaxInput = 512;
     static constexpr int32_t kMinInput = -512;
-    static constexpr double kMaxOutput = 1.0;
-    static constexpr double kMinOutput = -1.0;
+    static constexpr float kMaxOutput = 1.0f;
+    static constexpr float kMinOutput = -1.0f;
   
     int32_t m_maxInput = kMaxInput;
     int32_t m_minInput = kMinInput;
-    double m_maxOutput = kMaxOutput;
-    double m_minOutput = kMinOutput;
+    float m_maxOutput = kMaxOutput;
+    float m_minOutput = kMinOutput;
 
     SlewRateLimiter* m_axisXslew = nullptr;
     SlewRateLimiter* m_axisYslew = nullptr;
@@ -278,7 +286,8 @@ private:
      * @param isPressed A boolean indicating whether the button is currently pressed (true) or released (false).
      * @return The duration in milliseconds that the button has been pressed. Returns 0 if the button is released.
      */
-    ButtonState handleButtonState(const std::string& buttonName, bool isPressed) const {
+    ButtonState handleButtonState(const std::string& buttonName, bool isPressed) const
+    {
         if (buttonStates.find(buttonName) == buttonStates.end()) {
             buttonStates.emplace(buttonName, ButtonState());
         }

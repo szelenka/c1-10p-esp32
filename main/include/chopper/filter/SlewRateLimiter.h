@@ -33,12 +33,15 @@ class SlewRateLimiter {
    *                          to be negative.
    * @param initialValue The initial value of the input.
    */
-  SlewRateLimiter(double positiveRateLimit, double negativeRateLimit,
-                  double initialValue = 0.0)
+  SlewRateLimiter(float positiveRateLimit, float negativeRateLimit,
+                  float initialValue = 0.0f)
       : m_positiveRateLimit{positiveRateLimit},
         m_negativeRateLimit{negativeRateLimit},
         m_prevVal{initialValue},
-        m_prevTime{Timer::GetFPGATimestamp()} {}
+        m_prevTime{Timer::GetFPGATimestamp()}
+  {
+    
+  }
 
   /**
    * Creates a new SlewRateLimiter with the given positive rate limit and
@@ -46,8 +49,11 @@ class SlewRateLimiter {
    *
    * @param rateLimit The rate-of-change limit.
    */
-  explicit SlewRateLimiter(double rateLimit)
-      : SlewRateLimiter(rateLimit, -rateLimit) {}
+  explicit SlewRateLimiter(float rateLimit)
+      : SlewRateLimiter(rateLimit, -rateLimit)
+  {
+
+  }
 
   /**
    * Filters the input to limit its slew rate.
@@ -56,15 +62,16 @@ class SlewRateLimiter {
    * @return The filtered value, which will not change faster than the slew
    * rate.
    */
-  double Calculate(double input) {
+  float Calculate(float input)
+  {
     uint64_t currentTime = Timer::GetFPGATimestamp();
-    uint64_t elapsedTime = currentTime - m_prevTime;
+    float elapsedTime = static_cast<float>(currentTime - m_prevTime);
     // smooth out the rateLimit across milliseconds to get the per-second rateLimit
     m_prevVal +=
         std::clamp(
             input - m_prevVal, 
-            m_negativeRateLimit * elapsedTime / 1000,
-            m_positiveRateLimit * elapsedTime / 1000);
+            m_negativeRateLimit * elapsedTime / 1000.0f,
+            m_positiveRateLimit * elapsedTime / 1000.0f);
     m_prevTime = currentTime;
     return m_prevVal;
   }
@@ -74,7 +81,10 @@ class SlewRateLimiter {
    *
    * @return The last value.
    */
-  double LastValue() const { return m_prevVal; }
+  float LastValue() const
+  {
+    return m_prevVal;
+  }
 
   /**
    * Resets the slew rate limiter to the specified value; ignores the rate limit
@@ -88,8 +98,8 @@ class SlewRateLimiter {
    *                          to be negative.
    * @param initialValue The initial value of the input.
    */
-  void Reset(double positiveRateLimit, double negativeRateLimit,
-                  double initialValue = 0.0)
+  void Reset(float positiveRateLimit, float negativeRateLimit,
+                  float initialValue = 0.0f)
   {
     m_positiveRateLimit = positiveRateLimit;
     m_negativeRateLimit = negativeRateLimit;
@@ -98,8 +108,8 @@ class SlewRateLimiter {
   }
 
  private:
-  double m_positiveRateLimit;
-  double m_negativeRateLimit;
-  double m_prevVal;
+  float m_positiveRateLimit;
+  float m_negativeRateLimit;
+  float m_prevVal;
   uint64_t m_prevTime;
 };
