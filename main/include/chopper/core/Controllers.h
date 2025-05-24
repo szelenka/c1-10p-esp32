@@ -159,6 +159,12 @@ public:
             {
                 DEBUG_CONTROLLER_PRINTLN("Dpad Left");
                 // Turn Periscope Left
+                if (!m_periscopeDown)
+                {
+                 _maestroDome->setPosition(
+                    MAESTRO_DOME_PERISCOPE_SPIN,
+                    MAESTRO_DOME_PERISCOPE_SPIN_MAX);
+                }
             }
         }
 
@@ -193,12 +199,32 @@ public:
         {
             DEBUG_CONTROLLER_PRINTLN("Dpad Up");
             // Toggle Periscope up/down
+            if (m_periscopeDown)
+            {
+            _maestroDome->setPosition( 
+                MAESTRO_DOME_PERISCOPE_LIFT,
+                MAESTRO_DOME_PERISCOPE_LIFT_MAX);
+                m_periscopeDown = false;
+            }
+            else
+            {
+             _maestroDome->setPosition( 
+                MAESTRO_DOME_PERISCOPE_LIFT,
+                MAESTRO_DOME_PERISCOPE_LIFT_MIN);
+                m_periscopeDown = true;
+            }
         }
         
         if (isCtlDriveValid && ctlDrive->y())
         {
             DEBUG_CONTROLLER_PRINTLN("Dpad Right");
             // Turn Periscope Right
+            if (!m_periscopeDown)
+            {
+             _maestroDome->setPosition(
+                MAESTRO_DOME_PERISCOPE_SPIN,
+                MAESTRO_DOME_PERISCOPE_SPIN_MIN);
+            }
         }
     
         if (isCtlDriveValid && ctlDrive->l1())
@@ -455,5 +481,5 @@ private:
     ServoDispatch* _maestroDome = nullptr;
     RSSMechanism* _rssMachine = nullptr;
     SlewRateLimiter* _domeSpinSlewRateLimiter = nullptr;
-
+    bool m_periscopeDown = true;
 };
