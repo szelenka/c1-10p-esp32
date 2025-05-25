@@ -1,124 +1,82 @@
-// Copyright (c) FIRST and other WPILib contributors.
-// Open Source Software; you can modify and/or share it under the terms of
-// the WPILib BSD license file in the root directory of this project.
-
 #include "chopper/MotorSafety.h"
 
 #include <inttypes.h>
 #include <algorithm>
 #include <utility>
-#include <thread>
 #include <atomic>
 #include <vector>
 #include <Bluepad32.h>
-
-// #include <hal/DriverStation.h>
-// #include <wpi/SafeThread.h>
-// #include <wpi/SmallPtrSet.h>
-
-// #include "frc/DriverStation.h"
-// #include "frc/Errors.h"
-
-// using namespace frc;
 #include "wpi/condition_variable.h"
 #include "wpi/mutex.h"
 #include <esp_pthread.h>
-// #include <freertos/FreeRTOS.h>
-// #include <freertos/task.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
 
 namespace {
-class Thread {
+class Task {
  public:
-  Thread() { }
-  void Main();
+  Task() { }
+
+  // Main loop function for the FreeRTOS task
+  static void Main(void* pvParameters);
+
   void Start(std::string name);
   void Stop();
-  // void Join();
-  
-  esp_pthread_cfg_t m_cfg = esp_pthread_get_default_config();
 
-  mutable wpi::mutex m_mutex;
-  std::thread m_stdThread;
+ private:
+  static constexpr size_t STACK_SIZE = 3 * 1024;  // Adjust stack size as needed
+  static constexpr UBaseType_t TASK_PRIORITY = 5; // Task priority
+
   std::atomic_bool m_active{true};
-  // std::weak_ptr<SafeThreadBase> m_thread;
-  std::atomic_bool m_joinAtExit{true};
-  std::thread::id m_threadId;
   wpi::condition_variable m_cond;
+  std::string m_name;
 };
 
-void Thread::Main() {
-  Console.printf("Thread::Main [%s]\n", m_cfg.thread_name);
+// Task's main loop function
+void Task::Main(void* pvParameters) {
+  Task* task = static_cast<Task*>(pvParameters);
+  Console.printf("Task::Main [%s]\n", task->m_name.c_str());
+  
   int safetyCounter = 0;
-  while (m_active) {
+  while (task->m_active) {
     if (++safetyCounter >= 4) {
       MotorSafety::CheckMotors();
       safetyCounter = 0;
     }
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    vTaskDelay(100 / portTICK_PERIOD_MS);  // Delay 100 ms between checks
   }
-  // wpi::Event event{false, false};
-  // HAL_ProvideNewDataEventHandle(event.GetHandle());
-
-  // int safetyCounter = 0;
-  // while (m_active) {
-  //   bool timedOut = false;
-  //   bool signaled = wpi::WaitForObject(event.GetHandle(), 0.1, &timedOut);
-  //   if (signaled) {
-  //     HAL_ControlWord controlWord;
-  //     std::memset(&controlWord, 0, sizeof(controlWord));
-  //     HAL_GetControlWord(&controlWord);
-  //     if (!(controlWord.enabled && controlWord.dsAttached)) {
-  //       safetyCounter = 0;
-  //     }
-  //     if (++safetyCounter >= 4) {
-  //       MotorSafety::CheckMotors();
-  //       safetyCounter = 0;
-  //     }
-  //   } else {
-  //     safetyCounter = 0;
-  //   }
-  // }
-
-  // HAL_RemoveNewDataEventHandle(event.GetHandle());
 }
 
-void Thread::Start(std::string name) {
-  m_cfg.thread_name = name.c_str();
-  m_cfg.pin_to_core = 1;
-  m_cfg.stack_size = 3 * 1024;
-  m_cfg.prio = 5;
-  esp_pthread_set_cfg(&m_cfg);
-  m_stdThread = std::thread([this] { Main(); });
+void Task::Start(std::string name) {
+  m_name = std::move(name);
+
+  // Create the FreeRTOS task
+  xTaskCreatePinnedToCore(
+      Main,              // Task function
+      m_name.c_str(),    // Task name
+      STACK_SIZE,        // Stack size (in words, not bytes)
+      this,              // Parameter to pass to the task (this pointer)
+      TASK_PRIORITY,     // Task priority
+      nullptr,           // Handle for the task (not needed here)
+      1);                // Pin to core 1
 }
 
-void Thread::Stop() {
+void Task::Stop() {
   m_active = false;
   m_cond.notify_all();
 }
-
-// void Thread::Join() {
-//   std::unique_lock lock(m_mutex);
-//   if (auto thr = m_thread.lock()) {
-//     auto stdThread = std::move(m_stdThread);
-//     m_thread.reset();
-//     lock.unlock();
-//     thr->Stop();
-//     stdThread.join();
-//   } else if (m_stdThread.joinable()) {
-//     m_stdThread.detach();
-//   }
-// }
 }  // namespace
+
 static std::atomic_bool gShutdown{false};
 
 namespace {
 struct MotorSafetyManager {
   ~MotorSafetyManager() { gShutdown = true; }
 
-  Thread thread;
+  Task task;  // Replacing the thread with a FreeRTOS task
   std::vector<MotorSafety*> instanceList;
   wpi::mutex listMutex;
-  bool threadStarted = false;
+  bool taskStarted = false;
 };
 }  // namespace
 
@@ -131,17 +89,16 @@ MotorSafety::MotorSafety() {
   auto& manager = GetManager();
   std::scoped_lock lock(manager.listMutex);
   manager.instanceList.push_back(this);
-  if (!manager.threadStarted) {
-    manager.threadStarted = true;
-    manager.thread.Start("Thread n");
-    // manager.thread.m_stdThread = std::thread(&Thread::Main, &manager.thread);
+  if (!manager.taskStarted) {
+    manager.taskStarted = true;
+    manager.task.Start("MotorSafetyTask");
   }
 }
 
 MotorSafety::~MotorSafety() {
   auto& manager = GetManager();
   std::scoped_lock lock(manager.listMutex);
-  manager.thread.Stop();
+  manager.task.Stop();
   manager.instanceList.erase(std::remove(manager.instanceList.begin(), manager.instanceList.end(), this), manager.instanceList.end());
 }
 
@@ -203,25 +160,9 @@ void MotorSafety::Check() {
   if (!enabled) {
     return;
   }
-  // if (!enabled || DriverStation::IsDisabled() || DriverStation::IsTest()) {
-  //   return;
-  // }
 
   if (stopTime < Timer::GetFPGATimestamp()) {
-    // FRC_ReportError(err::Timeout,
-    //                 "{}... Output not updated often enough. See "
-    //                 "https://docs.wpilib.org/motorsafety for more information.",
-    //                 GetDescription());
-    // Console.printf("MotorSafety::Check [%s] -> %llu\n", stopTime, GetDescription());
     StopMotor();
-    // try {
-    //   StopMotor();
-    // } catch (frc::RuntimeError& e) {
-    //   e.Report();
-    // } catch (std::exception& e) {
-    //   FRC_ReportError(err::Error, "{} StopMotor threw unexpected exception: {}",
-    //                   GetDescription(), e.what());
-    // }
   }
 }
 

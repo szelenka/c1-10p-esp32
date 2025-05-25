@@ -4,23 +4,37 @@
 
 #include "chopper/Timer.h"
 
-#include <chrono>
-#include <thread>
+#ifdef ESP32
+  #include "freertos/FreeRTOS.h"
+  #include "freertos/task.h"
+#else
+  #include <chrono>
+  #include <thread>
+#endif
 // #include <time.h>
 
 // #include "frc/DriverStation.h"
 // #include "RobotController.h"
 
 void Wait(uint64_t milliseconds) {
-  std::this_thread::sleep_for(std::chrono::duration<double>(milliseconds/1000.0));}
+#ifdef ESP32
+    vTaskDelay(milliseconds / portTICK_PERIOD_MS);
+#else
+    std::this_thread::sleep_for(std::chrono::duration<double>(milliseconds/1000.0));
+#endif
+}
 
 uint64_t GetTime() {
+#ifdef ESP32
+  return esp_timer_get_time();
+#else
   // using std::chrono::duration;
   using std::chrono::duration_cast;
   using std::chrono::system_clock;
 
   return duration_cast<std::chrono::milliseconds>(system_clock::now().time_since_epoch())
           .count();
+#endif
 }
 
 Timer::Timer() {
@@ -82,8 +96,5 @@ bool Timer::IsRunning() const {
 }
 
 uint64_t Timer::GetFPGATimestamp() {
-  // TODO: 
-  // could replace with millis() or micros() if we want to use the Arduino
-  // clock instead of the system clock.
   return GetTime();
 }
