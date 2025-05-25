@@ -159,11 +159,14 @@ public:
             {
                 DEBUG_CONTROLLER_PRINTLN("Dpad Left");
                 // Turn Periscope Left
-                if (!m_periscopeDown)
+                if (m_periscopeDown)
                 {
-                 _maestroDome->setPosition(
-                    MAESTRO_DOME_PERISCOPE_SPIN,
-                    MAESTRO_DOME_PERISCOPE_SPIN_MAX);
+                    _maestroDome->setTimedMovement(
+                        MAESTRO_DOME_PERISCOPE_SPIN,
+                        MAESTRO_DOME_PERISCOPE_SPIN_MIN,
+                        MAESTRO_DOME_PERISCOPE_SPIN_MAX,
+                        ctlDrive->getButtonState("a").lastPressTime(),
+                        800);
                 }
             }
         }
@@ -201,6 +204,7 @@ public:
             // Toggle Periscope up/down
             if (m_periscopeDown)
             {
+                DEBUG_CONTROLLER_PRINTLN("PeriscopeDown");
                 _maestroDome->setTimedMovement(
                     MAESTRO_DOME_PERISCOPE_LIFT,
                     MAESTRO_DOME_PERISCOPE_LIFT_MIN,
@@ -214,6 +218,7 @@ public:
             }
             else
             {
+                DEBUG_CONTROLLER_PRINTLN("PeriscopeUp");
                 _maestroDome->setTimedMovement(
                     MAESTRO_DOME_PERISCOPE_LIFT,
                     MAESTRO_DOME_PERISCOPE_LIFT_MAX,
@@ -231,11 +236,14 @@ public:
         {
             DEBUG_CONTROLLER_PRINTLN("Dpad Right");
             // Turn Periscope Right
-            if (!m_periscopeDown)
+            if (m_periscopeDown)
             {
-             _maestroDome->setPosition(
-                MAESTRO_DOME_PERISCOPE_SPIN,
-                MAESTRO_DOME_PERISCOPE_SPIN_MIN);
+                _maestroDome->setTimedMovement(
+                    MAESTRO_DOME_PERISCOPE_SPIN,
+                    MAESTRO_DOME_PERISCOPE_SPIN_MAX,
+                    MAESTRO_DOME_PERISCOPE_SPIN_MIN,
+                    ctlDrive->getButtonState("y").lastPressTime(),
+                    800);
             }
         }
     

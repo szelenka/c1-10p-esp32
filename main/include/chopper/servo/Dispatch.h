@@ -82,6 +82,20 @@ public:
         {
             switch(i)
             {
+                case MAESTRO_DOME_PERISCOPE_LIFT:
+                     MiniMaestro::setSpeed(i, MAESTRO_DOME_PERISCOPE_LIFT_SPEED);
+                     MiniMaestro::setAcceleration(i, MAESTRO_DOME_PERISCOPE_LIFT_ACCEL);
+                     _servoStates[i].setRange(MAESTRO_DOME_PERISCOPE_LIFT_MIN, MAESTRO_DOME_PERISCOPE_LIFT_MAX, MAESTRO_DOME_PERISCOPE_LIFT_NEUTRAL);
+                     _servoStates[i].setEasingMethod(MAESTRO_DOME_PERISCOPE_LIFT_EASING);
+                     _servoStates[i].setPosition(MAESTRO_DOME_PERISCOPE_LIFT_NEUTRAL);
+                     break;
+                 case MAESTRO_DOME_PERISCOPE_SPIN:
+                     MiniMaestro::setSpeed(i, MAESTRO_DOME_PERISCOPE_SPIN_SPEED);
+                     MiniMaestro::setAcceleration(i, MAESTRO_DOME_PERISCOPE_SPIN_ACCEL);
+                     _servoStates[i].setRange(MAESTRO_DOME_PERISCOPE_SPIN_MIN, MAESTRO_DOME_PERISCOPE_SPIN_MAX, MAESTRO_DOME_PERISCOPE_SPIN_NEUTRAL);
+                     _servoStates[i].setEasingMethod(MAESTRO_DOME_PERISCOPE_SPIN_EASING);
+                     _servoStates[i].setPosition(MAESTRO_DOME_PERISCOPE_SPIN_NEUTRAL);
+                     break;
                 default:
                     DEBUG_MAESTRO_PRINTF("Servo %d not configured\n", i);
                     break;
