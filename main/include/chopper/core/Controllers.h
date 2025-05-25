@@ -201,17 +201,29 @@ public:
             // Toggle Periscope up/down
             if (m_periscopeDown)
             {
-            _maestroDome->setPosition( 
-                MAESTRO_DOME_PERISCOPE_LIFT,
-                MAESTRO_DOME_PERISCOPE_LIFT_MAX);
-                m_periscopeDown = false;
+                _maestroDome->setTimedMovement(
+                    MAESTRO_DOME_PERISCOPE_LIFT,
+                    MAESTRO_DOME_PERISCOPE_LIFT_MIN,
+                    MAESTRO_DOME_PERISCOPE_LIFT_MAX,
+                    ctlDrive->getButtonState("x").lastPressTime(),
+                    800);
+                if (_maestroDome->isFinishedMoving(MAESTRO_DOME_PERISCOPE_LIFT))
+                {
+                    m_periscopeDown = false;
+                }
             }
             else
             {
-             _maestroDome->setPosition( 
-                MAESTRO_DOME_PERISCOPE_LIFT,
-                MAESTRO_DOME_PERISCOPE_LIFT_MIN);
-                m_periscopeDown = true;
+                _maestroDome->setTimedMovement(
+                    MAESTRO_DOME_PERISCOPE_LIFT,
+                    MAESTRO_DOME_PERISCOPE_LIFT_MAX,
+                    MAESTRO_DOME_PERISCOPE_LIFT_MIN,
+                    ctlDrive->getButtonState("x").lastPressTime(),
+                    800);
+                if (_maestroDome->isFinishedMoving(MAESTRO_DOME_PERISCOPE_LIFT))
+                {
+                    m_periscopeDown = true;
+                }
             }
         }
         

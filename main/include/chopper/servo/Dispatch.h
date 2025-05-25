@@ -159,6 +159,11 @@ public:
         }
     }
 
+    bool isFinishedMoving(uint8_t channel)
+    {
+        return _servoStates[channel].isFinishedMoving();
+    }
+
 
 private:
     uint8_t _channels;
