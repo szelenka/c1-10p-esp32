@@ -96,6 +96,20 @@ public:
                      _servoStates[i].setEasingMethod(MAESTRO_DOME_PERISCOPE_SPIN_EASING);
                      _servoStates[i].setPosition(MAESTRO_DOME_PERISCOPE_SPIN_NEUTRAL);
                      break;
+                case MAESTRO_DOME_DOOR_LEFT:
+                     MiniMaestro::setSpeed(i, MAESTRO_DOME_DOOR_LEFT_SPEED);
+                     MiniMaestro::setAcceleration(i, MAESTRO_DOME_DOOR_LEFT_ACCEL);
+                     _servoStates[i].setRange(MAESTRO_DOME_DOOR_LEFT_MIN, MAESTRO_DOME_DOOR_LEFT_MAX, MAESTRO_DOME_DOOR_LEFT_NEUTRAL);
+                     _servoStates[i].setEasingMethod(MAESTRO_DOME_DOOR_LEFT_EASING);
+                     _servoStates[i].setPosition(MAESTRO_DOME_DOOR_LEFT_NEUTRAL);
+                     break;
+                case MAESTRO_DOME_DOOR_RIGHT:
+                     MiniMaestro::setSpeed(i, MAESTRO_DOME_DOOR_RIGHT_SPEED);
+                     MiniMaestro::setAcceleration(i, MAESTRO_DOME_DOOR_RIGHT_ACCEL);
+                     _servoStates[i].setRange(MAESTRO_DOME_DOOR_RIGHT_MIN, MAESTRO_DOME_DOOR_RIGHT_MAX, MAESTRO_DOME_DOOR_RIGHT_NEUTRAL);
+                     _servoStates[i].setEasingMethod(MAESTRO_DOME_DOOR_RIGHT_EASING);
+                     _servoStates[i].setPosition(MAESTRO_DOME_DOOR_RIGHT_NEUTRAL);
+                     break;
                 default:
                     DEBUG_MAESTRO_PRINTF("Servo %d not configured\n", i);
                     break;
