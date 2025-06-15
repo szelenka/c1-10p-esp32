@@ -376,7 +376,7 @@ public:
                     MAESTRO_DOME_DOOR_RIGHT_MAX,
                     MAESTRO_DOME_DOOR_RIGHT_MIN,
                     ctlDrive->getButtonState("miscSelect").lastPressTime(),
-                    0);
+                    1);
                 m_rightDomeDoorOpen = false;
             }
             else
@@ -387,7 +387,7 @@ public:
                     MAESTRO_DOME_DOOR_RIGHT_MIN,
                     MAESTRO_DOME_DOOR_RIGHT_MAX,
                     ctlDrive->getButtonState("miscSelect").lastPressTime(),
-                    0);
+                    1);
                 m_rightDomeDoorOpen = true;
             }
             if (m_leftDomeDoorOpen)
@@ -398,7 +398,7 @@ public:
                     MAESTRO_DOME_DOOR_LEFT_NEUTRAL,
                     MAESTRO_DOME_DOOR_LEFT_MAX,
                     ctlDrive->getButtonState("miscSelect").lastPressTime(),
-                    0);
+                    1);
                 m_leftDomeDoorOpen = false;
             }
             else
@@ -409,7 +409,7 @@ public:
                     MAESTRO_DOME_DOOR_LEFT_MAX,
                     MAESTRO_DOME_DOOR_LEFT_NEUTRAL,
                     ctlDrive->getButtonState("miscSelect").lastPressTime(),
-                    0);
+                    1);
                 m_leftDomeDoorOpen = true;
             }
         }
