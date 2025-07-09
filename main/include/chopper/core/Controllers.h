@@ -350,7 +350,7 @@ public:
         if (isCtlDriveValid && ctlDrive->l2())
         {
             DEBUG_CONTROLLER_PRINTLN("L");
-            // Raise Head up
+            // body door left
         }
     
         // handle dome spin
@@ -419,10 +419,29 @@ public:
             DEBUG_CONTROLLER_PRINTLN("Screen Capture");
         }
     
-        if (isCtlDriveValid && ctlDrive->thumbL())
+        if (isCtlDriveValid && ctlDrive->thumbL().isDoubleClicked() && ctlDrive->thumbL().pressedDuration() < 500)
         {
-            DEBUG_CONTROLLER_PRINTLN("Joystick Push In [Drive]");
+            DEBUG_CONTROLLER_PRINTLN("Joystick Push In [Drive] -- double click");
+            
+            if (m_isCarpetMode)
+            {
+                DEBUG_CONTROLLER_PRINTLN("Decrease Speed");
+                _sabertoothDiff->SetSpeedLimit(C110P_DRIVE_MAXIMUM_SPEED);
+                _mp3Trigger->trigger(C110P_SOUND_3WAH);
+                m_isCarpetMode = false;
+            }
+            else
+            {
+                DEBUG_CONTROLLER_PRINTLN("Increase Speed");
+                _sabertoothDiff->SetSpeedLimit(C110P_DRIVE_MAXIMUM_SPEED + C110P_DRIVE_SPEED_BOOST);
+                _mp3Trigger->trigger(C110P_SOUND_TADA);
+                m_isCarpetMode = true;
+            }
         }
+        // else if (isCtlDriveValid && ctlDrive->thumbL())
+        // {
+        //     DEBUG_CONTROLLER_PRINTLN("Joystick Push In [Drive]");
+        // }
     
         if (isCtlDomeValid && ctlDome->a())
         {
@@ -439,12 +458,6 @@ public:
         if (isCtlDomeValid && ctlDome->x())
         {
             DEBUG_CONTROLLER_PRINTLN("B");
-            //Increse speed
-            _sabertoothDiff->SetSpeedLimit(C110P_DRIVE_MAXIMUM_SPEED + C110P_DRIVE_SPEED_BOOST);
-        }
-        else
-        {
-            _sabertoothDiff->SetSpeedLimit(C110P_DRIVE_MAXIMUM_SPEED);
         }
         
         if (isCtlDomeValid && ctlDome->y())
@@ -467,7 +480,7 @@ public:
         if (isCtlDomeValid && ctlDome->l2())
         {
             DEBUG_CONTROLLER_PRINTLN("R");
-            // Raise Head down
+            // body door right
         }
     
         // if (isCtlDomeValid && ctlDome->r2())
@@ -640,4 +653,5 @@ private:
     bool m_rightDomeDoorOpen = true;
     bool m_leftDomeDoorOpen = true;
     int8_t m_periscopeLocation = 0;
+    bool m_isCarpetMode = false;
 };
