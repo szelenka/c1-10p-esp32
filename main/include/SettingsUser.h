@@ -6,11 +6,11 @@
 
 // duration in milliseconds to wait before the motor is disabled
 // each message from the controller resets the timer
-#define C110P_MOTOR_SAFETY_TIMEOUT_MS   1500    
+#define C110P_MOTOR_SAFETY_TIMEOUT_MS   500    
 
 // setTimeout rounds up to the nearest 100 milliseconds
 // A value of 0 disables the serial timeout
-#define C110P_MOTOR_SERIAL_TIMEOUT_MS   950     
+#define C110P_MOTOR_SERIAL_TIMEOUT_MS   450     
 
 
 /*
@@ -24,7 +24,7 @@
 
 // Top speed limiter - percentage 0.0 - 1.0
 #define C110P_DRIVE_MAXIMUM_SPEED       0.25f
-#define C110P_DRIVE_SPEED_BOOST         0.25f
+#define C110P_DRIVE_SPEED_BOOST         0.15f
 
 #define C110P_DRIVE_DEADBAND            0.05f
 #define C110P_DRIVE_MOTOR_1_INVERTED   true
@@ -40,10 +40,10 @@
 #define C110P_DOME_RAMPING_PERIOD      80      
 
 // Dome speed limiter - percentage 0.0 - 1.0
-#define C110P_DOME_MAXIMUM_SPEED            0.5f
+#define C110P_DOME_MAXIMUM_SPEED            0.8f
 #define C110P_DOME_DEADBAND                 0.05f
 #define C110P_DOME_MOTOR_1_INVERTED         false
-#define C110P_DOME_SPIN_SLEW_RATE           3.0f
+#define C110P_DOME_SPIN_SLEW_RATE           2.0f
 
 #define DOME_DIRECTION_CHANGE_THRESHOLD 5
 #define DOME_RANDOM_MOVE_MIN_DEGREES 5
@@ -136,7 +136,7 @@
 // Per the VS1053 datasheet:
 // maximum volume is 0x00 (0)
 // values much above 0x40 (64) are too low to be audible
-#define C110P_SOUND_VOLUME              32
+#define C110P_SOUND_VOLUME              0
 
 // TODO: create a list of all music file to make the code easier to read
 // Document what exists on the SD card in the MP3 Trigger

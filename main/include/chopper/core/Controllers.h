@@ -154,11 +154,61 @@ public:
             if (ctlDrive->a().isDoubleClicked())
             {
                 DEBUG_CONTROLLER_PRINTLN("Dpad Left -- double click");
+                // move full left, without stopping in center
+                if (m_periscopeLocation != -1)
+                {
+                    _maestroDome->setTimedMovement(
+                        MAESTRO_DOME_PERISCOPE_SPIN,
+                        MAESTRO_DOME_PERISCOPE_SPIN_MIN,
+                        MAESTRO_DOME_PERISCOPE_SPIN_MAX,
+                        ctlDrive->getButtonState("a").lastPressTime(),
+                        800);
+                    if (_maestroDome->isFinishedMoving(MAESTRO_DOME_PERISCOPE_SPIN))
+                    {
+                        m_periscopeLocation = -1;
+                    }
+                }
             }
             else if (ctlDrive->a())
             {
                 DEBUG_CONTROLLER_PRINTLN("Dpad Left");
                 // Turn Periscope Left
+                if (m_periscopeDown)
+                {
+                    if (m_periscopeLocation == 0)
+                    {
+                        // facing center, asked to move left
+                        _maestroDome->setTimedMovement(
+                            MAESTRO_DOME_PERISCOPE_SPIN,
+                            MAESTRO_DOME_PERISCOPE_SPIN_NEUTRAL,
+                            MAESTRO_DOME_PERISCOPE_SPIN_MAX,
+                            ctlDrive->getButtonState("a").lastPressTime(),
+                            400);
+                        if (_maestroDome->isFinishedMoving(MAESTRO_DOME_PERISCOPE_SPIN))
+                        {
+                            m_periscopeLocation = -1;
+                        }
+                    }
+                    else if (m_periscopeLocation == 1)
+                    {
+                        // facing right, asked to move left
+                        _maestroDome->setTimedMovement(
+                            MAESTRO_DOME_PERISCOPE_SPIN,
+                            MAESTRO_DOME_PERISCOPE_SPIN_MIN,
+                            MAESTRO_DOME_PERISCOPE_SPIN_NEUTRAL,
+                            ctlDrive->getButtonState("a").lastPressTime(),
+                            400);
+                        if (_maestroDome->isFinishedMoving(MAESTRO_DOME_PERISCOPE_SPIN))
+                        {
+                            m_periscopeLocation = 0;
+                        }
+                    }
+                    else if (m_periscopeLocation == -1)
+                    {
+                        // facing left, asked to move left
+                        // nothing to do
+                    }
+                }
             }
         }
 
@@ -193,12 +243,98 @@ public:
         {
             DEBUG_CONTROLLER_PRINTLN("Dpad Up");
             // Toggle Periscope up/down
+            if (m_periscopeDown)
+            {
+                DEBUG_CONTROLLER_PRINTLN("Periscope moving up");
+                _maestroDome->setTimedMovement(
+                    MAESTRO_DOME_PERISCOPE_LIFT,
+                    MAESTRO_DOME_PERISCOPE_LIFT_MIN,
+                    MAESTRO_DOME_PERISCOPE_LIFT_MAX,
+                    ctlDrive->getButtonState("x").lastPressTime(),
+                    800);
+                if (_maestroDome->isFinishedMoving(MAESTRO_DOME_PERISCOPE_LIFT))
+                {
+                    m_periscopeDown = false;
+                }
+            }
+            else
+            {
+                DEBUG_CONTROLLER_PRINTLN("Periscope moving down");
+                _maestroDome->setTimedMovement(
+                    MAESTRO_DOME_PERISCOPE_LIFT,
+                    MAESTRO_DOME_PERISCOPE_LIFT_MAX,
+                    MAESTRO_DOME_PERISCOPE_LIFT_MIN,
+                    ctlDrive->getButtonState("x").lastPressTime(),
+                    800);
+                if (_maestroDome->isFinishedMoving(MAESTRO_DOME_PERISCOPE_LIFT))
+                {
+                    m_periscopeDown = true;
+                }
+            }
         }
         
-        if (isCtlDriveValid && ctlDrive->y())
+        
+        if (isCtlDriveValid)
         {
-            DEBUG_CONTROLLER_PRINTLN("Dpad Right");
-            // Turn Periscope Right
+            if (ctlDrive->y().isDoubleClicked())
+            {
+                DEBUG_CONTROLLER_PRINTLN("Dpad Richt -- double click");
+                // move full right, without stopping in center
+                if (m_periscopeLocation != 1)
+                {
+                    _maestroDome->setTimedMovement(
+                        MAESTRO_DOME_PERISCOPE_SPIN,
+                        MAESTRO_DOME_PERISCOPE_SPIN_MAX,
+                        MAESTRO_DOME_PERISCOPE_SPIN_MIN,
+                        ctlDrive->getButtonState("y").lastPressTime(),
+                        800);
+                    if (_maestroDome->isFinishedMoving(MAESTRO_DOME_PERISCOPE_SPIN))
+                    {
+                        m_periscopeLocation = 1;
+                    }
+                }
+            }
+            else if (ctlDrive->y())
+            {
+                DEBUG_CONTROLLER_PRINTLN("Dpad Right");
+                // Turn Periscope Right
+                if (m_periscopeDown)
+                {
+                    if (m_periscopeLocation == 0)
+                    {
+                        // facing center, asked to move right
+                        _maestroDome->setTimedMovement(
+                            MAESTRO_DOME_PERISCOPE_SPIN,
+                            MAESTRO_DOME_PERISCOPE_SPIN_NEUTRAL,
+                            MAESTRO_DOME_PERISCOPE_SPIN_MIN,
+                            ctlDrive->getButtonState("y").lastPressTime(),
+                            400);
+                        if (_maestroDome->isFinishedMoving(MAESTRO_DOME_PERISCOPE_SPIN))
+                        {
+                            m_periscopeLocation = 1;
+                        }
+                    }
+                    else if (m_periscopeLocation == 1)
+                    {
+                        // facing right, asked to move right
+                        // nothing to do
+                    }
+                    else if (m_periscopeLocation == -1)
+                    {
+                        // facing left, asked to move right
+                        _maestroDome->setTimedMovement(
+                            MAESTRO_DOME_PERISCOPE_SPIN,
+                            MAESTRO_DOME_PERISCOPE_SPIN_MAX,
+                            MAESTRO_DOME_PERISCOPE_SPIN_NEUTRAL,
+                            ctlDrive->getButtonState("y").lastPressTime(),
+                            400);
+                        if (_maestroDome->isFinishedMoving(MAESTRO_DOME_PERISCOPE_SPIN))
+                        {
+                            m_periscopeLocation = 0;
+                        }
+                    }
+                }
+            }
         }
     
         if (isCtlDriveValid && ctlDrive->l1())
@@ -214,7 +350,7 @@ public:
         if (isCtlDriveValid && ctlDrive->l2())
         {
             DEBUG_CONTROLLER_PRINTLN("L");
-            // Raise Head up
+            // body door left
         }
     
         // handle dome spin
@@ -231,6 +367,51 @@ public:
         if (isCtlDriveValid && ctlDrive->miscSelect())
         {
             DEBUG_CONTROLLER_PRINTLN("-");
+           // Toggle Right Dome Door Open/Closed
+            if (m_rightDomeDoorOpen)
+            {
+                DEBUG_CONTROLLER_PRINTLN("RightDomeDoorOpen");
+                _maestroDome->setTimedMovement(
+                    MAESTRO_DOME_DOOR_RIGHT,
+                    MAESTRO_DOME_DOOR_RIGHT_MAX,
+                    MAESTRO_DOME_DOOR_RIGHT_MIN,
+                    ctlDrive->getButtonState("miscSelect").lastPressTime(),
+                    1);
+                m_rightDomeDoorOpen = false;
+            }
+            else
+            {
+                DEBUG_CONTROLLER_PRINTLN("RightDoorClosed");
+                _maestroDome->setTimedMovement(
+                    MAESTRO_DOME_DOOR_RIGHT,
+                    MAESTRO_DOME_DOOR_RIGHT_MIN,
+                    MAESTRO_DOME_DOOR_RIGHT_MAX,
+                    ctlDrive->getButtonState("miscSelect").lastPressTime(),
+                    1);
+                m_rightDomeDoorOpen = true;
+            }
+            if (m_leftDomeDoorOpen)
+            {
+                DEBUG_CONTROLLER_PRINTLN("LeftDomeDoorOpen");
+                _maestroDome->setTimedMovement(
+                    MAESTRO_DOME_DOOR_LEFT,
+                    MAESTRO_DOME_DOOR_LEFT_NEUTRAL,
+                    MAESTRO_DOME_DOOR_LEFT_MAX,
+                    ctlDrive->getButtonState("miscSelect").lastPressTime(),
+                    1);
+                m_leftDomeDoorOpen = false;
+            }
+            else
+            {
+                DEBUG_CONTROLLER_PRINTLN("LeftDoorClosed");
+                _maestroDome->setTimedMovement(
+                    MAESTRO_DOME_DOOR_LEFT,
+                    MAESTRO_DOME_DOOR_LEFT_MAX,
+                    MAESTRO_DOME_DOOR_LEFT_NEUTRAL,
+                    ctlDrive->getButtonState("miscSelect").lastPressTime(),
+                    1);
+                m_leftDomeDoorOpen = true;
+            }
         }
     
         if (isCtlDriveValid && ctlDrive->miscStart())
@@ -238,10 +419,29 @@ public:
             DEBUG_CONTROLLER_PRINTLN("Screen Capture");
         }
     
-        if (isCtlDriveValid && ctlDrive->thumbL())
+        if (isCtlDriveValid && ctlDrive->thumbL().isDoubleClicked() && ctlDrive->thumbL().pressedDuration() < 500)
         {
-            DEBUG_CONTROLLER_PRINTLN("Joystick Push In [Drive]");
+            DEBUG_CONTROLLER_PRINTLN("Joystick Push In [Drive] -- double click");
+            
+            if (m_isCarpetMode)
+            {
+                DEBUG_CONTROLLER_PRINTLN("Decrease Speed");
+                _sabertoothDiff->SetSpeedLimit(C110P_DRIVE_MAXIMUM_SPEED);
+                _mp3Trigger->trigger(C110P_SOUND_3WAH);
+                m_isCarpetMode = false;
+            }
+            else
+            {
+                DEBUG_CONTROLLER_PRINTLN("Increase Speed");
+                _sabertoothDiff->SetSpeedLimit(C110P_DRIVE_MAXIMUM_SPEED + C110P_DRIVE_SPEED_BOOST);
+                _mp3Trigger->trigger(C110P_SOUND_TADA);
+                m_isCarpetMode = true;
+            }
         }
+        // else if (isCtlDriveValid && ctlDrive->thumbL())
+        // {
+        //     DEBUG_CONTROLLER_PRINTLN("Joystick Push In [Drive]");
+        // }
     
         if (isCtlDomeValid && ctlDome->a())
         {
@@ -258,12 +458,6 @@ public:
         if (isCtlDomeValid && ctlDome->x())
         {
             DEBUG_CONTROLLER_PRINTLN("B");
-            //Increse speed
-            _sabertoothDiff->SetSpeedLimit(C110P_DRIVE_MAXIMUM_SPEED + C110P_DRIVE_SPEED_BOOST);
-        }
-        else
-        {
-            _sabertoothDiff->SetSpeedLimit(C110P_DRIVE_MAXIMUM_SPEED);
         }
         
         if (isCtlDomeValid && ctlDome->y())
@@ -286,7 +480,7 @@ public:
         if (isCtlDomeValid && ctlDome->l2())
         {
             DEBUG_CONTROLLER_PRINTLN("R");
-            // Raise Head down
+            // body door right
         }
     
         // if (isCtlDomeValid && ctlDome->r2())
@@ -455,5 +649,9 @@ private:
     ServoDispatch* _maestroDome = nullptr;
     RSSMechanism* _rssMachine = nullptr;
     SlewRateLimiter* _domeSpinSlewRateLimiter = nullptr;
-
+    bool m_periscopeDown = true;
+    bool m_rightDomeDoorOpen = true;
+    bool m_leftDomeDoorOpen = true;
+    int8_t m_periscopeLocation = 0;
+    bool m_isCarpetMode = false;
 };

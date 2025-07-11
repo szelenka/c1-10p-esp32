@@ -153,8 +153,8 @@ public:
         // This is a simple rotation transformation
         // around the origin (0, 0) by the specified angle
         // This allows joystick input for straight up, to align with straight up on the triangle of the RSS Mechanism
-        x = round(ApplyDeadband(x, m_deadband) * 10.0f) / 10.0f;
-        y = round(ApplyDeadband(y, m_deadband) * 10.0f) / 10.0f;
+        x = round(ApplyDeadband(x, m_deadband) * 100.0f) / 100.0f;
+        y = round(ApplyDeadband(y, m_deadband) * 100.0f) / 100.0f;
         float rotatedX = x * cos(_rotationRadianOffset) - y * sin(_rotationRadianOffset);
         float rotatedY = x * sin(_rotationRadianOffset) + y * cos(_rotationRadianOffset);
         return std::make_tuple(rotatedX, rotatedY);
