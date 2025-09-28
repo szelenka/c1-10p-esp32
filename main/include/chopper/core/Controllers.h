@@ -352,9 +352,9 @@ public:
         {
             DEBUG_CONTROLLER_PRINTLN("SR");
             //volume down
-            if (m_volume >=0 && m_volume <=56)
+            if (m_volume >= 0 && m_volume <= 56)
             {
-                m_volume +=8;
+                m_volume += 8;
                 mp3Trigger.setVolume(m_volume);
             }
         }
