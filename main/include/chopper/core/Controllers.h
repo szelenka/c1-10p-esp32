@@ -341,9 +341,9 @@ public:
         {
             DEBUG_CONTROLLER_PRINTLN("SL");
             //Volume up one noch/1 sec untill min volume: 30
-            if (m_volume <=64 && m_volume >=8)  
+            if (m_volume <= 64 && m_volume >= 8)  
             {   
-                m_volume -=8;
+                m_volume -= 8;
                 mp3Trigger.setVolume(m_volume);
             }
         }
