@@ -340,11 +340,23 @@ public:
         if (isCtlDriveValid && ctlDrive->l1())
         {
             DEBUG_CONTROLLER_PRINTLN("SL");
+            //Volume up one noch/1 sec untill min volume: 30
+            if (m_volume <= 64 && m_volume >= 8)  
+            {   
+                m_volume -= 8;
+                mp3Trigger.setVolume(m_volume);
+            }
         }
     
         if (isCtlDriveValid && ctlDrive->r1())
         {
             DEBUG_CONTROLLER_PRINTLN("SR");
+            //volume down
+            if (m_volume >= 0 && m_volume <= 56)
+            {
+                m_volume += 8;
+                mp3Trigger.setVolume(m_volume);
+            }
         }
     
         if (isCtlDriveValid && ctlDrive->l2())
@@ -654,4 +666,5 @@ private:
     bool m_leftDomeDoorOpen = true;
     int8_t m_periscopeLocation = 0;
     bool m_isCarpetMode = false;
+    int16_t m_volume = 0;
 };
