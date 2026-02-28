@@ -282,6 +282,12 @@ $(TEST_BIN)/test_integration: $(TEST_SRC)/test_integration.cpp $(CORE_SRCS) $(EX
 $(TEST_BIN)/test_button_nodes: $(TEST_SRC)/test_button_nodes.cpp $(CORE_SRCS) $(PARAM_SRC) | $(TEST_BIN)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
+$(TEST_BIN)/test_sabertooth: $(TEST_SRC)/test_sabertooth.cpp | $(TEST_BIN)
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+$(TEST_BIN)/test_mp3trigger: $(TEST_SRC)/test_mp3trigger.cpp | $(TEST_BIN)
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
 TEST_BINS := \
 	$(TEST_BIN)/test_core \
 	$(TEST_BIN)/test_safety \
@@ -292,7 +298,9 @@ TEST_BINS := \
 	$(TEST_BIN)/test_dome_ik \
 	$(TEST_BIN)/test_maestro \
 	$(TEST_BIN)/test_integration \
-	$(TEST_BIN)/test_button_nodes
+	$(TEST_BIN)/test_button_nodes \
+	$(TEST_BIN)/test_sabertooth \
+	$(TEST_BIN)/test_mp3trigger
 
 test-build: $(TEST_BINS)
 

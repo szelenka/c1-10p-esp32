@@ -1,5 +1,17 @@
 #pragma once
 
+// ============================================================================
+// C-compatible defines for use in main.c and other C translation units.
+// These mirror the C++ constexpr values in the namespaces below.
+// ============================================================================
+#define chopper_config_bluetooth_DRIVE_MAC       "98:E6:B9:62:6E:58"
+#define chopper_config_bluetooth_DOME_MAC        "98:E6:B9:5A:CA:74"
+#define chopper_config_bluetooth_ANIMATE_MAC     "5C:52:1E:FF:6E:A2"
+#define chopper_config_bluetooth_CAMERA_MAC      "5C:52:1E:FF:51:45"
+#define chopper_config_bluetooth_FORGET_ON_STARTUP  1
+
+#ifdef __cplusplus
+
 #include <cstdint>
 
 namespace chopper {
@@ -166,3 +178,5 @@ namespace drive_mode {
 
 } // namespace config
 } // namespace chopper
+
+#endif // __cplusplus

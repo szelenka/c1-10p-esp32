@@ -7,11 +7,14 @@ namespace chopper {
 namespace hal {
 
 /**
- * Minimal serial port interface for writing bytes to a UART.
+ * Serial port interface for reading and writing bytes to a UART.
  *
- * Abstracts the byte-level write operation so that drivers like
- * MaestroServoDriver can be tested without real hardware.
- * The ESP-IDF implementation wraps uart_write_bytes().
+ * Abstracts byte-level I/O so that drivers like MaestroServoDriver,
+ * SabertoothMotorDriver, and MP3AudioDriver can be tested without
+ * real hardware. The ESP-IDF implementation wraps uart_read/write_bytes().
+ *
+ * Read methods have default implementations returning "no data" so that
+ * existing write-only users (MaestroServoDriver, etc.) need zero changes.
  */
 class ISerialPort {
 public:
@@ -22,6 +25,12 @@ public:
 
     /// Convenience: write a single byte.
     size_t write(uint8_t byte) { return write(&byte, 1); }
+
+    /// Returns the number of bytes available for reading.
+    virtual int available() { return 0; }
+
+    /// Read a single byte. Returns -1 if no data available.
+    virtual int read() { return -1; }
 };
 
 } // namespace hal

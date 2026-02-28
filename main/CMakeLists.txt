@@ -5,44 +5,21 @@ set(src_dirs
         "."
         "chopper"
         "chopper/core"
-        "chopper/adapters"
-        "chopper/examples"
-        "chopper/drive"
-        "chopper/bluetooth"
         "chopper/hal"
-        "chopper/safety"
-        "chopper/nodes"
-        "chopper/motorController"
-        "chopper/sensor")
+        "chopper/safety")
 
-set(srcs 
-        "main.c"
-        "sketch.cpp"
-        "chopper/MotorSafety.cpp"
-        "chopper/Timer.cpp"
-        "chopper/drive/DifferentialDrive.cpp"
-        "chopper/drive/DifferentialDriveSabertooth.cpp"
-        "chopper/drive/RobotDriveBase.cpp"
-        "chopper/drive/SingleDrive.cpp"
-        "chopper/drive/SingleDriveSabertooth.cpp"
-        "chopper/motorController/SabertoothController.cpp"
-        "chopper/sensor/AnalogMonitor.cpp")
+# NOTE: chopper/adapters and chopper/examples are excluded until
+# Bluepad32ControllerSource is rewritten to not depend on the
+# deleted ControllerDecorator. The old srcs list is removed since
+# SRC_DIRS auto-discovers .cpp files.
 
-set(requires 
+set(requires
         "pthread"
         "bluepad32"
-        "bluepad32_arduino"
-        "arduino"
-        "btstack"
-        "ghostl"
-        "espsoftwareserial"
-        "maestro-arduino"
-        "MP3Trigger"
-        "Sabertooth")
+        "btstack")
 
 # ref: https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/build-system.html
 idf_component_register(
-        # SRCS "${srcs}"
         SRC_DIRS "${src_dirs}"
         INCLUDE_DIRS "${include_dirs}"
         REQUIRES "${requires}")
@@ -50,6 +27,3 @@ idf_component_register(
 # some components inspired by wpilibc make heavy use of C++/20 standard
 # ref: https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/cplusplus.html#c-language-standard
 target_compile_options(${COMPONENT_LIB} PUBLIC -std=gnu++2a)
-
-# COMPONENT_ADD_LDFLAGS
-# COMPONENT_ADD_LINKER_DEPS
