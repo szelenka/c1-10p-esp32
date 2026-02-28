@@ -1,417 +1,234 @@
 #pragma once
 
-// #include "ReelTwo.h"
-#include "chopper/dome/DomePositionProvider.h"
-#include "chopper/Timer.h"
+#include <cmath>
+#include <cstdint>
 
-class DomePosition
-{
+namespace chopper {
+namespace dome {
+
+/**
+ * Dome position tracking and mode management.
+ *
+ * Tracks dome angle via an external sensor value fed through update(),
+ * computes shortest-distance rotations, and manages dome modes
+ * (Off, Home, Random, Target).
+ *
+ * No framework dependencies — callers provide time and sensor readings.
+ */
+class DomePosition {
 public:
-    enum Mode
-    {
+    enum Mode : uint8_t {
         kOff = 1,
         kHome,
         kRandom,
         kTarget
     };
 
-    DomePosition(DomePositionProvider& provider) :
-        fProvider(provider)
-    {
-    }
+    DomePosition() = default;
 
-    inline bool ready()
-    {
-        return fProvider.ready();
-    }
+    // --- Sensor interface ---
 
-    Mode getDomeMode()
-    {
-        if (!ready())
-            return kOff;
-        return fDomeMode;
-    }
-
-    Mode getDomeDefaultMode()
-    {
-        return fDomeDefaultMode;
-    }
-
-    void setDomeMode(Mode mode)
-    {
-        fDomeMode = mode;
-        fLastChangeMS = Timer::GetFPGATimestamp();
-    }
-
-    void setDomeDefaultMode(Mode mode)
-    {
-        fDomeDefaultMode = mode;
-        setDomeMode(mode);
-    }
-
-    bool getDomeFlip()
-    {
-        return fDomeFlip;
-    }
-
-    float getDomeSpeed()
-    {
-        switch (getDomeMode())
-        {
-            case kHome:
-                return getDomeSpeedHome();
-            case kRandom:
-                return getDomeAutoSpeed();
-            case kTarget:
-                return getDomeSpeedTarget();
-            case kOff:
-            default:
-                return getDomeMinSpeed();
-        }
-    }
-
-    float getDomeSpeedHome()
-    {
-        return float(fDomeSpeedHome) / 100.0;
-    }
-
-    float getDomeSpeedTarget()
-    {
-        return float(fDomeSpeedTarget) / 100.0;
-    }
-
-    float getDomeMinSpeed()
-    {
-        return float(fDomeSpeedMin) / 100.0;
-    }
-
-    float getDomeAutoSpeed()
-    {
-        return float(fDomeSpeedAuto) / 100.0;
-    }
-
-    unsigned getDomeFudge()
-    {
-        return fDomeFudge;
-    }
-
-    unsigned getDomeAutoLeft()
-    {
-        return fDomeAutoLeft;
-    }
-
-    unsigned getDomeAutoRight()
-    {
-        return fDomeAutoRight;
-    }
-
-    unsigned getDomeAutoMinDelay()
-    {
-        return fDomeAutoMinDelay;
-    }
-
-    unsigned getDomeAutoMaxDelay()
-    {
-        return fDomeAutoMaxDelay;
-    }
-
-    unsigned getDomeHomeMinDelay()
-    {
-        return fDomeHomeMinDelay;
-    }
-
-    unsigned getDomeHomeMaxDelay()
-    {
-        return fDomeHomeMaxDelay;
-    }
-
-    unsigned getDomeTargetMinDelay()
-    {
-        return fDomeTargetMinDelay;
-    }
-
-    unsigned getDomeTargetMaxDelay()
-    {
-        return fDomeTargetMaxDelay;
-    }
-
-    unsigned getDomeMinDelay()
-    {
-        switch (getDomeMode())
-        {
-            case kHome:
-                return getDomeHomeMinDelay();
-            case kRandom:
-                return getDomeAutoMinDelay();
-            case kTarget:
-                return getDomeTargetMinDelay();
-            case kOff:
-            default:
-                return 0;
-        }
-    }
-
-    unsigned getDomeMaxDelay()
-    {
-        switch (getDomeMode())
-        {
-            case kHome:
-                return getDomeHomeMaxDelay();
-            case kRandom:
-                return getDomeAutoMaxDelay();
-            case kTarget:
-                return getDomeTargetMaxDelay();
-            case kOff:
-            default:
-                return 0;
-        }
-    }
-
-    unsigned getDomeHome()
-    {
-        return fDomeHome;
-    }
-
-    unsigned getDomeTargetPosition()
-    {
-        return fDomeTargetPos;
-    }
-
-    long getDomeRelativeTargetPosition()
-    {
-        return fDomeRelativeTargetPos;
-    }
-
-    int shortestDistance(int origin, int target)
-    {
-        int result = 0.0;
-        int diff = fmod(fmod(abs(origin - target), 360), 360);
-
-        if (diff > 180)
-        {
-            //There is a shorter path in opposite direction
-            result = (360 - diff);
-            if (target > origin)
-                result *= -1;
-        }
-        else
-        {
-            result = diff;
-            if (origin > target)
-                result *= -1;
-        }
-        return result;
-    }
-
-    virtual unsigned getDomePosition()
-    {
-        unsigned angle = fProvider.getAngle();
-        if (angle != fLastAngle)
-        {
+    /**
+     * Update the dome position from sensor.
+     * @param angle   Current dome angle (0-359 degrees).
+     * @param now_ms  Current time in milliseconds.
+     */
+    void update(unsigned angle, uint64_t now_ms) {
+        fReady = true;
+        if (angle != fLastAngle) {
             if (fLastAngle < angle)
                 fRelativeDegrees += shortestDistance(fLastAngle, angle);
             else
                 fRelativeDegrees -= shortestDistance(angle, fLastAngle);
-            fLastChangeMS = Timer::GetFPGATimestamp();
+            fLastChangeMS = now_ms;
             fLastAngle = angle;
         }
-        return angle;
     }
 
-    int getRelativeDegrees()
-    {
-        return fRelativeDegrees;
+    bool ready() const { return fReady; }
+    unsigned getDomePosition() const { return fLastAngle; }
+    int getRelativeDegrees() const { return fRelativeDegrees; }
+
+    // --- Mode management ---
+
+    Mode getDomeMode() const {
+        if (!fReady) return kOff;
+        return fDomeMode;
     }
 
-    void resetDefaultMode()
-    {
-        setDomeMode(getDomeDefaultMode());
-        fDomeRelativeTargetPos = 0;
-        fRelativeDegrees = 0;
+    void setDomeMode(Mode mode, uint64_t now_ms) {
+        fDomeMode = mode;
+        fLastChangeMS = now_ms;
     }
 
-    void resetWatchdog()
-    {
-        fLastChangeMS = Timer::GetFPGATimestamp();
+    Mode getDomeDefaultMode() const { return fDomeDefaultMode; }
+
+    void setDomeDefaultMode(Mode mode, uint64_t now_ms) {
+        fDomeDefaultMode = mode;
+        setDomeMode(mode, now_ms);
     }
 
-    void setTimeout(uint8_t timeout)
-    {
-        fTimeout = timeout;
+    // --- Speed ---
+
+    float getDomeSpeed() const {
+        switch (getDomeMode()) {
+            case kHome:   return getDomeSpeedHome();
+            case kRandom: return getDomeAutoSpeed();
+            case kTarget: return getDomeSpeedTarget();
+            case kOff:
+            default:      return getDomeMinSpeed();
+        }
     }
 
-    bool isTimeout()
-    {
-        return (ready() && fLastAngle != ~0u) ? uint64_t(fTimeout)*1000 < Timer::GetFPGATimestamp() - fLastChangeMS : true;
+    float getDomeSpeedHome() const { return float(fDomeSpeedHome) / 100.0f; }
+    float getDomeSpeedTarget() const { return float(fDomeSpeedTarget) / 100.0f; }
+    float getDomeMinSpeed() const { return float(fDomeSpeedMin) / 100.0f; }
+    float getDomeAutoSpeed() const { return float(fDomeSpeedAuto) / 100.0f; }
+
+    // --- Random movement range ---
+
+    unsigned getDomeAutoLeft() const { return fDomeAutoLeft; }
+    unsigned getDomeAutoRight() const { return fDomeAutoRight; }
+
+    void setDomeAutoLeftDegrees(uint8_t degrees) { fDomeAutoLeft = degrees; }
+    void setDomeAutoRightDegrees(uint8_t degrees) { fDomeAutoRight = degrees; }
+
+    // --- Delay configuration (per-mode min/max seconds between movements) ---
+
+    unsigned getDomeAutoMinDelay() const { return fDomeAutoMinDelay; }
+    unsigned getDomeAutoMaxDelay() const { return fDomeAutoMaxDelay; }
+    unsigned getDomeHomeMinDelay() const { return fDomeHomeMinDelay; }
+    unsigned getDomeHomeMaxDelay() const { return fDomeHomeMaxDelay; }
+    unsigned getDomeTargetMinDelay() const { return fDomeTargetMinDelay; }
+    unsigned getDomeTargetMaxDelay() const { return fDomeTargetMaxDelay; }
+
+    void setDomeAutoMinDelay(uint8_t sec) { fDomeAutoMinDelay = sec; }
+    void setDomeAutoMaxDelay(uint8_t sec) { fDomeAutoMaxDelay = sec; }
+    void setDomeHomeMinDelay(uint8_t sec) { fDomeHomeMinDelay = sec; }
+    void setDomeHomeMaxDelay(uint8_t sec) { fDomeHomeMaxDelay = sec; }
+    void setDomeTargetMinDelay(uint8_t sec) { fDomeTargetMinDelay = sec; }
+    void setDomeTargetMaxDelay(uint8_t sec) { fDomeTargetMaxDelay = sec; }
+
+    /** Get the min delay for the current mode. */
+    unsigned getDomeMinDelay() const {
+        switch (getDomeMode()) {
+            case kHome:   return getDomeHomeMinDelay();
+            case kRandom: return getDomeAutoMinDelay();
+            case kTarget: return getDomeTargetMinDelay();
+            case kOff:
+            default:      return 0;
+        }
     }
 
-    unsigned getHomeRelativeDomePosition()
-    {
-        return normalize(long(getDomePosition()) - long(getDomeHome()));
+    /** Get the max delay for the current mode. */
+    unsigned getDomeMaxDelay() const {
+        switch (getDomeMode()) {
+            case kHome:   return getDomeHomeMaxDelay();
+            case kRandom: return getDomeAutoMaxDelay();
+            case kTarget: return getDomeTargetMaxDelay();
+            case kOff:
+            default:      return 0;
+        }
     }
 
-    long normalize(long degrees)
-    {
-        degrees = (long)fmod(degrees, 360);
-        if (degrees < 0)
-            degrees += 360;
-        return degrees;
-    }
+    // --- Position helpers ---
 
-    bool isAtPosition(long degrees)
-    {
-        long fudge = getDomeFudge();
-        degrees = normalize(degrees);
-        return withinArc(degrees - fudge, degrees + fudge, getDomePosition());
+    unsigned getDomeHome() const { return fDomeHome; }
+    unsigned getDomeTargetPosition() const { return fDomeTargetPos; }
+    long getDomeRelativeTargetPosition() const { return fDomeRelativeTargetPos; }
+    unsigned getDomeFudge() const { return fDomeFudge; }
 
-    }
-
-    void setDomeHomePosition(long degrees)
-    {
-        degrees = (long)fmod(degrees, 360);
-        if (degrees < 0)
-            degrees += 360;
+    void setDomeHomePosition(long degrees) {
         fDomeHome = normalize(degrees);
     }
 
-    void setDomeTargetPosition(long degrees)
-    {
-        degrees = (long)fmod(degrees, 360);
-        if (degrees < 0)
-            degrees += 360;
+    void setDomeTargetPosition(long degrees) {
         fDomeTargetPos = normalize(degrees);
         fDomeRelativeTargetPos = 0;
     }
 
-    void setDomeRelativeTargetPosition(long degrees)
-    {
-        // Save the starting position in the absolute target position
+    void setDomeRelativeTargetPosition(long degrees) {
         fDomeTargetPos = getDomePosition();
         fDomeRelativeTargetPos = degrees;
         fRelativeDegrees = 0;
     }
 
-    void setDomeHomeRelativeTargetPosition(long degrees)
-    {
+    void setDomeHomeRelativeTargetPosition(long degrees) {
         setDomeTargetPosition(degrees + getDomeHome());
     }
 
-    void setDomeHomeRelativeHomePosition(long degrees)
-    {
-        degrees = (long)fmod(degrees + getDomeHome(), 360);
-        if (degrees < 0)
-            degrees += 360;
-        fDomeHome = normalize(degrees);
+    void setDomeHomeRelativeHomePosition(long degrees) {
+        fDomeHome = normalize(degrees + getDomeHome());
     }
 
-    inline void setDomeHomeSpeed(uint8_t speed)
-    {
-        fDomeSpeedHome = speed;
+    unsigned getHomeRelativeDomePosition() const {
+        return normalize(long(getDomePosition()) - long(getDomeHome()));
     }
 
-    inline void setDomeTargetSpeed(uint8_t speed)
-    {
-        fDomeSpeedTarget = speed;
+    bool isAtPosition(long degrees) const {
+        long fudge = getDomeFudge();
+        degrees = normalize(degrees);
+        return withinArc(
+            static_cast<float>(degrees - fudge),
+            static_cast<float>(degrees + fudge),
+            static_cast<float>(getDomePosition()));
     }
 
-    inline void setDomeMinSpeed(uint8_t speed)
-    {
-        fDomeSpeedMin = speed;
+    bool isTimeout(uint64_t now_ms) const {
+        if (!fReady || fLastAngle == ~0u) return true;
+        return uint64_t(fTimeout) * 1000 < (now_ms - fLastChangeMS);
     }
 
-    inline void setDomeAutoSpeed(uint8_t speed)
-    {
-        fDomeSpeedAuto = speed;
+    void resetDefaultMode(uint64_t now_ms) {
+        setDomeMode(getDomeDefaultMode(), now_ms);
+        fDomeRelativeTargetPos = 0;
+        fRelativeDegrees = 0;
     }
 
-    inline void setDomeAutoMinDelay(uint8_t sec)
-    {
-        fDomeAutoMinDelay = sec;
+    void resetWatchdog(uint64_t now_ms) {
+        fLastChangeMS = now_ms;
     }
 
-    inline void setDomeAutoMaxDelay(uint8_t sec)
-    {
-        fDomeAutoMaxDelay = sec;
-    }
+    void setTimeout(uint8_t timeout) { fTimeout = timeout; }
 
-    inline void setDomeHomeMinDelay(uint8_t sec)
-    {
-        fDomeHomeMinDelay = sec;
-    }
+    // --- Setters for tuning parameters ---
+    void setDomeHomeSpeed(uint8_t speed) { fDomeSpeedHome = speed; }
+    void setDomeTargetSpeed(uint8_t speed) { fDomeSpeedTarget = speed; }
+    void setDomeMinSpeed(uint8_t speed) { fDomeSpeedMin = speed; }
+    void setDomeAutoSpeed(uint8_t speed) { fDomeSpeedAuto = speed; }
+    void setDomeFudgeFactor(uint8_t fudge) { fDomeFudge = fudge; }
 
-    inline void setDomeHomeMaxDelay(uint8_t sec)
-    {
-        fDomeHomeMaxDelay = sec;
-    }
-
-    inline void setDomeTargetMinDelay(uint8_t sec)
-    {
-        fDomeTargetMinDelay = sec;
-    }
-
-    inline void setDomeTargetMaxDelay(uint8_t sec)
-    {
-        fDomeTargetMaxDelay = sec;
-    }
-
-    inline void setDomeFudgeFactor(uint8_t fudge)
-    {
-        fDomeFudge = fudge;
-    }
-
-    inline void setDomeAutoLeftDegrees(uint8_t degrees)
-    {
-        fDomeAutoLeft = degrees;
-    }
-
-    inline void setDomeAutoRightDegrees(uint8_t degrees)
-    {
-        fDomeAutoRight = degrees;
-    }
-
-    inline void setTargetReached(void (*reached)())
-    {
-        fTargetReached = reached;
-    }
-
-    inline void setHomeTargetReached(void (*reached)())
-    {
-        fHomeTargetReached = reached;
-    }
-
-    inline void setAutoTargetReached(void (*reached)())
-    {
-        fAutoTargetReached = reached;
-    }
-
-    void reachedTarget()
-    {
-        if (fTargetReached != nullptr)
-        {
-            fTargetReached();
-            fTargetReached = nullptr;
+    // --- Shortest-distance rotation ---
+    static int shortestDistance(int origin, int target) {
+        int diff = std::abs(origin - target) % 360;
+        int result;
+        if (diff > 180) {
+            result = 360 - diff;
+            if (target > origin) result *= -1;
+        } else {
+            result = diff;
+            if (origin > target) result *= -1;
         }
+        return result;
     }
 
-    void reachedHomeTarget()
-    {
-        if (fHomeTargetReached != nullptr)
-            fHomeTargetReached();
-    }
-
-    void reachedAutoTarget()
-    {
-        if (fAutoTargetReached != nullptr)
-            fAutoTargetReached();
+    static unsigned normalize(long degrees) {
+        degrees = degrees % 360;
+        if (degrees < 0) degrees += 360;
+        return static_cast<unsigned>(degrees);
     }
 
 private:
-    DomePositionProvider &fProvider;
+    static bool withinArc(float p1, float p2, float p3) {
+        return std::fmod(p2 - p1 + 720.0f, 360.0f) >=
+               std::fmod(p3 - p1 + 720.0f, 360.0f);
+    }
+
     Mode fDomeMode = kOff;
     Mode fDomeDefaultMode = kOff;
-    bool fDomeFlip = false;
+    bool fReady = false;
     uint16_t fDomeHome = 0;
-    uint16_t fDomeTargetPos = fDomeHome;
+    uint16_t fDomeTargetPos = 0;
     long fDomeRelativeTargetPos = 0;
     uint8_t fDomeAutoMinDelay = 6;
     uint8_t fDomeAutoMaxDelay = 8;
@@ -427,15 +244,10 @@ private:
     uint8_t fDomeSpeedMin = 15;
     uint8_t fDomeSpeedAuto = 30;
     uint8_t fTimeout = 5;
-    unsigned fLastAngle = ~0;
+    unsigned fLastAngle = ~0u;
     uint64_t fLastChangeMS = 0;
-    unsigned fRelativeDegrees = 0;
-    void (*fTargetReached)() = nullptr;
-    void (*fHomeTargetReached)() = nullptr;
-    void (*fAutoTargetReached)() = nullptr;
-
-    static bool withinArc(float p1, float p2, float p3)
-    {
-        return fmod(p2 - p1 + 2.0f * 360.0f, 360.0f) >= fmod(p3 - p1 + 2.0f * 360.0f, 360.0f);
-    }
+    int fRelativeDegrees = 0;
 };
+
+} // namespace dome
+} // namespace chopper

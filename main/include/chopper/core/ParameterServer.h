@@ -97,6 +97,9 @@ public:
 
     size_t count() const { return count_; }
 
+    /// Reset all parameters and listeners. Primarily for testing.
+    void reset();
+
 private:
     ParameterServer();
 

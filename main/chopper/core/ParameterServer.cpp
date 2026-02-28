@@ -254,6 +254,15 @@ void ParameterServer::saveToNVS() {
     ESP_LOGI(TAG, "saveToNVS: stub (not yet implemented)");
 }
 
+// --- Reset ---
+
+void ParameterServer::reset() {
+    memset(params_, 0, sizeof(params_));
+    memset(listeners_, 0, sizeof(listeners_));
+    count_ = 0;
+    listener_count_ = 0;
+}
+
 // --- Introspection ---
 
 void ParameterServer::forEach(void(*visitor)(const Parameter&, void*), void* ctx) const {

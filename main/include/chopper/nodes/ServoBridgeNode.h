@@ -53,10 +53,9 @@ private:
 
         switch (cmd.command_type) {
             case messages::ServoCommand::CommandType::SET_POSITION: {
-                // Convert normalized 0.0-1.0 to pulse width (500-2500us)
-                uint16_t pulse = static_cast<uint16_t>(
-                    500.0f + cmd.value * 2000.0f);
-                controller_->setPosition(cmd.servo_id, pulse);
+                // Value is already in pulse-width microseconds
+                controller_->setPosition(cmd.servo_id,
+                    static_cast<uint16_t>(cmd.value));
                 break;
             }
             case messages::ServoCommand::CommandType::SET_SPEED:

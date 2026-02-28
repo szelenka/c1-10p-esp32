@@ -221,3 +221,95 @@ build::
 
 flash::
 	idf.py flash monitor
+
+# ============================================================================
+# Host-side tests (no ESP-IDF required)
+# ============================================================================
+
+CXX       := g++
+CXXFLAGS  := -std=c++20 -I test/mocks -I main/include -pthread
+TEST_SRC  := test
+TEST_BIN  := build/test
+
+CORE_SRCS := \
+	main/chopper/core/Node.cpp \
+	main/chopper/core/Publisher.cpp \
+	main/chopper/core/Subscription.cpp \
+	main/chopper/core/MessageBroker.cpp \
+	main/chopper/core/PublishingNode.cpp \
+	main/chopper/core/Message.cpp
+
+PARAM_SRC   := main/chopper/core/ParameterServer.cpp
+TIMER_SRC   := main/chopper/core/TimerManager.cpp
+EXEC_SRC    := main/chopper/core/Executor.cpp
+DRIVER_SRC  := main/chopper/hal/DriverManager.cpp
+SAFETY_SRCS := \
+	main/chopper/safety/DegradationManager.cpp \
+	main/chopper/safety/EmergencyStopChain.cpp \
+	main/chopper/safety/SafetyManager.cpp
+APP_SRC     := main/chopper/Application.cpp
+
+$(TEST_BIN):
+	mkdir -p $(TEST_BIN)
+
+$(TEST_BIN)/test_core: $(TEST_SRC)/test_core.cpp $(CORE_SRCS) | $(TEST_BIN)
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+$(TEST_BIN)/test_safety: $(TEST_SRC)/test_safety.cpp $(SAFETY_SRCS) | $(TEST_BIN)
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+$(TEST_BIN)/test_hal: $(TEST_SRC)/test_hal.cpp $(DRIVER_SRC) | $(TEST_BIN)
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+$(TEST_BIN)/test_bluetooth: $(TEST_SRC)/test_bluetooth.cpp | $(TEST_BIN)
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+$(TEST_BIN)/test_message_enhancements: $(TEST_SRC)/test_message_enhancements.cpp $(TIMER_SRC) $(PARAM_SRC) | $(TEST_BIN)
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+$(TEST_BIN)/test_config: $(TEST_SRC)/test_config.cpp $(PARAM_SRC) | $(TEST_BIN)
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+$(TEST_BIN)/test_dome_ik: $(TEST_SRC)/test_dome_ik.cpp $(CORE_SRCS) | $(TEST_BIN)
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+$(TEST_BIN)/test_maestro: $(TEST_SRC)/test_maestro.cpp $(CORE_SRCS) $(PARAM_SRC) | $(TEST_BIN)
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+$(TEST_BIN)/test_integration: $(TEST_SRC)/test_integration.cpp $(CORE_SRCS) $(EXEC_SRC) $(TIMER_SRC) $(PARAM_SRC) $(SAFETY_SRCS) $(DRIVER_SRC) $(APP_SRC) | $(TEST_BIN)
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+$(TEST_BIN)/test_button_nodes: $(TEST_SRC)/test_button_nodes.cpp $(CORE_SRCS) $(PARAM_SRC) | $(TEST_BIN)
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+TEST_BINS := \
+	$(TEST_BIN)/test_core \
+	$(TEST_BIN)/test_safety \
+	$(TEST_BIN)/test_hal \
+	$(TEST_BIN)/test_bluetooth \
+	$(TEST_BIN)/test_message_enhancements \
+	$(TEST_BIN)/test_config \
+	$(TEST_BIN)/test_dome_ik \
+	$(TEST_BIN)/test_maestro \
+	$(TEST_BIN)/test_integration \
+	$(TEST_BIN)/test_button_nodes
+
+test-build: $(TEST_BINS)
+
+test: $(TEST_BINS)
+	@failed=0; total=0; \
+	for bin in $(TEST_BINS); do \
+		total=$$((total + 1)); \
+		printf "\n── %-40s ──\n" "$$(basename $$bin)"; \
+		if $$bin 2>&1 | grep -E "^(TEST:|=== Results:)"; then \
+			: ; \
+		else \
+			failed=$$((failed + 1)); \
+		fi; \
+	done; \
+	printf "\n══════════════════════════════════════════\n"; \
+	printf "Suites: %d/%d passed\n" "$$((total - failed))" "$$total"; \
+	exit $$failed
+
+test-clean:
+	rm -rf $(TEST_BIN)

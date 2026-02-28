@@ -118,7 +118,7 @@ public:
 
     uint8_t servo_id = 0;
     CommandType command_type = CommandType::SET_POSITION;
-    float value = 0.0f;     ///< Position (0.0 to 1.0) or speed
+    float value = 0.0f;     ///< Pulse width in microseconds for SET_POSITION; speed units for SET_SPEED
     uint16_t duration_ms = 0;  ///< Movement duration for position commands
 };
 

@@ -17,7 +17,7 @@ constexpr size_t MAX_DRIVERS                = 12;
 
 // Message system limits
 constexpr size_t MAX_TIMERS                 = 16;
-constexpr size_t MAX_PARAMETERS             = 64;
+constexpr size_t MAX_PARAMETERS             = 128;
 constexpr size_t MAX_SERVICES               = 8;
 
 // Safety system limits

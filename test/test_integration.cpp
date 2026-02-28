@@ -148,22 +148,22 @@ void test_servo_bridge_e2e() {
 
     ASSERT(servoCtrl.isEnabled(3));
 
-    // Set position (0.5 normalized → 1500us pulse)
+    // Set position (value is raw pulse-width microseconds)
     chopper::messages::ServoCommand posCmd;
     posCmd.servo_id = 3;
     posCmd.command_type = chopper::messages::ServoCommand::CommandType::SET_POSITION;
-    posCmd.value = 0.5f;
+    posCmd.value = 1500.0f;
     pub->publish(posCmd);
 
     ASSERT(servoCtrl.getPosition(3) == 1500);
 
-    // Set position at min (0.0 → 500us)
-    posCmd.value = 0.0f;
+    // Set position at min
+    posCmd.value = 500.0f;
     pub->publish(posCmd);
     ASSERT(servoCtrl.getPosition(3) == 500);
 
-    // Set position at max (1.0 → 2500us)
-    posCmd.value = 1.0f;
+    // Set position at max
+    posCmd.value = 2500.0f;
     pub->publish(posCmd);
     ASSERT(servoCtrl.getPosition(3) == 2500);
 
