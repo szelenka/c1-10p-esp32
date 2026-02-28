@@ -4,7 +4,14 @@ set(include_dirs
 set(src_dirs
         "."
         "chopper"
+        "chopper/core"
+        "chopper/adapters"
+        "chopper/examples"
         "chopper/drive"
+        "chopper/bluetooth"
+        "chopper/hal"
+        "chopper/safety"
+        "chopper/nodes"
         "chopper/motorController"
         "chopper/sensor")
 
