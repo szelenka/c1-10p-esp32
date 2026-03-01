@@ -37,6 +37,9 @@ typedef struct {
     bool connected;          ///< True if a controller is connected in this slot
     uni_gamepad_t gamepad;   ///< Gamepad axes/buttons (zeroed if not connected)
     uint8_t battery;         ///< Battery level (0=empty, 254=full, 255=N/A)
+    uint8_t btaddr[6];       ///< Controller MAC address (raw bytes)
+    uint16_t controller_type;///< Bluepad32 controller type
+    uint64_t last_report_time_us; ///< esp_timer timestamp of last real controller report
 } chopper_gamepad_data_t;
 
 /**

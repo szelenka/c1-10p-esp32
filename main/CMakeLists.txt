@@ -16,7 +16,8 @@ set(src_dirs
 set(requires
         "pthread"
         "bluepad32"
-        "btstack")
+        "btstack"
+        "esp_http_server")
 
 # ref: https://docs.espressif.com/projects/esp-idf/en/stable/esp32/api-guides/build-system.html
 idf_component_register(

@@ -1,9 +1,14 @@
 #pragma once
 
 #include "chopper/core/PublishingNode.h"
+#include "chopper/core/ParameterServer.h"
 #include "chopper/dome/DomePosition.h"
+#include "chopper/math/MathUtil.h"
 #include "chopper/math/SlewRateLimiter.h"
 #include "chopper/messages/CommonMessages.h"
+#include "esp_timer.h"
+
+#include <algorithm>
 
 namespace chopper {
 namespace nodes {
@@ -27,7 +32,7 @@ public:
      * @param motor_id       Motor ID for the dome spin motor.
      * @param inverted       Invert dome spin direction.
      */
-    DomeNode(dome::DomePosition* dome_position,
+    explicit DomeNode(dome::DomePosition* dome_position = nullptr,
              float max_speed = 0.5f,
              float slew_rate = 1.0f,
              uint8_t motor_id = 0,
@@ -43,7 +48,16 @@ public:
     bool initialize() override {
         motor_pub_ = createPublisher<messages::MotorCommand>("dome/motor/cmd");
         sensor_pub_ = createPublisher<messages::SensorData>("dome/position");
-        return motor_pub_ != nullptr && sensor_pub_ != nullptr;
+        input_sub_ = createSubscription<messages::ControllerInput>(
+            "controller/dome", &DomeNode::onControllerInput, this);
+
+        auto& ps = core::ParameterServer::getInstance();
+        ps.declare("dome.max_speed", max_speed_, 0.0f, 1.0f);
+        ps.declare("dome.deadband", 0.05f, 0.0f, 0.5f);
+        ps.declare("dome.motor_inverted", inverted_);
+        ps.declare("dome.spin_slew_rate", 2.0f, 0.1f, 20.0f);
+
+        return motor_pub_ != nullptr && sensor_pub_ != nullptr && input_sub_ != nullptr;
     }
 
     void process(uint64_t now) override {
@@ -99,14 +113,52 @@ public:
     dome::DomePosition* getDomePosition() const { return dome_position_; }
 
 private:
+    void onControllerInput(const messages::ControllerInput& input) {
+        if (!motor_pub_) {
+            return;
+        }
+
+        auto& ps = core::ParameterServer::getInstance();
+        float max_speed = max_speed_;
+        float deadband = 0.05f;
+        bool inverted = inverted_;
+        float slew_rate = 2.0f;
+        (void)ps.get("dome.max_speed", max_speed);
+        (void)ps.get("dome.deadband", deadband);
+        (void)ps.get("dome.motor_inverted", inverted);
+        (void)ps.get("dome.spin_slew_rate", slew_rate);
+
+        // Dome spin is controlled by DOME stick X.
+        float target = math::ApplyDeadband(input.axis_x_normalized, deadband);
+        target = std::clamp(target, -1.0f, 1.0f) * std::clamp(max_speed, 0.0f, 1.0f);
+        if (inverted) {
+            target = -target;
+        }
+
+        uint64_t now_ms = static_cast<uint64_t>(esp_timer_get_time() / 1000ULL);
+        if (std::fabs(slew_rate - slew_rate_current_) > 0.001f) {
+            slew_rate_current_ = slew_rate;
+            slew_.Reset(slew_rate_current_, -slew_rate_current_, slew_.LastValue());
+        }
+        float speed = slew_.Calculate(target, now_ms);
+
+        messages::MotorCommand cmd;
+        cmd.motor_id = motor_id_;
+        cmd.command_type = messages::MotorCommand::CommandType::SET_SPEED;
+        cmd.value = speed;
+        motor_pub_->publish(cmd);
+    }
+
     dome::DomePosition* dome_position_;
     float max_speed_;
     uint8_t motor_id_;
     bool inverted_;
+    float slew_rate_current_ = 1.0f;
     math::SlewRateLimiter slew_;
 
     core::TypedPublisherPtr<messages::MotorCommand> motor_pub_;
     core::TypedPublisherPtr<messages::SensorData> sensor_pub_;
+    core::TypedSubscriptionPtr<messages::ControllerInput> input_sub_;
 };
 
 } // namespace nodes

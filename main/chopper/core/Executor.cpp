@@ -6,6 +6,15 @@
 
 static const char* TAG = "Executor";
 
+namespace {
+bool isSoftStopExcludedNode(const char* name) {
+    if (!name) return false;
+    return (strcmp(name, "safety") == 0) ||
+           (strcmp(name, "telemetry_node") == 0) ||
+           (strcmp(name, "telemetry_io_tap") == 0);
+}
+} // namespace
+
 namespace chopper {
 namespace core {
 
@@ -21,6 +30,7 @@ Executor::Executor(const Config& config)
     , is_running_(false)
     , should_stop_(false)
     , emergency_stop_(false)
+    , soft_stop_(false)
     , last_loop_time_(0)
     , last_watchdog_feed_(0)
     , emergency_callback_(nullptr)
@@ -142,16 +152,31 @@ bool Executor::start() {
 
     should_stop_.store(false);
     emergency_stop_.store(false);
+    soft_stop_.store(false);
     last_watchdog_feed_ = esp_timer_get_time();
 
-    BaseType_t result = xTaskCreate(
-        taskWrapper,
-        "chopper_exec",
-        8192,  // 8KB stack as recommended by architecture doc
-        this,
-        configMAX_PRIORITIES - 1,
-        &task_handle_
-    );
+    BaseType_t result = pdPASS;
+#if defined(ESP_PLATFORM)
+    if (config_.executor_task_core >= 0) {
+        result = xTaskCreatePinnedToCore(
+            taskWrapper,
+            "chopper_exec",
+            8192,  // 8KB stack as recommended by architecture doc
+            this,
+            configMAX_PRIORITIES - 1,
+            &task_handle_,
+            config_.executor_task_core);
+    } else
+#endif
+    {
+        result = xTaskCreate(
+            taskWrapper,
+            "chopper_exec",
+            8192,  // 8KB stack as recommended by architecture doc
+            this,
+            configMAX_PRIORITIES - 1,
+            &task_handle_);
+    }
 
     if (result != pdPASS) {
         ESP_LOGE(TAG, "Failed to create executor task");
@@ -211,6 +236,28 @@ void Executor::emergencyStop(const char* reason) {
     }
 }
 
+void Executor::softStop(const char* reason) {
+    bool was_soft = soft_stop_.exchange(true);
+    if (!was_soft) {
+        ESP_LOGW(TAG, "SOFT STOP: %s", reason ? reason : "(none)");
+    }
+    for (auto& node : nodes_) {
+        if (node && node->getState() == Node::State::ACTIVE) {
+            if (isSoftStopExcludedNode(node->getName())) {
+                continue;
+            }
+            node->emergencyStop();
+        }
+    }
+}
+
+void Executor::clearSoftStop(const char* reason) {
+    bool was_soft = soft_stop_.exchange(false);
+    if (was_soft) {
+        ESP_LOGW(TAG, "SOFT STOP CLEARED: %s", reason ? reason : "(none)");
+    }
+}
+
 void Executor::taskWrapper(void* parameter) {
     Executor* executor = static_cast<Executor*>(parameter);
     executor->executionLoop();
@@ -263,6 +310,18 @@ uint64_t Executor::processNodes(uint64_t now) {
             continue;
         }
 
+        if (soft_stop_.load()) {
+            const char* name = node->getName();
+            const bool allowed =
+                (strcmp(name, "bluepad_input") == 0) ||
+                (strcmp(name, "safety") == 0) ||
+                (strcmp(name, "telemetry_node") == 0) ||
+                (strcmp(name, "telemetry_io_tap") == 0);
+            if (!allowed) {
+                continue;
+            }
+        }
+
         // Check if node should be processed based on frequency
         double frequency = node->getUpdateFrequency();
         if (frequency > 0.0) {
@@ -278,6 +337,9 @@ uint64_t Executor::processNodes(uint64_t now) {
         // Process node with execution time monitoring
         uint64_t node_start = esp_timer_get_time();
 
+        // Important: process() is cooperative and non-preemptive in this task.
+        // If a node blocks here, other nodes are delayed until it returns.
+        // Timeout handling below is post-facto (it cannot interrupt mid-call).
         node->process(now);
 
         // Update last process time so frequency gating works
@@ -289,10 +351,17 @@ uint64_t Executor::processNodes(uint64_t now) {
         if (node_time > node->getMaxExecutionTime()) {
             ESP_LOGW(TAG, "Node %s exceeded exec time: %llu us (limit: %llu us)",
                      node->getName(), node_time, node->getMaxExecutionTime());
+            stats_.missed_deadlines++;
 
             if (node_time > node->getMaxExecutionTime() * 2) {
-                emergencyStop("Node timeout");
-                break;
+                if (config_.node_timeout_triggers_estop) {
+                    emergencyStop("Node timeout");
+                    break;
+                } else {
+                    ESP_LOGE(TAG, "Node %s timeout -> node emergencyStop only (executor continues)",
+                             node->getName());
+                    node->emergencyStop();
+                }
             }
         }
     }
@@ -306,10 +375,13 @@ void Executor::checkSafety(uint64_t execution_time_us) {
     if (execution_time_us > config_.max_loop_time_us) {
         ESP_LOGW(TAG, "Loop exec time exceeded: %llu us (limit: %u us)",
                  execution_time_us, config_.max_loop_time_us);
+        stats_.missed_deadlines++;
 
         if (execution_time_us > config_.max_loop_time_us * 2) {
-            emergencyStop("Loop timeout");
-            return;
+            if (config_.loop_timeout_triggers_estop) {
+                emergencyStop("Loop timeout");
+                return;
+            }
         }
     }
 

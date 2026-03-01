@@ -102,6 +102,7 @@ struct ControllerSlot {
     State state = State::EMPTY;
     ControllerRole role = ControllerRole::UNASSIGNED;
     ControllerRole previous_role = ControllerRole::UNASSIGNED;
+    MacAddress previous_mac;
 
     // -- Timing (milliseconds since boot) --
     uint64_t connect_time_ms = 0;
@@ -120,6 +121,8 @@ struct ControllerSlot {
     /// Check if a previously-held role can be reclaimed on reconnect.
     bool canReclaimPreviousRole(uint64_t now_ms) const {
         return previous_role != ControllerRole::UNASSIGNED &&
+               !previous_mac.isZero() &&
+               (mac == previous_mac) &&
                disconnect_time_ms > 0 &&
                (now_ms - disconnect_time_ms) < kReconnectRoleHoldMs;
     }
@@ -128,6 +131,7 @@ struct ControllerSlot {
     void beginDisconnect(uint64_t now_ms) {
         state = State::DISCONNECTING;
         previous_role = role;
+        previous_mac = mac;
         disconnect_time_ms = now_ms;
     }
 
@@ -149,6 +153,7 @@ struct ControllerSlot {
     void fullReset() {
         clear();
         previous_role = ControllerRole::UNASSIGNED;
+        previous_mac = MacAddress();
         disconnect_time_ms = 0;
     }
 

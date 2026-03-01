@@ -12,6 +12,9 @@
 #include "chopper/nodes/ServoBridgeNode.h"
 #include "chopper/nodes/AudioBridgeNode.h"
 #include "chopper/nodes/SafetyNode.h"
+#include "chopper/nodes/TelemetryNode.h"
+#include "chopper/nodes/TelemetryIOTapNode.h"
+#include "chopper/telemetry/TelemetryService.h"
 
 namespace chopper {
 
@@ -73,6 +76,19 @@ public:
      */
     bool addNode(core::NodePtr node);
 
+    /**
+     * Configure telemetry output channels.
+     * - Serial output is prefixed with "TEL:".
+     * - HTTP endpoint (if enabled in build): /api/telemetry
+     * - WebSocket endpoint (if enabled in build): /ws/telemetry
+     */
+    void configureTelemetry(const telemetry::TelemetryService::Config& config) {
+        telemetry_config_ = config;
+        telemetry_enabled_ = true;
+    }
+
+    void disableTelemetry() { telemetry_enabled_ = false; }
+
     // -- Lifecycle --
 
     /**
@@ -100,6 +116,14 @@ public:
      * Trigger an emergency stop from any external source.
      */
     void emergencyStop(const char* reason);
+    /**
+     * Trigger a soft-stop from any external source:
+     * - command all active nodes to safe outputs
+     * - force SAFE_STOP degradation mode
+     * - keep executor running
+     */
+    void softStop(const char* reason);
+    void clearSoftStop(const char* reason);
 
     // -- Accessors --
 
@@ -108,6 +132,7 @@ public:
     bluetooth::ControllerManager& getControllerManager() { return controllerManager_; }
     bool isRunning() const { return executor_.isRunning(); }
     bool isInitialized() const { return initialized_; }
+    telemetry::TelemetryService& getTelemetryService() { return telemetry_service_; }
 
 private:
     core::Executor executor_;
@@ -138,6 +163,9 @@ private:
     const char* audioTopic_ = nullptr;
 
     bool initialized_ = false;
+    bool telemetry_enabled_ = true;
+    telemetry::TelemetryService::Config telemetry_config_ = {};
+    telemetry::TelemetryService telemetry_service_;
 
     // Name buffers for dynamically-named nodes
     char motorNodeNames_[kMaxMotors][32] = {};

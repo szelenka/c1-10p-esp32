@@ -278,7 +278,7 @@ public:
      */
     void onControllerRemoved(uint8_t slotIndex) {
         if (!m_slots || slotIndex >= m_slotCount) return;
-        ESP_LOGI(kTag, "Slot %d removed (was %s)",
+        ESP_LOGD(kTag, "Slot %d removed (was %s)",
                  slotIndex, roleToString(m_slots[slotIndex].role));
     }
 

@@ -105,8 +105,13 @@ class ControllerManager {
 public:
     static constexpr uint8_t kMaxSlots = limits::MAX_CONTROLLERS;
     static constexpr uint64_t kDefaultTimeoutMs = 200;  ///< Disconnect detection watchdog
+    using ConnectCallback = void(*)(uint8_t slot_index, ControllerRole role, void* context);
+    using UnexpectedDisconnectCallback =
+        void(*)(uint8_t slot_index, ControllerRole role, uint64_t stale_ms, void* context);
 
-    ControllerManager() : m_timeoutMs(kDefaultTimeoutMs) {
+    ControllerManager()
+        : m_timeoutMs(kDefaultTimeoutMs)
+    {
         for (uint8_t i = 0; i < kMaxSlots; i++) {
             m_slots[i].slot_index = i;
             m_slots[i].fullReset();
@@ -199,6 +204,10 @@ public:
         ESP_LOGI(kTag, "Controller connected: slot=%d mac=%s type=%d role=%s",
                  idx, macStr, ctlType, roleToString(assigned));
 
+        if (m_connectCallback) {
+            m_connectCallback(static_cast<uint8_t>(idx), assigned, m_connectContext);
+        }
+
         return idx;
     }
 
@@ -213,7 +222,7 @@ public:
         ControllerSlot& slot = m_slots[slotIndex];
         if (slot.isEmpty()) return;
 
-        ESP_LOGI(kTag, "Controller disconnected: slot=%d role=%s",
+        ESP_LOGD(kTag, "Controller disconnected: slot=%d role=%s",
                  slotIndex, roleToString(slot.role));
 
         slot.beginDisconnect(now_ms);
@@ -257,8 +266,13 @@ public:
             // Watchdog: detect stale controllers
             if (m_slots[i].isActive() && m_timeoutMs > 0) {
                 if (now_ms - m_slots[i].last_input_time_ms > m_timeoutMs) {
+                    const uint64_t stale_ms = now_ms - m_slots[i].last_input_time_ms;
                     ESP_LOGW(kTag, "Slot %d watchdog timeout (%llu ms)",
-                             i, (unsigned long long)(now_ms - m_slots[i].last_input_time_ms));
+                             i, (unsigned long long)stale_ms);
+                    if (m_unexpectedDisconnectCallback) {
+                        m_unexpectedDisconnectCallback(
+                            i, m_slots[i].role, stale_ms, m_unexpectedDisconnectContext);
+                    }
                     onDisconnect(i, now_ms);
                 }
             }
@@ -290,6 +304,18 @@ public:
         m_disconnectBehavior = behavior;
     }
 
+    /// Callback for watchdog-triggered (unexpected) disconnects.
+    void setUnexpectedDisconnectCallback(UnexpectedDisconnectCallback cb, void* context = nullptr) {
+        m_unexpectedDisconnectCallback = cb;
+        m_unexpectedDisconnectContext = context;
+    }
+
+    /// Callback for controller connections.
+    void setConnectCallback(ConnectCallback cb, void* context = nullptr) {
+        m_connectCallback = cb;
+        m_connectContext = context;
+    }
+
     /// Get the input mixer for configuring mixing rules.
     InputMixer& getInputMixer() { return m_inputMixer; }
 
@@ -319,7 +345,7 @@ private:
     void finishDisconnect(uint8_t slotIndex) {
         m_fallbackActive[slotIndex] = false;
         m_slots[slotIndex].clear();
-        ESP_LOGI(kTag, "Slot %d disconnect complete", slotIndex);
+        ESP_LOGD(kTag, "Slot %d disconnect complete", slotIndex);
     }
 
     ControllerSlot m_slots[kMaxSlots];
@@ -334,6 +360,10 @@ private:
     bool m_fallbackActive[kMaxSlots] = {};
     uint64_t m_fallbackStartMs[kMaxSlots] = {};
     uint32_t m_fallbackDurationMs[kMaxSlots] = {};
+    ConnectCallback m_connectCallback = nullptr;
+    void* m_connectContext = nullptr;
+    UnexpectedDisconnectCallback m_unexpectedDisconnectCallback = nullptr;
+    void* m_unexpectedDisconnectContext = nullptr;
 };
 
 } // namespace bluetooth

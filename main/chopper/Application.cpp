@@ -114,6 +114,23 @@ bool Application::init() {
         return false;
     }
 
+    // 6b. Add telemetry node and bring up telemetry service.
+    if (telemetry_enabled_) {
+        telemetry_service_.begin(telemetry_config_);
+        auto telemetryTapNode = std::make_shared<nodes::TelemetryIOTapNode>(
+            &telemetry_service_);
+        if (!executor_.addNode(telemetryTapNode)) {
+            ESP_LOGE(TAG, "Failed to add telemetry I/O tap node");
+            return false;
+        }
+        auto telemetryNode = std::make_shared<nodes::TelemetryNode>(
+            &executor_, &safetyManager_, &telemetry_service_, telemetry_config_.node_update_hz);
+        if (!executor_.addNode(telemetryNode)) {
+            ESP_LOGE(TAG, "Failed to add telemetry node");
+            return false;
+        }
+    }
+
     // 7. Initialize all nodes
     if (!executor_.initializeNodes()) {
         ESP_LOGE(TAG, "Node initialization failed");
@@ -155,6 +172,7 @@ void Application::stop() {
 
     executor_.stop();
     executor_.deactivateNodes();
+    telemetry_service_.shutdown();
     hal::DriverManager::getInstance().shutdownAll();
 
     ESP_LOGI(TAG, "Application stopped");
@@ -162,6 +180,20 @@ void Application::stop() {
 
 void Application::emergencyStop(const char* reason) {
     executor_.emergencyStop(reason);
+}
+
+void Application::softStop(const char* reason) {
+    ESP_LOGW(TAG, "Soft stop requested: %s", reason ? reason : "(none)");
+    executor_.softStop(reason);
+    safetyManager_.getDegradationManager().forceMode(safety::DegradationMode::SAFE_STOP);
+}
+
+void Application::clearSoftStop(const char* reason) {
+    ESP_LOGI(TAG, "Clear soft stop requested: %s", reason ? reason : "(none)");
+    executor_.clearSoftStop(reason);
+    if (!safetyManager_.isEmergencyStopped()) {
+        safetyManager_.getDegradationManager().forceMode(safety::DegradationMode::FULL_OPERATION);
+    }
 }
 
 } // namespace chopper

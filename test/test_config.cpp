@@ -551,6 +551,79 @@ void test_foreach_introspection() {
     PASS();
 }
 
+// ---- Test: Persistent parameter save/load round-trip ----
+
+void test_persistent_round_trip() {
+    TEST(persistent_parameter_round_trip);
+
+    auto& ps = chopper::core::ParameterServer::getInstance();
+    ps.reset();
+
+    ASSERT(ps.declare("persist.speed", 0.25f, 0.0f, 1.0f, true));
+    ASSERT(ps.declare("runtime.temp", static_cast<int32_t>(10),
+                      static_cast<int32_t>(0), static_cast<int32_t>(100), false));
+
+    ASSERT(ps.set("persist.speed", 0.8f));
+    ASSERT(ps.set("runtime.temp", static_cast<int32_t>(55)));
+    ps.saveToNVS();
+
+    // Simulate reboot.
+    ps.reset();
+    ASSERT(ps.declare("persist.speed", 0.1f, 0.0f, 1.0f, true));
+    ASSERT(ps.declare("runtime.temp", static_cast<int32_t>(1),
+                      static_cast<int32_t>(0), static_cast<int32_t>(100), false));
+    ps.loadFromNVS();
+
+    float persistent_value = 0.0f;
+    ASSERT(ps.get("persist.speed", persistent_value));
+    ASSERT(float_eq(persistent_value, 0.8f));
+
+    int32_t transient_value = 0;
+    ASSERT(ps.get("runtime.temp", transient_value));
+    ASSERT(transient_value == 1);  // non-persistent param retains default
+
+    PASS();
+}
+
+// ---- Test: Persistent load ignores out-of-range and type mismatch ----
+
+void test_persistent_load_validation() {
+    TEST(persistent_load_validation);
+
+    auto& ps = chopper::core::ParameterServer::getInstance();
+    ps.reset();
+
+    ASSERT(ps.declare("persist.limit", static_cast<int32_t>(3),
+                      static_cast<int32_t>(0), static_cast<int32_t>(10), true));
+    ASSERT(ps.declare("persist.flag", true, true));
+    ASSERT(ps.set("persist.limit", static_cast<int32_t>(9)));
+    ASSERT(ps.set("persist.flag", false));
+    ps.saveToNVS();
+
+    // Simulate reboot with changed declarations.
+    ps.reset();
+
+    // Saved value 9 should be rejected by tighter range [0, 5].
+    ASSERT(ps.declare("persist.limit", static_cast<int32_t>(2),
+                      static_cast<int32_t>(0), static_cast<int32_t>(5), true));
+
+    // Saved bool should be ignored due to type mismatch.
+    ASSERT(ps.declare("persist.flag", static_cast<int32_t>(1),
+                      static_cast<int32_t>(0), static_cast<int32_t>(10), true));
+
+    ps.loadFromNVS();
+
+    int32_t limit_value = 0;
+    ASSERT(ps.get("persist.limit", limit_value));
+    ASSERT(limit_value == 2);
+
+    int32_t flag_value = 0;
+    ASSERT(ps.get("persist.flag", flag_value));
+    ASSERT(flag_value == 1);
+
+    PASS();
+}
+
 // ---- Test: Capacity (88 params fits within MAX_PARAMETERS=128) ----
 
 void test_capacity_within_limits() {
@@ -600,6 +673,8 @@ int main() {
     test_parameter_change_callback();
     test_nonexistent_parameter();
     test_foreach_introspection();
+    test_persistent_round_trip();
+    test_persistent_load_validation();
     test_capacity_within_limits();
 
     printf("\n=== Results: %d/%d passed ===\n", pass_count, test_count);

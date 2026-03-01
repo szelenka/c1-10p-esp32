@@ -4,6 +4,15 @@
 **Scope**: `chopper::core` namespace -- Executor, Node, MessageBroker, Publisher, Subscription, Message, PublishingNode
 **Target platform**: ESP32 (Xtensa LX6, single-core or dual-core, ~320 KB SRAM, FreeRTOS)
 
+## Status Note (2026-02-28)
+
+This audit contains findings captured on 2026-02-27. Some findings are now superseded by current code:
+- `Executor` uses `vTaskDelayUntil()` in `main/chopper/core/Executor.cpp`.
+- `Node::last_process_time_` is updated after node processing in `Executor::processNodes()`.
+- `Executor::emergencyStop()` now uses `const char*` reason (no `std::string` allocation).
+
+Treat this document as historical analysis until a full refresh is completed.
+
 ---
 
 ## 1. Current State Assessment

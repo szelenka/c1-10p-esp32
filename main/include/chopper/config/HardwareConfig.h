@@ -8,7 +8,7 @@
 #define chopper_config_bluetooth_DOME_MAC        "98:E6:B9:5A:CA:74"
 #define chopper_config_bluetooth_ANIMATE_MAC     "5C:52:1E:FF:6E:A2"
 #define chopper_config_bluetooth_CAMERA_MAC      "5C:52:1E:FF:51:45"
-#define chopper_config_bluetooth_FORGET_ON_STARTUP  1
+#define chopper_config_bluetooth_FORGET_ON_STARTUP  0
 
 #ifdef __cplusplus
 
@@ -137,7 +137,7 @@ namespace bluetooth {
     constexpr const char* DOME_MAC    = "98:E6:B9:5A:CA:74";  // JoyCon(R) Gray
     constexpr const char* ANIMATE_MAC = "5C:52:1E:FF:6E:A2";  // JoyCon(L) Pink
     constexpr const char* CAMERA_MAC  = "5C:52:1E:FF:51:45";  // JoyCon(R) Green
-    constexpr bool FORGET_ON_STARTUP  = true;
+    constexpr bool FORGET_ON_STARTUP  = false;
 } // namespace bluetooth
 
 // ============================================================================

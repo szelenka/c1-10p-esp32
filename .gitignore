@@ -3,7 +3,10 @@ sdkconfig.old
 sdkconfig
 *.o
 .pio/
+.pio-home/
+.venv/
 .vscode/
+.claude/
 components/*
 !components/README.md
 managed_components/*

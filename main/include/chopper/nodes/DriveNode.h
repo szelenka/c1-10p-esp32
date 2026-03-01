@@ -5,7 +5,9 @@
 #include "chopper/config/HardwareConfig.h"
 #include "chopper/math/DriveMixer.h"
 #include "chopper/math/MathUtil.h"
+#include "chopper/math/SlewRateLimiter.h"
 #include "chopper/messages/CommonMessages.h"
+#include <cmath>
 
 namespace chopper {
 namespace nodes {
@@ -26,6 +28,8 @@ class DriveNode : public core::PublishingNode {
 public:
     DriveNode()
         : PublishingNode("drive")
+        , slew_x_(3.0f)
+        , slew_z_(3.0f)
     {}
 
     bool initialize() override {
@@ -75,16 +79,27 @@ private:
         float deadband = 0.05f;
         float max_speed = 0.75f;
         float speed_boost = 0.25f;
+        float slew_rate = 3.0f;
         ps.get("drive.system", drive_system);
         ps.get("drive.deadband", deadband);
         ps.get("drive.max_speed", max_speed);
         ps.get("drive.speed_boost", speed_boost);
+        ps.get("ctrl.drive.slew_rate", slew_rate);
 
         float effective_max = carpet_mode_ ? std::clamp(max_speed + speed_boost, 0.0f, 1.0f)
                                            : max_speed;
 
-        float x = math::ApplyDeadband(input.axis_x_slew, deadband);
-        float z = math::ApplyDeadband(input.axis_y_slew, deadband);
+        if (std::fabs(slew_rate - slew_rate_current_) > 0.001f) {
+            slew_rate_current_ = slew_rate;
+            slew_x_.Reset(slew_rate_current_, -slew_rate_current_, slew_x_.LastValue());
+            slew_z_.Reset(slew_rate_current_, -slew_rate_current_, slew_z_.LastValue());
+        }
+
+        uint64_t now_ms = static_cast<uint64_t>(esp_timer_get_time() / 1000ULL);
+        float x_limited = slew_x_.Calculate(input.axis_x_normalized, now_ms);
+        float z_limited = slew_z_.Calculate(input.axis_y_normalized, now_ms);
+        float x = math::ApplyDeadband(x_limited, deadband);
+        float z = math::ApplyDeadband(z_limited, deadband);
 
         math::WheelSpeeds speeds{0.0f, 0.0f};
         switch (drive_system) {
@@ -151,6 +166,9 @@ private:
     bool last_thumb_l_ = false;
     uint64_t last_thumb_l_time_ = 0;
     bool carpet_mode_ = false;
+    float slew_rate_current_ = 3.0f;
+    math::SlewRateLimiter slew_x_;
+    math::SlewRateLimiter slew_z_;
 };
 
 } // namespace nodes

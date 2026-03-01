@@ -215,12 +215,85 @@ wpilibc:: setup
 
 setup-all:: sabertooth maestro mp3 softwareserial bluepad32
 
+FIRMWARE_ENV ?= esp32dev
+UPLOAD_PORT ?=
+
+define run_firmware_build
+	if [ -x "./scripts/pio_local.sh" ]; then \
+		echo "Using PlatformIO local wrapper (env=$(FIRMWARE_ENV))"; \
+		./scripts/pio_local.sh run -e "$(FIRMWARE_ENV)"; \
+	elif command -v pio >/dev/null 2>&1; then \
+		echo "Using PlatformIO global CLI (env=$(FIRMWARE_ENV))"; \
+		pio run -e "$(FIRMWARE_ENV)"; \
+	elif command -v idf.py >/dev/null 2>&1; then \
+		echo "Using ESP-IDF idf.py build"; \
+		idf.py build; \
+	else \
+		echo "Error: no supported firmware tool found (expected ./scripts/pio_local.sh, pio, or idf.py)." >&2; \
+		exit 1; \
+	fi
+endef
+
+define run_firmware_flash
+	if [ -x "./scripts/pio_local.sh" ]; then \
+		echo "Using PlatformIO local wrapper flash/monitor (env=$(FIRMWARE_ENV))"; \
+		if [ -n "$(UPLOAD_PORT)" ]; then \
+			./scripts/pio_local.sh run -e "$(FIRMWARE_ENV)" --upload-port "$(UPLOAD_PORT)" -t upload -t monitor; \
+		else \
+			./scripts/pio_local.sh run -e "$(FIRMWARE_ENV)" -t upload -t monitor; \
+		fi; \
+	elif command -v pio >/dev/null 2>&1; then \
+		echo "Using PlatformIO global CLI flash/monitor (env=$(FIRMWARE_ENV))"; \
+		if [ -n "$(UPLOAD_PORT)" ]; then \
+			pio run -e "$(FIRMWARE_ENV)" --upload-port "$(UPLOAD_PORT)" -t upload -t monitor; \
+		else \
+			pio run -e "$(FIRMWARE_ENV)" -t upload -t monitor; \
+		fi; \
+	elif command -v idf.py >/dev/null 2>&1; then \
+		echo "Using ESP-IDF idf.py flash monitor"; \
+		idf.py flash monitor; \
+	else \
+		echo "Error: no supported firmware tool found (expected ./scripts/pio_local.sh, pio, or idf.py)." >&2; \
+		exit 1; \
+	fi
+endef
+
+define run_firmware_monitor
+	if [ -x "./scripts/pio_local.sh" ]; then \
+		echo "Using PlatformIO local wrapper monitor (env=$(FIRMWARE_ENV))"; \
+		if [ -n "$(UPLOAD_PORT)" ]; then \
+			./scripts/pio_local.sh run -e "$(FIRMWARE_ENV)" --upload-port "$(UPLOAD_PORT)" -t monitor; \
+		else \
+			./scripts/pio_local.sh run -e "$(FIRMWARE_ENV)" -t monitor; \
+		fi; \
+	elif command -v pio >/dev/null 2>&1; then \
+		echo "Using PlatformIO global CLI monitor (env=$(FIRMWARE_ENV))"; \
+		if [ -n "$(UPLOAD_PORT)" ]; then \
+			pio run -e "$(FIRMWARE_ENV)" --upload-port "$(UPLOAD_PORT)" -t monitor; \
+		else \
+			pio run -e "$(FIRMWARE_ENV)" -t monitor; \
+		fi; \
+	elif command -v idf.py >/dev/null 2>&1; then \
+		echo "Using ESP-IDF idf.py monitor"; \
+		if [ -n "$(UPLOAD_PORT)" ]; then \
+			idf.py -p "$(UPLOAD_PORT)" monitor; \
+		else \
+			idf.py monitor; \
+		fi; \
+	else \
+		echo "Error: no supported firmware tool found (expected ./scripts/pio_local.sh, pio, or idf.py)." >&2; \
+		exit 1; \
+	fi
+endef
+
 build::
-	IDF_PATH=D:\Espressif $$IDF_PATH\idf_cmd_init.bat;\
-	idf.py build
+	@set -e; $(run_firmware_build)
 
 flash::
-	idf.py flash monitor
+	@set -e; $(run_firmware_flash)
+
+monitor::
+	@set -e; $(run_firmware_monitor)
 
 # ============================================================================
 # Host-side tests (no ESP-IDF required)
@@ -248,6 +321,7 @@ SAFETY_SRCS := \
 	main/chopper/safety/EmergencyStopChain.cpp \
 	main/chopper/safety/SafetyManager.cpp
 APP_SRC     := main/chopper/Application.cpp
+TELEMETRY_SRC := main/chopper/TelemetryService.cpp
 
 $(TEST_BIN):
 	mkdir -p $(TEST_BIN)
@@ -276,7 +350,10 @@ $(TEST_BIN)/test_dome_ik: $(TEST_SRC)/test_dome_ik.cpp $(CORE_SRCS) | $(TEST_BIN
 $(TEST_BIN)/test_maestro: $(TEST_SRC)/test_maestro.cpp $(CORE_SRCS) $(PARAM_SRC) | $(TEST_BIN)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
-$(TEST_BIN)/test_integration: $(TEST_SRC)/test_integration.cpp $(CORE_SRCS) $(EXEC_SRC) $(TIMER_SRC) $(PARAM_SRC) $(SAFETY_SRCS) $(DRIVER_SRC) $(APP_SRC) | $(TEST_BIN)
+$(TEST_BIN)/test_integration: $(TEST_SRC)/test_integration.cpp $(CORE_SRCS) $(EXEC_SRC) $(TIMER_SRC) $(PARAM_SRC) $(SAFETY_SRCS) $(DRIVER_SRC) $(APP_SRC) $(TELEMETRY_SRC) | $(TEST_BIN)
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+$(TEST_BIN)/test_telemetry: $(TEST_SRC)/test_telemetry.cpp $(TELEMETRY_SRC) | $(TEST_BIN)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 $(TEST_BIN)/test_button_nodes: $(TEST_SRC)/test_button_nodes.cpp $(CORE_SRCS) $(PARAM_SRC) | $(TEST_BIN)
@@ -300,7 +377,8 @@ TEST_BINS := \
 	$(TEST_BIN)/test_integration \
 	$(TEST_BIN)/test_button_nodes \
 	$(TEST_BIN)/test_sabertooth \
-	$(TEST_BIN)/test_mp3trigger
+	$(TEST_BIN)/test_mp3trigger \
+	$(TEST_BIN)/test_telemetry
 
 test-build: $(TEST_BINS)
 
@@ -309,11 +387,14 @@ test: $(TEST_BINS)
 	for bin in $(TEST_BINS); do \
 		total=$$((total + 1)); \
 		printf "\n── %-40s ──\n" "$$(basename $$bin)"; \
-		if $$bin 2>&1 | grep -E "^(TEST:|=== Results:)"; then \
-			: ; \
+		out_file="$$(mktemp)"; \
+		if $$bin > "$$out_file" 2>&1; then \
+			grep -E "^(TEST:|=== Results:)" "$$out_file" || true; \
 		else \
+			grep -E "^(TEST:|=== Results:)" "$$out_file" || cat "$$out_file"; \
 			failed=$$((failed + 1)); \
 		fi; \
+		rm -f "$$out_file"; \
 	done; \
 	printf "\n══════════════════════════════════════════\n"; \
 	printf "Suites: %d/%d passed\n" "$$((total - failed))" "$$total"; \
@@ -321,3 +402,16 @@ test: $(TEST_BINS)
 
 test-clean:
 	rm -rf $(TEST_BIN)
+
+# ============================================================================
+# Quality gates
+# ============================================================================
+
+CPPCHECK ?= cppcheck
+CPPCHECK_FLAGS ?= --enable=warning,performance,portability --std=c++20 --quiet
+
+analysis-cppcheck:
+	$(CPPCHECK) $(CPPCHECK_FLAGS) -I main/include/chopper main/chopper main/include/chopper
+
+traceability-check:
+	./scripts/check_traceability.sh docs/review/requirements_traceability_matrix.md

@@ -2,10 +2,54 @@
 #include "esp_log.h"
 #include <cstring>
 
+#if defined(__has_include)
+#if __has_include(<nvs.h>) && __has_include(<nvs_flash.h>)
+#include <nvs.h>
+#include <nvs_flash.h>
+#define CHOPPER_HAS_NVS 1
+#endif
+#endif
+
+#ifndef CHOPPER_HAS_NVS
+#define CHOPPER_HAS_NVS 0
+#endif
+
 static const char* TAG = "ParameterServer";
 
 namespace chopper {
 namespace core {
+
+namespace {
+constexpr uint32_t kSnapshotMagic = 0x43505356;  // "CPSV"
+constexpr uint16_t kSnapshotVersion = 1;
+constexpr const char* kNvsNamespace = "chopperps";
+constexpr const char* kNvsKey = "param_blob";
+
+struct PersistValue {
+    int32_t i;
+    float f;
+    uint8_t b;
+};
+
+struct PersistEntry {
+    char name[limits::MAX_PARAM_NAME_LEN];
+    uint8_t type;
+    PersistValue value;
+};
+
+struct PersistSnapshot {
+    uint32_t magic;
+    uint16_t version;
+    uint16_t count;
+    PersistEntry entries[limits::MAX_PARAMETERS];
+};
+
+#if !CHOPPER_HAS_NVS
+// Host-test fallback persistence backend.
+static PersistSnapshot g_host_snapshot{};
+static bool g_host_snapshot_valid = false;
+#endif
+} // namespace
 
 ParameterServer& ParameterServer::getInstance() {
     static ParameterServer instance;
@@ -170,6 +214,9 @@ bool ParameterServer::set(const char* name, int32_t value) {
     }
     p.value.i = value;
     p.change_count++;
+    if (p.persistent) {
+        saveToNVS();
+    }
     notifyListeners(idx);
     return true;
 }
@@ -191,6 +238,9 @@ bool ParameterServer::set(const char* name, float value) {
     }
     p.value.f = value;
     p.change_count++;
+    if (p.persistent) {
+        saveToNVS();
+    }
     notifyListeners(idx);
     return true;
 }
@@ -208,6 +258,9 @@ bool ParameterServer::set(const char* name, bool value) {
     }
     p.value.b = value;
     p.change_count++;
+    if (p.persistent) {
+        saveToNVS();
+    }
     notifyListeners(idx);
     return true;
 }
@@ -244,14 +297,143 @@ void ParameterServer::notifyListeners(size_t param_index) {
     }
 }
 
-// --- NVS stubs ---
+// --- Persistence ---
 
 void ParameterServer::loadFromNVS() {
-    ESP_LOGI(TAG, "loadFromNVS: stub (not yet implemented)");
+    PersistSnapshot snapshot{};
+
+#if CHOPPER_HAS_NVS
+    nvs_handle_t handle = 0;
+    esp_err_t err = nvs_open(kNvsNamespace, NVS_READONLY, &handle);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "loadFromNVS: nvs_open failed (%d)", static_cast<int>(err));
+        return;
+    }
+
+    size_t blob_size = sizeof(snapshot);
+    err = nvs_get_blob(handle, kNvsKey, &snapshot, &blob_size);
+    nvs_close(handle);
+    if (err != ESP_OK) {
+        ESP_LOGW(TAG, "loadFromNVS: nvs_get_blob failed (%d)", static_cast<int>(err));
+        return;
+    }
+    if (blob_size != sizeof(snapshot)) {
+        ESP_LOGW(TAG, "loadFromNVS: unexpected blob size %u", static_cast<unsigned>(blob_size));
+        return;
+    }
+#else
+    if (!g_host_snapshot_valid) {
+        ESP_LOGI(TAG, "loadFromNVS: no host snapshot available");
+        return;
+    }
+    snapshot = g_host_snapshot;
+#endif
+
+    if (snapshot.magic != kSnapshotMagic || snapshot.version != kSnapshotVersion) {
+        ESP_LOGW(TAG, "loadFromNVS: invalid snapshot header");
+        return;
+    }
+    if (snapshot.count > limits::MAX_PARAMETERS) {
+        ESP_LOGW(TAG, "loadFromNVS: invalid entry count %u", static_cast<unsigned>(snapshot.count));
+        return;
+    }
+
+    size_t applied = 0;
+    for (size_t i = 0; i < snapshot.count; ++i) {
+        const PersistEntry& entry = snapshot.entries[i];
+        size_t idx = findIndex(entry.name);
+        if (idx >= count_) {
+            continue;
+        }
+
+        Parameter& p = params_[idx];
+        if (!p.persistent || static_cast<uint8_t>(p.type) != entry.type) {
+            continue;
+        }
+
+        bool valid = true;
+        switch (p.type) {
+            case ParamType::INT32:
+                if (p.has_range &&
+                    (entry.value.i < p.min_value.i || entry.value.i > p.max_value.i)) {
+                    valid = false;
+                }
+                if (valid) p.value.i = entry.value.i;
+                break;
+            case ParamType::FLOAT:
+                if (p.has_range &&
+                    (entry.value.f < p.min_value.f || entry.value.f > p.max_value.f)) {
+                    valid = false;
+                }
+                if (valid) p.value.f = entry.value.f;
+                break;
+            case ParamType::BOOL:
+                p.value.b = (entry.value.b != 0);
+                break;
+        }
+
+        if (valid) {
+            ++applied;
+        }
+    }
+
+    ESP_LOGI(TAG, "loadFromNVS: applied %u persistent parameters", static_cast<unsigned>(applied));
 }
 
 void ParameterServer::saveToNVS() {
-    ESP_LOGI(TAG, "saveToNVS: stub (not yet implemented)");
+    PersistSnapshot snapshot{};
+    snapshot.magic = kSnapshotMagic;
+    snapshot.version = kSnapshotVersion;
+    snapshot.count = 0;
+
+    for (size_t i = 0; i < count_ && snapshot.count < limits::MAX_PARAMETERS; ++i) {
+        const Parameter& p = params_[i];
+        if (!p.active || !p.persistent) {
+            continue;
+        }
+
+        PersistEntry& entry = snapshot.entries[snapshot.count++];
+        strncpy(entry.name, p.name, limits::MAX_PARAM_NAME_LEN - 1);
+        entry.name[limits::MAX_PARAM_NAME_LEN - 1] = '\0';
+        entry.type = static_cast<uint8_t>(p.type);
+
+        switch (p.type) {
+            case ParamType::INT32:
+                entry.value.i = p.value.i;
+                break;
+            case ParamType::FLOAT:
+                entry.value.f = p.value.f;
+                break;
+            case ParamType::BOOL:
+                entry.value.b = p.value.b ? 1 : 0;
+                break;
+        }
+    }
+
+#if CHOPPER_HAS_NVS
+    nvs_handle_t handle = 0;
+    esp_err_t err = nvs_open(kNvsNamespace, NVS_READWRITE, &handle);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "saveToNVS: nvs_open failed (%d)", static_cast<int>(err));
+        return;
+    }
+
+    err = nvs_set_blob(handle, kNvsKey, &snapshot, sizeof(snapshot));
+    if (err == ESP_OK) {
+        err = nvs_commit(handle);
+    }
+    nvs_close(handle);
+
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "saveToNVS: failed (%d)", static_cast<int>(err));
+        return;
+    }
+#else
+    g_host_snapshot = snapshot;
+    g_host_snapshot_valid = true;
+#endif
+
+    ESP_LOGI(TAG, "saveToNVS: saved %u persistent parameters", static_cast<unsigned>(snapshot.count));
 }
 
 // --- Reset ---
