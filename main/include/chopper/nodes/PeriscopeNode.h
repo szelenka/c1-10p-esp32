@@ -11,9 +11,10 @@ namespace nodes {
 /**
  * Manages periscope lift and spin from the drive controller.
  *
- * - X button: toggle periscope lift (up/down)
- * - A button: spin left one step (double-click: full left)
- * - Y button: spin right one step (double-click: full right)
+ * - Lift from canonical intents: PERISCOPE_UP / PERISCOPE_DOWN.
+ *   Legacy fallback: X toggles up/down.
+ * - Spin from canonical intents: PERISCOPE_SPIN_LEFT / PERISCOPE_SPIN_RIGHT.
+ *   Legacy fallback: A = left, Y = right.
  *
  * Spin only works when periscope is down (retracted/stowed).
  * Publishes ServoCommand on "servo/dome/cmd".
@@ -41,7 +42,15 @@ public:
         ps.declare("servo.peri_spin.neutral", static_cast<int32_t>(1500),
                    static_cast<int32_t>(500), static_cast<int32_t>(2500));
 
-        return servo_pub_ != nullptr && input_sub_ != nullptr;
+        refreshCachedParams();
+        bool listeners_ok = true;
+        listeners_ok &= ps.onChange("servo.peri_lift.min", &PeriscopeNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("servo.peri_lift.max", &PeriscopeNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("servo.peri_spin.min", &PeriscopeNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("servo.peri_spin.max", &PeriscopeNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("servo.peri_spin.neutral", &PeriscopeNode::onParameterChanged, this);
+
+        return servo_pub_ != nullptr && input_sub_ != nullptr && listeners_ok;
     }
 
     void process(uint64_t) override {}
@@ -71,45 +80,50 @@ private:
     }
 
     void handleLift(const messages::ControllerInput& input, uint64_t now) {
-        bool pressed = input.button_x;
-        if (pressed && !last_x_) {
-            auto& ps = core::ParameterServer::getInstance();
-            int32_t lift_min = 500, lift_max = 2500;
-            ps.get("servo.peri_lift.min", lift_min);
-            ps.get("servo.peri_lift.max", lift_max);
+        (void)now;
+        const bool using_intents = input.has_intents;
+        const bool up_pressed = using_intents ? input.intent_periscope_up : false;
+        const bool down_pressed = using_intents ? input.intent_periscope_down : false;
+        const bool toggle_pressed = using_intents ? false : input.button_x;
 
-            messages::ServoCommand cmd;
-            cmd.servo_id = config::servo_channel::DOME_PERISCOPE_LIFT;
-            cmd.command_type = messages::ServoCommand::CommandType::SET_POSITION;
-
-            if (periscope_down_) {
-                cmd.value = static_cast<float>(lift_max);
+        if (using_intents) {
+            if (up_pressed && !last_lift_up_ && periscope_down_) {
+                moveLiftTo(static_cast<float>(lift_max_));
                 periscope_down_ = false;
-            } else {
-                cmd.value = static_cast<float>(lift_min);
+            }
+            if (down_pressed && !last_lift_down_ && !periscope_down_) {
+                moveLiftTo(static_cast<float>(lift_min_));
                 periscope_down_ = true;
             }
-            servo_pub_->publish(cmd);
+        } else {
+            if (toggle_pressed && !last_lift_toggle_) {
+                if (periscope_down_) {
+                    moveLiftTo(static_cast<float>(lift_max_));
+                    periscope_down_ = false;
+                } else {
+                    moveLiftTo(static_cast<float>(lift_min_));
+                    periscope_down_ = true;
+                }
+            }
         }
-        last_x_ = pressed;
+        last_lift_up_ = up_pressed;
+        last_lift_down_ = down_pressed;
+        last_lift_toggle_ = toggle_pressed;
     }
 
     void handleSpin(const messages::ControllerInput& input, uint64_t now) {
+        const bool spin_left_pressed = input.has_intents ? input.intent_periscope_spin_left : input.button_a;
+        const bool spin_right_pressed = input.has_intents ? input.intent_periscope_spin_right : input.button_y;
+
         // Spin only works when periscope is stowed (down)
         if (!periscope_down_) {
-            last_a_ = input.button_a;
-            last_y_ = input.button_y;
+            last_spin_left_ = spin_left_pressed;
+            last_spin_right_ = spin_right_pressed;
             return;
         }
 
-        auto& ps = core::ParameterServer::getInstance();
-        int32_t spin_min = 500, spin_max = 2500, spin_neutral = 1500;
-        ps.get("servo.peri_spin.min", spin_min);
-        ps.get("servo.peri_spin.max", spin_max);
-        ps.get("servo.peri_spin.neutral", spin_neutral);
-
-        // A button: spin left
-        if (input.button_a && !last_a_) {
+        // Spin left
+        if (spin_left_pressed && !last_spin_left_) {
             bool double_click = (now - last_a_time_ < kDoubleClickMs);
             last_a_time_ = now;
 
@@ -119,28 +133,28 @@ private:
 
             if (double_click) {
                 // Full left
-                cmd.value = static_cast<float>(spin_max);
+                cmd.value = static_cast<float>(spin_max_);
                 periscope_location_ = -1;
             } else {
                 // One step left
                 if (periscope_location_ == 0) {
-                    cmd.value = static_cast<float>(spin_max);
+                    cmd.value = static_cast<float>(spin_max_);
                     periscope_location_ = -1;
                 } else if (periscope_location_ == 1) {
-                    cmd.value = static_cast<float>(spin_neutral);
+                    cmd.value = static_cast<float>(spin_neutral_);
                     periscope_location_ = 0;
                 } else {
                     // Already full left — no-op
-                    last_a_ = input.button_a;
+                    last_spin_left_ = spin_left_pressed;
                     return;
                 }
             }
             servo_pub_->publish(cmd);
         }
-        last_a_ = input.button_a;
+        last_spin_left_ = spin_left_pressed;
 
-        // Y button: spin right
-        if (input.button_y && !last_y_) {
+        // Spin right
+        if (spin_right_pressed && !last_spin_right_) {
             bool double_click = (now - last_y_time_ < kDoubleClickMs);
             last_y_time_ = now;
 
@@ -150,25 +164,50 @@ private:
 
             if (double_click) {
                 // Full right
-                cmd.value = static_cast<float>(spin_min);
+                cmd.value = static_cast<float>(spin_min_);
                 periscope_location_ = 1;
             } else {
                 // One step right
                 if (periscope_location_ == 0) {
-                    cmd.value = static_cast<float>(spin_min);
+                    cmd.value = static_cast<float>(spin_min_);
                     periscope_location_ = 1;
                 } else if (periscope_location_ == -1) {
-                    cmd.value = static_cast<float>(spin_neutral);
+                    cmd.value = static_cast<float>(spin_neutral_);
                     periscope_location_ = 0;
                 } else {
                     // Already full right — no-op
-                    last_y_ = input.button_y;
+                    last_spin_right_ = spin_right_pressed;
                     return;
                 }
             }
             servo_pub_->publish(cmd);
         }
-        last_y_ = input.button_y;
+        last_spin_right_ = spin_right_pressed;
+    }
+
+    void moveLiftTo(float pwm_us) {
+        messages::ServoCommand cmd;
+        cmd.servo_id = config::servo_channel::DOME_PERISCOPE_LIFT;
+        cmd.command_type = messages::ServoCommand::CommandType::SET_POSITION;
+        cmd.value = pwm_us;
+        servo_pub_->publish(cmd);
+    }
+
+    static void onParameterChanged(const char*, void* context) {
+        if (!context) {
+            return;
+        }
+        auto* self = static_cast<PeriscopeNode*>(context);
+        self->refreshCachedParams();
+    }
+
+    void refreshCachedParams() {
+        auto& ps = core::ParameterServer::getInstance();
+        (void)ps.get("servo.peri_lift.min", lift_min_);
+        (void)ps.get("servo.peri_lift.max", lift_max_);
+        (void)ps.get("servo.peri_spin.min", spin_min_);
+        (void)ps.get("servo.peri_spin.max", spin_max_);
+        (void)ps.get("servo.peri_spin.neutral", spin_neutral_);
     }
 
     static constexpr uint64_t kDoubleClickMs = 500;
@@ -179,11 +218,18 @@ private:
     bool periscope_down_ = true;
     int8_t periscope_location_ = 0;  // -1=left, 0=center, 1=right
 
-    bool last_x_ = false;
-    bool last_a_ = false;
-    bool last_y_ = false;
+    bool last_lift_toggle_ = false;
+    bool last_lift_up_ = false;
+    bool last_lift_down_ = false;
+    bool last_spin_left_ = false;
+    bool last_spin_right_ = false;
     uint64_t last_a_time_ = 0;
     uint64_t last_y_time_ = 0;
+    int32_t lift_min_ = 500;
+    int32_t lift_max_ = 2500;
+    int32_t spin_min_ = 500;
+    int32_t spin_max_ = 2500;
+    int32_t spin_neutral_ = 1500;
 };
 
 } // namespace nodes

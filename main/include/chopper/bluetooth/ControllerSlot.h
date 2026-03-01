@@ -120,9 +120,9 @@ struct ControllerSlot {
 
     /// Check if a previously-held role can be reclaimed on reconnect.
     bool canReclaimPreviousRole(uint64_t now_ms) const {
+        const bool mac_matches = previous_mac.isZero() || (mac == previous_mac);
         return previous_role != ControllerRole::UNASSIGNED &&
-               !previous_mac.isZero() &&
-               (mac == previous_mac) &&
+               mac_matches &&
                disconnect_time_ms > 0 &&
                (now_ms - disconnect_time_ms) < kReconnectRoleHoldMs;
     }

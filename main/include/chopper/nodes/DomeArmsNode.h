@@ -38,7 +38,14 @@ public:
         ps.declare("servo.ddoor_l.max", static_cast<int32_t>(2500),
                    static_cast<int32_t>(500), static_cast<int32_t>(2500));
 
-        return servo_pub_ != nullptr && input_sub_ != nullptr;
+        refreshCachedParams();
+        bool listeners_ok = true;
+        listeners_ok &= ps.onChange("servo.ddoor_r.min", &DomeArmsNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("servo.ddoor_r.max", &DomeArmsNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("servo.ddoor_l.neutral", &DomeArmsNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("servo.ddoor_l.max", &DomeArmsNode::onParameterChanged, this);
+
+        return servo_pub_ != nullptr && input_sub_ != nullptr && listeners_ok;
     }
 
     void process(uint64_t) override {}
@@ -69,24 +76,16 @@ private:
     }
 
     void toggleDoors() {
-        auto& ps = core::ParameterServer::getInstance();
-        int32_t rdoor_min = 500, rdoor_max = 2500;
-        int32_t ldoor_neutral = 1500, ldoor_max = 2500;
-        ps.get("servo.ddoor_r.min", rdoor_min);
-        ps.get("servo.ddoor_r.max", rdoor_max);
-        ps.get("servo.ddoor_l.neutral", ldoor_neutral);
-        ps.get("servo.ddoor_l.max", ldoor_max);
-
         // Right door
         {
             messages::ServoCommand cmd;
             cmd.servo_id = config::servo_channel::DOME_DOOR_RIGHT;
             cmd.command_type = messages::ServoCommand::CommandType::SET_POSITION;
             if (right_door_open_) {
-                cmd.value = static_cast<float>(rdoor_min);
+                cmd.value = static_cast<float>(rdoor_min_);
                 right_door_open_ = false;
             } else {
-                cmd.value = static_cast<float>(rdoor_max);
+                cmd.value = static_cast<float>(rdoor_max_);
                 right_door_open_ = true;
             }
             servo_pub_->publish(cmd);
@@ -98,14 +97,30 @@ private:
             cmd.servo_id = config::servo_channel::DOME_DOOR_LEFT;
             cmd.command_type = messages::ServoCommand::CommandType::SET_POSITION;
             if (left_door_open_) {
-                cmd.value = static_cast<float>(ldoor_neutral);
+                cmd.value = static_cast<float>(ldoor_neutral_);
                 left_door_open_ = false;
             } else {
-                cmd.value = static_cast<float>(ldoor_max);
+                cmd.value = static_cast<float>(ldoor_max_);
                 left_door_open_ = true;
             }
             servo_pub_->publish(cmd);
         }
+    }
+
+    static void onParameterChanged(const char*, void* context) {
+        if (!context) {
+            return;
+        }
+        auto* self = static_cast<DomeArmsNode*>(context);
+        self->refreshCachedParams();
+    }
+
+    void refreshCachedParams() {
+        auto& ps = core::ParameterServer::getInstance();
+        (void)ps.get("servo.ddoor_r.min", rdoor_min_);
+        (void)ps.get("servo.ddoor_r.max", rdoor_max_);
+        (void)ps.get("servo.ddoor_l.neutral", ldoor_neutral_);
+        (void)ps.get("servo.ddoor_l.max", ldoor_max_);
     }
 
     core::TypedPublisherPtr<messages::ServoCommand> servo_pub_;
@@ -114,6 +129,10 @@ private:
     bool right_door_open_ = true;
     bool left_door_open_ = true;
     bool last_misc_select_ = false;
+    int32_t rdoor_min_ = 500;
+    int32_t rdoor_max_ = 2500;
+    int32_t ldoor_neutral_ = 1500;
+    int32_t ldoor_max_ = 2500;
 };
 
 } // namespace nodes

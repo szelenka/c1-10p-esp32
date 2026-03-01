@@ -72,7 +72,7 @@ namespace pins {
 // ============================================================================
 
 namespace baud {
-    constexpr uint32_t SABERTOOTH   = 9600;
+    constexpr uint32_t SABERTOOTH   = 38400;
     constexpr uint32_t MAESTRO      = 9600;
     constexpr uint32_t OPENMV       = 115200;
     constexpr uint32_t MP3TRIGGER   = 38400;

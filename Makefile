@@ -344,7 +344,7 @@ $(TEST_BIN)/test_message_enhancements: $(TEST_SRC)/test_message_enhancements.cpp
 $(TEST_BIN)/test_config: $(TEST_SRC)/test_config.cpp $(PARAM_SRC) | $(TEST_BIN)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
-$(TEST_BIN)/test_dome_ik: $(TEST_SRC)/test_dome_ik.cpp $(CORE_SRCS) | $(TEST_BIN)
+$(TEST_BIN)/test_dome_ik: $(TEST_SRC)/test_dome_ik.cpp $(CORE_SRCS) $(PARAM_SRC) | $(TEST_BIN)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 $(TEST_BIN)/test_maestro: $(TEST_SRC)/test_maestro.cpp $(CORE_SRCS) $(PARAM_SRC) | $(TEST_BIN)

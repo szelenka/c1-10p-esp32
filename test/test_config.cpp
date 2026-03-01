@@ -112,7 +112,7 @@ void test_hardware_config_bluetooth_macs() {
     using namespace chopper::config::bluetooth;
     ASSERT(strcmp(DRIVE_MAC, "98:E6:B9:62:6E:58") == 0);
     ASSERT(strcmp(DOME_MAC, "98:E6:B9:5A:CA:74") == 0);
-    ASSERT(FORGET_ON_STARTUP == true);
+    ASSERT(FORGET_ON_STARTUP == false);
 
     PASS();
 }

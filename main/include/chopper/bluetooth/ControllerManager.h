@@ -258,15 +258,22 @@ public:
         for (uint8_t i = 0; i < kMaxSlots; i++) {
             // Process active fallbacks
             if (m_fallbackActive[i]) {
-                if (now_ms - m_fallbackStartMs[i] >= m_fallbackDurationMs[i]) {
+                const uint64_t elapsed_ms = (now_ms >= m_fallbackStartMs[i])
+                    ? (now_ms - m_fallbackStartMs[i])
+                    : 0;
+                if (elapsed_ms >= m_fallbackDurationMs[i]) {
                     finishDisconnect(i);
                 }
             }
 
             // Watchdog: detect stale controllers
             if (m_slots[i].isActive() && m_timeoutMs > 0) {
-                if (now_ms - m_slots[i].last_input_time_ms > m_timeoutMs) {
-                    const uint64_t stale_ms = now_ms - m_slots[i].last_input_time_ms;
+                if (now_ms < m_slots[i].last_input_time_ms) {
+                    // Ignore transient clock-domain ordering races.
+                    continue;
+                }
+                const uint64_t stale_ms = now_ms - m_slots[i].last_input_time_ms;
+                if (stale_ms > m_timeoutMs) {
                     ESP_LOGW(kTag, "Slot %d watchdog timeout (%llu ms)",
                              i, (unsigned long long)stale_ms);
                     if (m_unexpectedDisconnectCallback) {

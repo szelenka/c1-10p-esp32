@@ -77,6 +77,17 @@ public:
     // Slew-rate limited values
     float axis_x_slew = 0.0f;
     float axis_y_slew = 0.0f;
+
+    // Canonical intent fields. Populated by the runtime mapping layer
+    // when available; nodes may fall back to legacy button fields.
+    bool has_intents = false;
+    bool intent_periscope_up = false;
+    bool intent_periscope_down = false;
+    bool intent_periscope_spin_left = false;
+    bool intent_periscope_spin_right = false;
+    bool intent_dome_doors_toggle = false;
+    bool intent_body_utility_toggle = false;
+    bool intent_carpet_mode_toggle = false;
 };
 
 /**

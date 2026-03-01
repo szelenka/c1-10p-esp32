@@ -119,7 +119,7 @@ private:
         bool                active;
     };
 
-    static constexpr size_t MAX_LISTENERS = 16;
+    static constexpr size_t MAX_LISTENERS = 32;
     ChangeListener listeners_[MAX_LISTENERS];
     size_t         listener_count_;
 

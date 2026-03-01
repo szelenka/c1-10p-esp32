@@ -5,6 +5,7 @@
 #include "chopper/core/PublishingNode.h"
 #include "chopper/bluetooth/ControllerManager.h"
 #include "chopper/hal/ChopperBluetooth.h"
+#include "chopper/input/DriveIntentMapping.h"
 #include "chopper/messages/CommonMessages.h"
 
 #include "controller/uni_gamepad.h"
@@ -80,11 +81,10 @@ public:
             }
 
             if (slot >= 0 && slot < bluetooth::ControllerManager::kMaxSlots && have_last_input_[bt_slot]) {
-                // Use BT-report timestamp (not executor loop time) so per-controller
-                // watchdog freshness reflects actual packet cadence.
+                // Use executor loop timestamp to keep ControllerManager timing
+                // monotonic within the same update cycle.
                 if (has_fresh_report) {
-                    const uint64_t report_ms = data.last_report_time_us / 1000ULL;
-                    controller_manager_->recordInput(static_cast<uint8_t>(slot), report_ms, last_input_cache_[bt_slot]);
+                    controller_manager_->recordInput(static_cast<uint8_t>(slot), now_ms, last_input_cache_[bt_slot]);
 
                     const auto role = controller_manager_->getSlot(static_cast<uint8_t>(slot)).role;
                     publishByRole(role, last_input_cache_[bt_slot]);
@@ -224,18 +224,22 @@ private:
 
     void publishByRole(bluetooth::ControllerRole role,
                        const messages::ControllerInput& input) {
+        messages::ControllerInput mapped = input;
+        if (role == bluetooth::ControllerRole::DRIVE) {
+            input::setDriveIntentsFromRaw(mapped, drive_intent_map_);
+        }
         switch (role) {
             case bluetooth::ControllerRole::DRIVE:
-                if (drive_pub_) drive_pub_->publish(input);
+                if (drive_pub_) drive_pub_->publish(mapped);
                 break;
             case bluetooth::ControllerRole::DOME:
-                if (dome_pub_) dome_pub_->publish(input);
+                if (dome_pub_) dome_pub_->publish(mapped);
                 break;
             case bluetooth::ControllerRole::ANIMATION:
-                if (animation_pub_) animation_pub_->publish(input);
+                if (animation_pub_) animation_pub_->publish(mapped);
                 break;
             case bluetooth::ControllerRole::CAMERA:
-                if (camera_pub_) camera_pub_->publish(input);
+                if (camera_pub_) camera_pub_->publish(mapped);
                 break;
             case bluetooth::ControllerRole::UNASSIGNED:
                 break;
@@ -250,6 +254,7 @@ private:
     core::TypedPublisherPtr<messages::ControllerInput> dome_pub_;
     core::TypedPublisherPtr<messages::ControllerInput> animation_pub_;
     core::TypedPublisherPtr<messages::ControllerInput> camera_pub_;
+    input::DriveIntentMap drive_intent_map_{input::defaultDriveIntentMap()};
 
     bool observed_connected_[CHOPPER_BT_MAX_DEVICES];
     int8_t mapped_slot_[CHOPPER_BT_MAX_DEVICES];

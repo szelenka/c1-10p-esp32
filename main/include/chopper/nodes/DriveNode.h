@@ -44,8 +44,20 @@ public:
         ps.declare("drive.deadband", 0.05f, 0.0f, 0.5f);
         ps.declare("drive.max_speed", 0.75f, 0.0f, 1.0f);
         ps.declare("drive.speed_boost", 0.25f, 0.0f, 1.0f);
+        float declared_slew = 0.0f;
+        if (!ps.get("ctrl.drive.slew_rate", declared_slew)) {
+            ps.declare("ctrl.drive.slew_rate", 3.0f, 0.1f, 20.0f);
+        }
 
-        return motor_pub_ != nullptr && audio_pub_ != nullptr && input_sub_ != nullptr;
+        refreshCachedParams();
+        bool listeners_ok = true;
+        listeners_ok &= ps.onChange("drive.system", &DriveNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("drive.deadband", &DriveNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("drive.max_speed", &DriveNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("drive.speed_boost", &DriveNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("ctrl.drive.slew_rate", &DriveNode::onParameterChanged, this);
+
+        return motor_pub_ != nullptr && audio_pub_ != nullptr && input_sub_ != nullptr && listeners_ok;
     }
 
     void process(uint64_t) override {
@@ -73,36 +85,34 @@ private:
         // Carpet mode toggle: thumbL double-click
         handleCarpetToggle(input);
 
-        // Read parameters
-        auto& ps = core::ParameterServer::getInstance();
-        int32_t drive_system = config::drive_mode::ARCADE;
-        float deadband = 0.05f;
-        float max_speed = 0.75f;
-        float speed_boost = 0.25f;
-        float slew_rate = 3.0f;
-        ps.get("drive.system", drive_system);
-        ps.get("drive.deadband", deadband);
-        ps.get("drive.max_speed", max_speed);
-        ps.get("drive.speed_boost", speed_boost);
-        ps.get("ctrl.drive.slew_rate", slew_rate);
+        float effective_max = carpet_mode_
+            ? std::clamp(max_speed_ + speed_boost_, 0.0f, 1.0f)
+            : max_speed_;
 
-        float effective_max = carpet_mode_ ? std::clamp(max_speed + speed_boost, 0.0f, 1.0f)
-                                           : max_speed;
-
-        if (std::fabs(slew_rate - slew_rate_current_) > 0.001f) {
-            slew_rate_current_ = slew_rate;
+        if (std::fabs(drive_slew_rate_ - slew_rate_current_) > 0.001f) {
+            slew_rate_current_ = drive_slew_rate_;
             slew_x_.Reset(slew_rate_current_, -slew_rate_current_, slew_x_.LastValue());
             slew_z_.Reset(slew_rate_current_, -slew_rate_current_, slew_z_.LastValue());
         }
 
+        // Prefer pre-filtered slew fields when present; fall back to normalized axes.
+        float axis_x = input.axis_x_slew;
+        float axis_y = input.axis_y_slew;
+        if (std::fabs(axis_x) < 0.0001f && std::fabs(input.axis_x_normalized) > 0.0001f) {
+            axis_x = input.axis_x_normalized;
+        }
+        if (std::fabs(axis_y) < 0.0001f && std::fabs(input.axis_y_normalized) > 0.0001f) {
+            axis_y = input.axis_y_normalized;
+        }
+
         uint64_t now_ms = static_cast<uint64_t>(esp_timer_get_time() / 1000ULL);
-        float x_limited = slew_x_.Calculate(input.axis_x_normalized, now_ms);
-        float z_limited = slew_z_.Calculate(input.axis_y_normalized, now_ms);
-        float x = math::ApplyDeadband(x_limited, deadband);
-        float z = math::ApplyDeadband(z_limited, deadband);
+        float x_limited = slew_x_.Calculate(axis_x, now_ms);
+        float z_limited = slew_z_.Calculate(axis_y, now_ms);
+        float x = math::ApplyDeadband(x_limited, deadband_);
+        float z = math::ApplyDeadband(z_limited, deadband_);
 
         math::WheelSpeeds speeds{0.0f, 0.0f};
-        switch (drive_system) {
+        switch (drive_system_) {
             case config::drive_mode::ARCADE:
                 speeds = math::ArcadeDriveIK(x, z);
                 break;
@@ -157,6 +167,23 @@ private:
         last_thumb_l_ = pressed;
     }
 
+    static void onParameterChanged(const char*, void* context) {
+        if (!context) {
+            return;
+        }
+        auto* self = static_cast<DriveNode*>(context);
+        self->refreshCachedParams();
+    }
+
+    void refreshCachedParams() {
+        auto& ps = core::ParameterServer::getInstance();
+        (void)ps.get("drive.system", drive_system_);
+        (void)ps.get("drive.deadband", deadband_);
+        (void)ps.get("drive.max_speed", max_speed_);
+        (void)ps.get("drive.speed_boost", speed_boost_);
+        (void)ps.get("ctrl.drive.slew_rate", drive_slew_rate_);
+    }
+
     static constexpr uint64_t kDoubleClickMs = 500;
 
     core::TypedPublisherPtr<messages::MotorCommand> motor_pub_;
@@ -166,6 +193,11 @@ private:
     bool last_thumb_l_ = false;
     uint64_t last_thumb_l_time_ = 0;
     bool carpet_mode_ = false;
+    int32_t drive_system_ = config::drive_mode::ARCADE;
+    float deadband_ = 0.05f;
+    float max_speed_ = 0.75f;
+    float speed_boost_ = 0.25f;
+    float drive_slew_rate_ = 3.0f;
     float slew_rate_current_ = 3.0f;
     math::SlewRateLimiter slew_x_;
     math::SlewRateLimiter slew_z_;

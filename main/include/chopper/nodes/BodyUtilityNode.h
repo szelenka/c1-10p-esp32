@@ -33,7 +33,12 @@ public:
         ps.declare("servo.util_arm.max", static_cast<int32_t>(2500),
                    static_cast<int32_t>(500), static_cast<int32_t>(2500));
 
-        return servo_pub_ != nullptr && input_sub_ != nullptr;
+        refreshCachedParams();
+        bool listeners_ok = true;
+        listeners_ok &= ps.onChange("servo.util_arm.neutral", &BodyUtilityNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("servo.util_arm.max", &BodyUtilityNode::onParameterChanged, this);
+
+        return servo_pub_ != nullptr && input_sub_ != nullptr && listeners_ok;
     }
 
     void process(uint64_t) override {}
@@ -53,29 +58,40 @@ private:
 
         bool pressed = input.button_b;
         if (pressed != last_b_) {
-            auto& ps = core::ParameterServer::getInstance();
-            int32_t neutral = 1500, max_pos = 2500;
-            ps.get("servo.util_arm.neutral", neutral);
-            ps.get("servo.util_arm.max", max_pos);
-
             messages::ServoCommand cmd;
             cmd.servo_id = config::servo_channel::BODY_UTILITY_ARM;
             cmd.command_type = messages::ServoCommand::CommandType::SET_POSITION;
 
             if (pressed) {
-                cmd.value = static_cast<float>(max_pos);
+                cmd.value = static_cast<float>(max_pos_);
             } else {
-                cmd.value = static_cast<float>(neutral);
+                cmd.value = static_cast<float>(neutral_);
             }
             servo_pub_->publish(cmd);
         }
         last_b_ = pressed;
     }
 
+    static void onParameterChanged(const char*, void* context) {
+        if (!context) {
+            return;
+        }
+        auto* self = static_cast<BodyUtilityNode*>(context);
+        self->refreshCachedParams();
+    }
+
+    void refreshCachedParams() {
+        auto& ps = core::ParameterServer::getInstance();
+        (void)ps.get("servo.util_arm.neutral", neutral_);
+        (void)ps.get("servo.util_arm.max", max_pos_);
+    }
+
     core::TypedPublisherPtr<messages::ServoCommand> servo_pub_;
     core::TypedSubscriptionPtr<messages::ControllerInput> input_sub_;
 
     bool last_b_ = false;
+    int32_t neutral_ = 1500;
+    int32_t max_pos_ = 2500;
 };
 
 } // namespace nodes

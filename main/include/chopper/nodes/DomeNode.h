@@ -57,7 +57,14 @@ public:
         ps.declare("dome.motor_inverted", inverted_);
         ps.declare("dome.spin_slew_rate", 2.0f, 0.1f, 20.0f);
 
-        return motor_pub_ != nullptr && sensor_pub_ != nullptr && input_sub_ != nullptr;
+        refreshCachedParams();
+        bool listeners_ok = true;
+        listeners_ok &= ps.onChange("dome.max_speed", &DomeNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("dome.deadband", &DomeNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("dome.motor_inverted", &DomeNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("dome.spin_slew_rate", &DomeNode::onParameterChanged, this);
+
+        return motor_pub_ != nullptr && sensor_pub_ != nullptr && input_sub_ != nullptr && listeners_ok;
     }
 
     void process(uint64_t now) override {
@@ -118,26 +125,16 @@ private:
             return;
         }
 
-        auto& ps = core::ParameterServer::getInstance();
-        float max_speed = max_speed_;
-        float deadband = 0.05f;
-        bool inverted = inverted_;
-        float slew_rate = 2.0f;
-        (void)ps.get("dome.max_speed", max_speed);
-        (void)ps.get("dome.deadband", deadband);
-        (void)ps.get("dome.motor_inverted", inverted);
-        (void)ps.get("dome.spin_slew_rate", slew_rate);
-
         // Dome spin is controlled by DOME stick X.
-        float target = math::ApplyDeadband(input.axis_x_normalized, deadband);
-        target = std::clamp(target, -1.0f, 1.0f) * std::clamp(max_speed, 0.0f, 1.0f);
-        if (inverted) {
+        float target = math::ApplyDeadband(input.axis_x_normalized, deadband_);
+        target = std::clamp(target, -1.0f, 1.0f) * std::clamp(max_speed_, 0.0f, 1.0f);
+        if (inverted_) {
             target = -target;
         }
 
         uint64_t now_ms = static_cast<uint64_t>(esp_timer_get_time() / 1000ULL);
-        if (std::fabs(slew_rate - slew_rate_current_) > 0.001f) {
-            slew_rate_current_ = slew_rate;
+        if (std::fabs(spin_slew_rate_ - slew_rate_current_) > 0.001f) {
+            slew_rate_current_ = spin_slew_rate_;
             slew_.Reset(slew_rate_current_, -slew_rate_current_, slew_.LastValue());
         }
         float speed = slew_.Calculate(target, now_ms);
@@ -149,10 +146,28 @@ private:
         motor_pub_->publish(cmd);
     }
 
+    static void onParameterChanged(const char*, void* context) {
+        if (!context) {
+            return;
+        }
+        auto* self = static_cast<DomeNode*>(context);
+        self->refreshCachedParams();
+    }
+
+    void refreshCachedParams() {
+        auto& ps = core::ParameterServer::getInstance();
+        (void)ps.get("dome.max_speed", max_speed_);
+        (void)ps.get("dome.deadband", deadband_);
+        (void)ps.get("dome.motor_inverted", inverted_);
+        (void)ps.get("dome.spin_slew_rate", spin_slew_rate_);
+    }
+
     dome::DomePosition* dome_position_;
     float max_speed_;
+    float deadband_ = 0.05f;
     uint8_t motor_id_;
     bool inverted_;
+    float spin_slew_rate_ = 2.0f;
     float slew_rate_current_ = 1.0f;
     math::SlewRateLimiter slew_;
 
