@@ -287,8 +287,16 @@ extern "C" int chopper_runtime_start(void) {
         gpio_set_level(static_cast<gpio_num_t>(chopper::config::pins::LED_BACK), 0);
     }
 
-    // Disable telemetry while profiling timing pressure.
-    app.disableTelemetry();
+    // Runtime E2E path uses serial telemetry for local UI bridging.
+    // Keep HTTP/WS disabled here unless network stack is explicitly initialized.
+    chopper::telemetry::TelemetryService::Config telemetry_cfg{};
+    telemetry_cfg.serial_enabled = true;
+    telemetry_cfg.serial_compact = false;
+    telemetry_cfg.async_enabled = true;
+    telemetry_cfg.async_task_core = 0;
+    telemetry_cfg.http_enabled = false;
+    telemetry_cfg.websocket_enabled = false;
+    app.configureTelemetry(telemetry_cfg);
 
     ESP_LOGI(TAG,
              "Executor cfg: hz=%u max_loop_us=%u core=%d loop_estop=%d node_estop=%d",
@@ -297,7 +305,7 @@ extern "C" int chopper_runtime_start(void) {
              exec_cfg.executor_task_core,
              exec_cfg.loop_timeout_triggers_estop ? 1 : 0,
              exec_cfg.node_timeout_triggers_estop ? 1 : 0);
-    ESP_LOGI(TAG, "Telemetry disabled for runtime timing investigation");
+    ESP_LOGI(TAG, "Telemetry enabled (serial JSON only; HTTP/WS disabled in runtime)");
 
     initRolePolicy();
     app.getControllerManager().getRoleManager().setPolicy(g_role_policy.getPolicy());

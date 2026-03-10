@@ -61,6 +61,7 @@ TelemetryService::TelemetryService()
     std::memset(&input_states_, 0, sizeof(input_states_));
     std::memset(&motor_states_, 0, sizeof(motor_states_));
     std::memset(&servo_states_, 0, sizeof(servo_states_));
+    std::memset(&led_state_, 0, sizeof(led_state_));
     std::memset(&audio_state_, 0, sizeof(audio_state_));
     std::memset(&status_state_, 0, sizeof(status_state_));
     std::memset(&async_pending_frame_, 0, sizeof(async_pending_frame_));
@@ -226,16 +227,40 @@ void TelemetryService::observeMotorCommand(const messages::MotorCommand& cmd) {
     st.value = cmd.value;
 }
 
-void TelemetryService::observeServoCommand(const messages::ServoCommand& cmd) {
+void TelemetryService::observeServoCommand(const messages::ServoCommand& cmd,
+                                           ServoSourceGroup group) {
     if (cmd.servo_id >= limits::MAX_MOTORS) {
         return;
     }
+    const size_t group_idx = static_cast<size_t>(group);
+    if (group_idx >= static_cast<size_t>(ServoSourceGroup::COUNT)) {
+        return;
+    }
     std::lock_guard<std::mutex> lock(state_mutex_);
-    auto& st = servo_states_[cmd.servo_id];
+    auto& st = servo_states_[group_idx][cmd.servo_id];
     st.valid = true;
     st.command_type = static_cast<uint8_t>(cmd.command_type);
     st.value = cmd.value;
     st.duration_ms = cmd.duration_ms;
+}
+
+void TelemetryService::observeLedCommand(const messages::LEDCommand& cmd) {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    auto& st = led_state_;
+    st.valid = true;
+    st.command_type = static_cast<uint8_t>(cmd.command_type);
+    st.led_id = cmd.led_id;
+    st.red = cmd.color.red;
+    st.green = cmd.color.green;
+    st.blue = cmd.color.blue;
+    st.white = cmd.color.white;
+    st.brightness = cmd.brightness;
+    st.pattern_id = cmd.pattern_id;
+    if (cmd.command_type == messages::LEDCommand::CommandType::TURN_OFF) {
+        st.is_on = false;
+    } else if (cmd.command_type == messages::LEDCommand::CommandType::TURN_ON) {
+        st.is_on = true;
+    }
 }
 
 void TelemetryService::observeAudioCommand(const messages::AudioCommand& cmd) {
@@ -268,6 +293,7 @@ void TelemetryService::snapshotToFrame(PublishFrame& out) {
     std::memcpy(out.input_states, input_states_, sizeof(input_states_));
     std::memcpy(out.motor_states, motor_states_, sizeof(motor_states_));
     std::memcpy(out.servo_states, servo_states_, sizeof(servo_states_));
+    out.led_state = led_state_;
     out.audio_state = audio_state_;
     out.status_state = status_state_;
 }
@@ -421,24 +447,42 @@ void TelemetryService::formatJsonFromFrame(const PublishFrame& frame, char* out_
     }
     appendf(used, "],");
 
+    const char* servo_group_keys[] = {"any", "body", "dome"};
     appendf(used, "\"servos\":[");
     first = true;
-    for (size_t i = 0; i < limits::MAX_MOTORS; ++i) {
-        const auto& st = frame.servo_states[i];
-        if (!st.valid) continue;
-        appendf(used, "%s{\"id\":%u,\"type\":%u,\"value\":%.4f,\"dur_ms\":%u}",
-                first ? "" : ",",
-                static_cast<unsigned>(i),
-                static_cast<unsigned>(st.command_type),
-                static_cast<double>(st.value),
-                static_cast<unsigned>(st.duration_ms));
-        first = false;
+    for (size_t group_idx = 0; group_idx < static_cast<size_t>(ServoSourceGroup::COUNT); ++group_idx) {
+        for (size_t i = 0; i < limits::MAX_MOTORS; ++i) {
+            const auto& st = frame.servo_states[group_idx][i];
+            if (!st.valid) continue;
+            appendf(used,
+                    "%s{\"id\":%u,\"type\":%u,\"value\":%.4f,\"dur_ms\":%u,\"group\":\"%s\",\"group_id\":%u}",
+                    first ? "" : ",",
+                    static_cast<unsigned>(i),
+                    static_cast<unsigned>(st.command_type),
+                    static_cast<double>(st.value),
+                    static_cast<unsigned>(st.duration_ms),
+                    servo_group_keys[group_idx],
+                    static_cast<unsigned>(group_idx));
+            first = false;
+        }
     }
     appendf(used, "],");
 
     appendf(used,
+            "\"led\":{\"valid\":%s,\"id\":%u,\"type\":%u,\"on\":%s,"
+            "\"color\":{\"r\":%u,\"g\":%u,\"b\":%u,\"w\":%u},\"brightness\":%u,\"pattern\":%u},"
             "\"audio\":{\"valid\":%s,\"type\":%u,\"track\":%u,\"volume\":%u,\"loop\":%s},"
             "\"status\":{\"valid\":%s,\"state\":%u,\"error\":%u}}",
+            frame.led_state.valid ? "true" : "false",
+            static_cast<unsigned>(frame.led_state.led_id),
+            static_cast<unsigned>(frame.led_state.command_type),
+            frame.led_state.is_on ? "true" : "false",
+            static_cast<unsigned>(frame.led_state.red),
+            static_cast<unsigned>(frame.led_state.green),
+            static_cast<unsigned>(frame.led_state.blue),
+            static_cast<unsigned>(frame.led_state.white),
+            static_cast<unsigned>(frame.led_state.brightness),
+            static_cast<unsigned>(frame.led_state.pattern_id),
             frame.audio_state.valid ? "true" : "false",
             static_cast<unsigned>(frame.audio_state.command_type),
             static_cast<unsigned>(frame.audio_state.track_id),

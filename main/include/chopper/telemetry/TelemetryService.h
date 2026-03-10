@@ -37,6 +37,13 @@ public:
         COUNT = 4
     };
 
+    enum class ServoSourceGroup : uint8_t {
+        ANY = 0,
+        BODY = 1,
+        DOME = 2,
+        COUNT = 3
+    };
+
     struct Config {
         bool serial_enabled = true;
         // When true, UART output uses a short fixed-width line to avoid
@@ -54,8 +61,8 @@ public:
         bool websocket_enabled = true;
         // Include executor performance fields (loop_count/loop timings/node counts).
         bool include_perf = false;
-        double node_update_hz = 4.0;
-        uint32_t min_publish_interval_ms = 250;
+        double node_update_hz = 10.0;
+        uint32_t min_publish_interval_ms = 100;
         uint16_t http_port = 80;
     };
 
@@ -81,7 +88,9 @@ public:
     void update(const Snapshot& snapshot);
     void observeInput(InputRole role, const messages::ControllerInput& input);
     void observeMotorCommand(const messages::MotorCommand& cmd);
-    void observeServoCommand(const messages::ServoCommand& cmd);
+    void observeServoCommand(const messages::ServoCommand& cmd,
+                             ServoSourceGroup group = ServoSourceGroup::ANY);
+    void observeLedCommand(const messages::LEDCommand& cmd);
     void observeAudioCommand(const messages::AudioCommand& cmd);
     void observeSystemStatus(const messages::SystemStatus& status);
 
@@ -126,6 +135,19 @@ private:
         uint16_t duration_ms = 0;
     };
 
+    struct LedState {
+        bool valid = false;
+        uint8_t command_type = 0;
+        uint8_t led_id = 0;
+        uint8_t red = 0;
+        uint8_t green = 0;
+        uint8_t blue = 0;
+        uint8_t white = 0;
+        uint8_t brightness = 0;
+        uint8_t pattern_id = 0;
+        bool is_on = false;
+    };
+
     struct AudioState {
         bool valid = false;
         uint8_t command_type = 0;
@@ -144,7 +166,8 @@ private:
         Snapshot snapshot;
         InputState input_states[static_cast<size_t>(InputRole::COUNT)];
         MotorState motor_states[limits::MAX_MOTORS];
-        ServoState servo_states[limits::MAX_MOTORS];
+        ServoState servo_states[static_cast<size_t>(ServoSourceGroup::COUNT)][limits::MAX_MOTORS];
+        LedState led_state;
         AudioState audio_state;
         StatusState status_state;
     };
@@ -181,7 +204,8 @@ private:
     Snapshot snapshot_;
     InputState input_states_[static_cast<size_t>(InputRole::COUNT)];
     MotorState motor_states_[limits::MAX_MOTORS];
-    ServoState servo_states_[limits::MAX_MOTORS];
+    ServoState servo_states_[static_cast<size_t>(ServoSourceGroup::COUNT)][limits::MAX_MOTORS];
+    LedState led_state_;
     AudioState audio_state_;
     StatusState status_state_;
     PublishFrame async_pending_frame_;

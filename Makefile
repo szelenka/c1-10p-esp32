@@ -296,6 +296,65 @@ monitor::
 	@set -e; $(run_firmware_monitor)
 
 # ============================================================================
+# Local telemetry UI bridge
+# ============================================================================
+
+UI_HOST ?= 127.0.0.1
+UI_PORT ?= 8765
+UI_SERIAL ?=
+UI_BAUD ?= 115200
+
+# ── URDF import from Fusion 360 export ──────────────────────────────────
+FUSION_EXPORT_DIR ?=
+
+urdf-import:
+	@test -n "$(FUSION_EXPORT_DIR)" || { echo "Usage: make urdf-import FUSION_EXPORT_DIR=/path/to/fusion2urdf_description"; exit 1; }
+	@test -d "$(FUSION_EXPORT_DIR)/urdf" || { echo "Error: $(FUSION_EXPORT_DIR)/urdf not found"; exit 1; }
+	@test -d "$(FUSION_EXPORT_DIR)/meshes" || { echo "Error: $(FUSION_EXPORT_DIR)/meshes not found"; exit 1; }
+	@echo "Importing meshes from $(FUSION_EXPORT_DIR)/meshes/ ..."
+	rm -rf description/fusion2urdf/meshes
+	mkdir -p description/fusion2urdf/meshes
+	cp "$(FUSION_EXPORT_DIR)"/meshes/*.stl description/fusion2urdf/meshes/
+	@echo "Resolving xacro -> URDF ..."
+	python3 scripts/xacro2urdf.py "$(FUSION_EXPORT_DIR)" description/fusion2urdf/chopper_fusion.urdf
+	@echo ""
+	@echo "Imported $$(ls description/fusion2urdf/meshes/*.stl | wc -l | tr -d ' ') STL meshes"
+	@echo "URDF: description/fusion2urdf/chopper_fusion.urdf"
+	@echo ""
+	@echo "Check tools/telemetry_ui/joint_mapping.json if joint/link names changed."
+
+ui-bridge:
+	@set -e; \
+	echo "Telemetry UI URL: http://$(UI_HOST):$(UI_PORT)"; \
+	echo "Starting UI bridge (serial='$(UI_SERIAL)' baud=$(UI_BAUD))"; \
+	cd tools/telemetry_ui; \
+	if [ -x "./.venv/bin/python" ]; then \
+		PY="./.venv/bin/python"; \
+	elif [ -x "../.venv/bin/python" ]; then \
+		PY="../.venv/bin/python"; \
+	else \
+		PY="python3"; \
+	fi; \
+	if ! $$PY -c "import aiohttp, serial" >/dev/null 2>&1; then \
+		echo "Installing UI bridge dependencies..."; \
+		$$PY -m pip install -r requirements.txt; \
+	fi; \
+	if [ -n "$(UI_SERIAL)" ]; then \
+		CMD="$$PY app.py --host \"$(UI_HOST)\" --port \"$(UI_PORT)\" --serial \"$(UI_SERIAL)\" --baud \"$(UI_BAUD)\""; \
+	else \
+		CMD="$$PY app.py --host \"$(UI_HOST)\" --port \"$(UI_PORT)\" --baud \"$(UI_BAUD)\""; \
+	fi; \
+	set +e; \
+	eval "$$CMD"; \
+	RC=$$?; \
+	set -e; \
+	if [ $$RC -eq 130 ]; then \
+		echo "UI bridge stopped (Ctrl+C)"; \
+		exit 0; \
+	fi; \
+	exit $$RC
+
+# ============================================================================
 # Host-side tests (no ESP-IDF required)
 # ============================================================================
 
