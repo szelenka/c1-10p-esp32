@@ -135,6 +135,9 @@ public:
     telemetry::TelemetryService& getTelemetryService() { return telemetry_service_; }
 
 private:
+    /// Drive all registered actuators to a safe idle state at boot.
+    void applyStartupSafeState();
+
     core::Executor executor_;
     safety::SafetyManager safetyManager_;
     bluetooth::ControllerManager controllerManager_;

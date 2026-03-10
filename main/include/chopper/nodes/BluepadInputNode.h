@@ -38,10 +38,11 @@ public:
             last_report_seen_us_[i] = 0;
             have_last_input_[i] = false;
         }
-        // Controller join/reconnect can transiently take tens of milliseconds.
-        // Keep generous headroom to avoid timeout-triggered emergencyStop on
-        // this input-multiplexing node during BT setup bursts.
-        setMaxExecutionTime(50000);
+        // Controller join/reconnect can transiently take >100 ms when BT task
+        // transitions overlap with logging and slot/role synchronization.
+        // Keep enough headroom so single connect bursts warn but do not trip
+        // the executor's 2x timeout-to-estop threshold.
+        setMaxExecutionTime(80000);
     }
 
     bool initialize() override {

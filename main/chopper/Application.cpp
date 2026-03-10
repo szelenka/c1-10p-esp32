@@ -139,10 +139,25 @@ bool Application::init() {
 
     // 8. Initialize drivers via DriverManager
     hal::DriverManager::getInstance().initAll();
+    applyStartupSafeState();
 
     initialized_ = true;
     ESP_LOGI(TAG, "Application initialized successfully");
     return true;
+}
+
+void Application::applyStartupSafeState() {
+    for (uint8_t i = 0; i < motorCount_; i++) {
+        if (motors_[i].driver) {
+            motors_[i].driver->stop();
+        }
+    }
+
+    for (uint8_t i = 0; i < servoCount_; i++) {
+        if (servos_[i].controller) {
+            servos_[i].controller->disableAll();
+        }
+    }
 }
 
 bool Application::start() {
