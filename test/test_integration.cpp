@@ -556,8 +556,22 @@ void test_application_init() {
     ASSERT(app.addServoController(&bodyServos, "servo/body"));
     ASSERT(app.addAudio(&audio, "audio/cmd"));
 
+    // Preload non-idle actuator state to verify init drives a safe startup state.
+    leftMotor.set(0.8f);
+    rightMotor.set(-0.6f);
+    domeMotor.set(0.4f);
+    bodyServos.enable(0);
+    bodyServos.enable(1);
+    bodyServos.setPosition(0, 1500);
+    bodyServos.setPosition(1, 1700);
+
     ASSERT(app.init());
     ASSERT(app.isInitialized());
+    ASSERT(leftMotor.get() == 0.0f);
+    ASSERT(rightMotor.get() == 0.0f);
+    ASSERT(domeMotor.get() == 0.0f);
+    ASSERT(!bodyServos.isEnabled(0));
+    ASSERT(!bodyServos.isEnabled(1));
 
     // Verify e-stop wiring
     ASSERT(!app.getSafetyManager().isEmergencyStopped());
