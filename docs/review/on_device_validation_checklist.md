@@ -13,6 +13,22 @@ Validate runtime behavior on real ESP32 hardware while external devices (Saberto
 5. WebSocket telemetry endpoint (`/ws/telemetry`) accepts connections (optional if client tool exists).
 6. Parameter persistence works across reboot (NVS path on real flash).
 
+## Quick Start (Flash + Runtime Expectations + UI)
+1. Pick firmware mode before flashing:
+- `esp32dev-validation`: validation-focused path. Use this for serial/controller checks.
+- `esp32dev`: runtime path with telemetry enabled.
+2. Pick serial format for your consumer:
+- `full` (`TEL:{...}`): required if your UI/parser reads telemetry from serial JSON.
+- `compact` (`TEL:t=...`): lower-overhead serial diagnostics, not JSON.
+- HTTP (`/api/telemetry`) and WebSocket (`/ws/telemetry`) use JSON payloads when telemetry service is enabled.
+3. Flash and validate serial markers:
+```bash
+./scripts/run_on_device_validation.sh --env esp32dev-validation --telemetry-mode full
+```
+4. Launch UI/API consumer:
+- Browser/API client: `http://<device-ip>/api/telemetry` and `http://<device-ip>/api/params`
+- WebSocket client: `ws://<device-ip>/ws/telemetry`
+
 ## Prerequisites
 1. ESP32 board connected over USB.
 2. PlatformIO available in shell (`.venv/bin/pio --version`) or via helper script (`scripts/pio_local.sh`).
@@ -30,12 +46,12 @@ If PlatformIO is missing, install into the local venv and use `scripts/pio_local
 
 ## One-Command Automation (Recommended)
 ```bash
-./scripts/run_on_device_validation.sh --env esp32dev-validation --port /dev/cu.usbserial-XXXX
+./scripts/run_on_device_validation.sh --env esp32dev-validation --port /dev/cu.usbserial-XXXX --telemetry-mode full
 ```
 
 Optional HTTP/API checks once device IP is known:
 ```bash
-./scripts/run_on_device_validation.sh --env esp32dev-validation --port /dev/cu.usbserial-XXXX --host 192.168.1.50
+./scripts/run_on_device_validation.sh --env esp32dev-validation --port /dev/cu.usbserial-XXXX --host 192.168.1.50 --telemetry-mode full
 ```
 
 ## Step 1: Pick Target Environment
@@ -52,6 +68,11 @@ export CHOPPER_ENV=esp32dev
 ```
 
 ## Step 2: Discover Serial Port
+Preferred (cross-platform):
+```bash
+./scripts/run_on_device_validation.sh --list-ports
+```
+
 macOS example:
 ```bash
 ls /dev/cu.usb* /dev/cu.SLAB* 2>/dev/null
@@ -76,7 +97,9 @@ export CHOPPER_PORT=/dev/cu.usbserial-XXXX
 ```bash
 ./scripts/pio_local.sh device monitor --port "$CHOPPER_PORT" --baud 115200
 ```
-Expected: periodic lines prefixed with `TEL:` and JSON payload.
+Expected:
+- Full mode: periodic `TEL:{...}` JSON lines.
+- Compact mode: periodic `TEL:t=...` lines.
 
 ## Step 5: Find ESP32 IP
 From serial logs or router DHCP table, identify `CHOPPER_HOST`.
