@@ -50,8 +50,10 @@ public:
         motor_pub_ = createPublisher<messages::MotorCommand>("dome/motor/cmd");
         sensor_pub_ = createPublisher<messages::SensorData>("dome/position");
         tracking_cmd_pub_ = createPublisher<messages::TrackingCommand>("openmv/tracking/cmd");
-        input_sub_ =
-            createSubscription<messages::ControllerInput>("controller/dome", &DomeNode::onControllerInput, this);
+        dome_input_sub_ =
+            createSubscription<messages::ControllerInput>("controller/dome", &DomeNode::onDomeControllerInput, this);
+        drive_input_sub_ =
+            createSubscription<messages::ControllerInput>("controller/drive", &DomeNode::onDriveControllerInput, this);
         vision_sub_ = createSubscription<messages::VisionResult>("vision/result", &DomeNode::onVisionResult, this);
 
         auto& ps = core::ParameterServer::getInstance();
@@ -80,7 +82,7 @@ public:
         listeners_ok &= ps.onChange("tracking.frame_width", &DomeNode::onParameterChanged, this);
 
         return motor_pub_ != nullptr && sensor_pub_ != nullptr && tracking_cmd_pub_ != nullptr &&
-               input_sub_ != nullptr && vision_sub_ != nullptr && listeners_ok;
+               dome_input_sub_ != nullptr && drive_input_sub_ != nullptr && vision_sub_ != nullptr && listeners_ok;
     }
 
     void process(uint64_t now) override {
@@ -111,27 +113,16 @@ public:
     [[nodiscard]] double getUpdateFrequency() const override { return 20.0; }
 
     /**
-     * Set dome spin from two triggers (drive R2 + dome R2).
-     * Call from controller input handler.
-     * @param now_ms  Current time in ms for slew rate limiter.
+     * Set dome spin from two buttons (drive L = rotate left, dome R = rotate right).
+     * @param rotate_left  Drive controller L button pressed.
+     * @param rotate_right Dome controller R button pressed.
+     * @param now_ms       Current time in ms for slew rate limiter.
      */
-    void setDomeSpin(bool drive_r2, bool dome_r2, uint64_t now_ms) {
-        float target = 0.0f;
-        if (drive_r2 && !dome_r2) {
-            target = inverted_ ? -max_speed_ : max_speed_;
-        } else if (!drive_r2 && dome_r2) {
-            target = inverted_ ? max_speed_ : -max_speed_;
-        }
-
-        float speed = slew_.Calculate(target, now_ms);
-
-        if (motor_pub_) {
-            messages::MotorCommand cmd;
-            cmd.motor_id = motor_id_;
-            cmd.command_type = messages::MotorCommand::CommandType::SET_SPEED;
-            cmd.value = speed;
-            motor_pub_->publish(cmd);
-        }
+    void setDomeSpin(bool rotate_left, bool rotate_right, uint64_t now_ms) {
+        last_time_ms_ = now_ms;
+        drive_rotate_left_ = rotate_left;
+        dome_rotate_right_ = rotate_right;
+        updateDomeSpin();
     }
 
     [[nodiscard]] dome::DomePosition* getDomePosition() const { return dome_position_; }
@@ -151,7 +142,12 @@ public:
 private:
     // ── Manual input handling ───────────────────────────────────────────
 
-    void onControllerInput(const messages::ControllerInput& input) {
+    void onDriveControllerInput(const messages::ControllerInput& input) {
+        drive_rotate_left_ = input.has_intents ? input.intent_dome_rotate_left : input.button_l2;
+        updateDomeSpin();
+    }
+
+    void onDomeControllerInput(const messages::ControllerInput& input) {
         if (!motor_pub_) {
             return;
         }
@@ -165,11 +161,23 @@ private:
         // Random mode toggle: double-click right thumb stick
         handleRandomToggle(input, now_ms);
 
-        // Dome spin from joystick X
-        float target = math::ApplyDeadband(input.axis_x_normalized, deadband_);
-        target = std::clamp(target, -1.0f, 1.0f) * std::clamp(max_speed_, 0.0f, 1.0f);
-        if (inverted_) {
-            target = -target;
+        // Dome rotate right from dome controller button
+        dome_rotate_right_ = input.has_intents ? input.intent_dome_rotate_right : input.button_l2;
+        updateDomeSpin();
+    }
+
+    void updateDomeSpin() {
+        if (!motor_pub_) {
+            return;
+        }
+
+        auto now_ms = last_time_ms_;
+
+        float target = 0.0f;
+        if (drive_rotate_left_ && !dome_rotate_right_) {
+            target = inverted_ ? -max_speed_ : max_speed_;
+        } else if (!drive_rotate_left_ && dome_rotate_right_) {
+            target = inverted_ ? max_speed_ : -max_speed_;
         }
 
         if (std::fabs(spin_slew_rate_ - slew_rate_current_) > 0.001f) {
@@ -183,7 +191,6 @@ private:
             last_manual_input_ms_ = now_ms;
             dome_has_moved_manually_ = true;
             if (idle_) {
-                // Leaving idle — cancel any auto target
                 idle_ = false;
                 auto_target_valid_ = false;
                 if (dome_position_ != nullptr) {
@@ -192,8 +199,6 @@ private:
             }
         }
 
-        // Only publish manual commands when there's actual input
-        // (auto-dome publishes its own commands in process())
         if (has_manual_input || !idle_) {
             messages::MotorCommand cmd;
             cmd.motor_id = motor_id_;
@@ -515,7 +520,8 @@ private:
     core::TypedPublisherPtr<messages::MotorCommand> motor_pub_;
     core::TypedPublisherPtr<messages::SensorData> sensor_pub_;
     core::TypedPublisherPtr<messages::TrackingCommand> tracking_cmd_pub_;
-    core::TypedSubscriptionPtr<messages::ControllerInput> input_sub_;
+    core::TypedSubscriptionPtr<messages::ControllerInput> dome_input_sub_;
+    core::TypedSubscriptionPtr<messages::ControllerInput> drive_input_sub_;
     core::TypedSubscriptionPtr<messages::VisionResult> vision_sub_;
 
     // Auto-dome state
@@ -532,6 +538,10 @@ private:
     bool auto_left_ = false;
     uint64_t next_auto_move_ms_ = 0;
     bool auto_movement_started_ = false;
+
+    // Button-based dome rotation state (cross-controller)
+    bool drive_rotate_left_ = false;
+    bool dome_rotate_right_ = false;
 
     // Double-click detection for random toggle
     bool last_thumb_r_ = false;

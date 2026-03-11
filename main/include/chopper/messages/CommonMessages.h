@@ -87,6 +87,7 @@ public:
     bool intent_dome_doors_toggle = false;
     bool intent_body_utility_toggle = false;
     bool intent_carpet_mode_toggle = false;
+    bool intent_dome_rotate_left = false;
 
     // Dome-controller intents (populated for DOME role)
     bool intent_neck_toggle = false;
@@ -95,6 +96,7 @@ public:
     bool intent_sound_a = false;
     bool intent_sound_b = false;
     bool intent_sound_random = false;
+    bool intent_dome_rotate_right = false;
     bool intent_dome_random_toggle = false;
     bool intent_face_tracking_toggle = false;  ///< One-shot: fires once after SL+SR held 2s
 };

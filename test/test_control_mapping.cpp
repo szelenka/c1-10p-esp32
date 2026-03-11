@@ -25,6 +25,7 @@ TEST_CASE("default_drive_mapping") {
     CHECK(map.dome_doors_toggle == ControlField::MISC_SELECT);
     CHECK(map.body_utility_toggle == ControlField::BUTTON_B);
     CHECK(map.carpet_mode_toggle == ControlField::BUTTON_THUMB_L);
+    CHECK(map.dome_rotate_left == ControlField::BUTTON_L2);
 }
 
 TEST_CASE("apply_intent_press_and_release") {
@@ -61,6 +62,18 @@ TEST_CASE("set_drive_intents_from_raw") {
     CHECK(input.intent_periscope_down);
     CHECK(input.intent_periscope_spin_left);
     CHECK_FALSE(input.intent_periscope_spin_right);
+    CHECK_FALSE(input.intent_dome_rotate_left);
+}
+
+TEST_CASE("set_drive_intents_dome_rotate_left") {
+    const DriveIntentMap map = chopper::input::defaultDriveIntentMap();
+    chopper::messages::ControllerInput input;
+    input.button_l2 = true;
+
+    chopper::input::setDriveIntentsFromRaw(input, map);
+    CHECK(input.has_intents);
+    CHECK(input.intent_dome_rotate_left);
+    CHECK_FALSE(input.intent_periscope_up);
 }
 
 // ── Dome intent mapping ──
@@ -73,6 +86,8 @@ TEST_CASE("default_dome_mapping") {
     CHECK(map.sound_a == ControlField::BUTTON_A);
     CHECK(map.sound_b == ControlField::BUTTON_B);
     CHECK(map.sound_random == ControlField::MISC_START);
+    CHECK(map.dome_rotate_right == ControlField::BUTTON_L2);
+    CHECK(map.dome_random_toggle == ControlField::BUTTON_THUMB_R);
 }
 
 TEST_CASE("set_dome_intents_from_raw") {
@@ -89,6 +104,18 @@ TEST_CASE("set_dome_intents_from_raw") {
     CHECK_FALSE(input.intent_neck_toggle);
     CHECK(input.intent_neck_height_up);
     CHECK_FALSE(input.intent_neck_height_down);
+    CHECK_FALSE(input.intent_dome_rotate_right);
+}
+
+TEST_CASE("set_dome_intents_dome_rotate_right") {
+    const DomeIntentMap map = chopper::input::defaultDomeIntentMap();
+    chopper::messages::ControllerInput input;
+    input.button_l2 = true;
+
+    chopper::input::setDomeIntentsFromRaw(input, map);
+    CHECK(input.has_intents);
+    CHECK(input.intent_dome_rotate_right);
+    CHECK_FALSE(input.intent_sound_a);
 }
 
 TEST_CASE("dome_override_mapping") {
@@ -112,9 +139,18 @@ TEST_CASE("new_control_fields_round_trip") {
     chopper::input::applyControlPress(input, ControlField::BUTTON_R1);
     CHECK(chopper::input::isControlPressed(input, ControlField::BUTTON_R1));
 
+    chopper::input::applyControlPress(input, ControlField::BUTTON_L2);
+    CHECK(chopper::input::isControlPressed(input, ControlField::BUTTON_L2));
+
+    chopper::input::applyControlPress(input, ControlField::BUTTON_R2);
+    CHECK(chopper::input::isControlPressed(input, ControlField::BUTTON_R2));
+
     chopper::input::applyControlPress(input, ControlField::MISC_START);
     CHECK(chopper::input::isControlPressed(input, ControlField::MISC_START));
 
     chopper::input::applyControlRelease(input, ControlField::BUTTON_L1);
     CHECK_FALSE(chopper::input::isControlPressed(input, ControlField::BUTTON_L1));
+
+    chopper::input::applyControlRelease(input, ControlField::BUTTON_L2);
+    CHECK_FALSE(chopper::input::isControlPressed(input, ControlField::BUTTON_L2));
 }

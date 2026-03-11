@@ -12,6 +12,8 @@ enum class UserIntent {
     DOME_DOORS_TOGGLE,
     BODY_UTILITY_TOGGLE,
     CARPET_MODE_TOGGLE,
+    DOME_ROTATE_LEFT,
+    DOME_ROTATE_RIGHT,
     DOME_RANDOM_TOGGLE,
 };
 
@@ -21,7 +23,9 @@ enum class ControlField {
     BUTTON_X,
     BUTTON_Y,
     BUTTON_L1,
+    BUTTON_L2,
     BUTTON_R1,
+    BUTTON_R2,
     BUTTON_THUMB_L,
     BUTTON_THUMB_R,
     MISC_SELECT,
@@ -36,6 +40,7 @@ struct DriveIntentMap {
     ControlField dome_doors_toggle = ControlField::MISC_SELECT;
     ControlField body_utility_toggle = ControlField::BUTTON_B;
     ControlField carpet_mode_toggle = ControlField::BUTTON_THUMB_L;
+    ControlField dome_rotate_left = ControlField::BUTTON_L2;
 };
 
 inline DriveIntentMap defaultDriveIntentMap() {
@@ -54,8 +59,12 @@ inline bool isControlPressed(const messages::ControllerInput& input, ControlFiel
             return input.button_y;
         case ControlField::BUTTON_L1:
             return input.button_l1;
+        case ControlField::BUTTON_L2:
+            return input.button_l2;
         case ControlField::BUTTON_R1:
             return input.button_r1;
+        case ControlField::BUTTON_R2:
+            return input.button_r2;
         case ControlField::BUTTON_THUMB_L:
             return input.button_thumb_l;
         case ControlField::BUTTON_THUMB_R:
@@ -85,8 +94,14 @@ inline void applyControlPress(messages::ControllerInput& input, ControlField con
         case ControlField::BUTTON_L1:
             input.button_l1 = true;
             break;
+        case ControlField::BUTTON_L2:
+            input.button_l2 = true;
+            break;
         case ControlField::BUTTON_R1:
             input.button_r1 = true;
+            break;
+        case ControlField::BUTTON_R2:
+            input.button_r2 = true;
             break;
         case ControlField::BUTTON_THUMB_L:
             input.button_thumb_l = true;
@@ -120,8 +135,14 @@ inline void applyControlRelease(messages::ControllerInput& input, ControlField c
         case ControlField::BUTTON_L1:
             input.button_l1 = false;
             break;
+        case ControlField::BUTTON_L2:
+            input.button_l2 = false;
+            break;
         case ControlField::BUTTON_R1:
             input.button_r1 = false;
+            break;
+        case ControlField::BUTTON_R2:
+            input.button_r2 = false;
             break;
         case ControlField::BUTTON_THUMB_L:
             input.button_thumb_l = false;
@@ -154,6 +175,10 @@ inline ControlField resolveControl(UserIntent intent, const DriveIntentMap& map)
             return map.body_utility_toggle;
         case UserIntent::CARPET_MODE_TOGGLE:
             return map.carpet_mode_toggle;
+        case UserIntent::DOME_ROTATE_LEFT:
+            return map.dome_rotate_left;
+        case UserIntent::DOME_ROTATE_RIGHT:
+            return map.dome_rotate_left;  // N/A for drive controller
         case UserIntent::DOME_RANDOM_TOGGLE:
             return map.periscope_up;  // N/A for drive controller
     }
@@ -177,6 +202,7 @@ inline void setDriveIntentsFromRaw(messages::ControllerInput& input, const Drive
     input.intent_dome_doors_toggle = isControlPressed(input, map.dome_doors_toggle);
     input.intent_body_utility_toggle = isControlPressed(input, map.body_utility_toggle);
     input.intent_carpet_mode_toggle = isControlPressed(input, map.carpet_mode_toggle);
+    input.intent_dome_rotate_left = isControlPressed(input, map.dome_rotate_left);
 }
 
 // ── Dome controller intent mapping ──────────────────────────────────
@@ -188,6 +214,7 @@ struct DomeIntentMap {
     ControlField sound_a = ControlField::BUTTON_A;
     ControlField sound_b = ControlField::BUTTON_B;
     ControlField sound_random = ControlField::MISC_START;
+    ControlField dome_rotate_right = ControlField::BUTTON_L2;
     ControlField dome_random_toggle = ControlField::BUTTON_THUMB_R;
 };
 
@@ -203,6 +230,7 @@ inline void setDomeIntentsFromRaw(messages::ControllerInput& input, const DomeIn
     input.intent_sound_a = isControlPressed(input, map.sound_a);
     input.intent_sound_b = isControlPressed(input, map.sound_b);
     input.intent_sound_random = isControlPressed(input, map.sound_random);
+    input.intent_dome_rotate_right = isControlPressed(input, map.dome_rotate_right);
     input.intent_dome_random_toggle = isControlPressed(input, map.dome_random_toggle);
     // Note: intent_face_tracking_toggle is NOT set here — it requires
     // stateful 2-second hold detection, handled by BluepadInputNode.
