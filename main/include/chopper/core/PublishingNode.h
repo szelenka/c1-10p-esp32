@@ -15,7 +15,7 @@ namespace chopper::core {
 class PublishingNode : public Node {
 public:
     explicit PublishingNode(const char* name);
-    ~PublishingNode() override = default;
+    ~PublishingNode() override;
 
 protected:
     /**

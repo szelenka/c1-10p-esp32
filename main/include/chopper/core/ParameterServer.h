@@ -82,6 +82,14 @@ public:
      */
     bool onChange(const char* name, ParamChangeCallback callback, void* context);
 
+    /**
+     * @brief Remove all listeners registered with the given context pointer.
+     *
+     * Nodes should call this in their destructor so the listener table
+     * does not retain dangling pointers after a node is destroyed.
+     */
+    void removeListenersByContext(void* context);
+
     // --- NVS persistence stubs ---
 
     void loadFromNVS();

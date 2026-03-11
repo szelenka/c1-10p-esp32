@@ -43,6 +43,8 @@ public:
             createSubscription<messages::LEDCommand>("led/front/cmd", &TelemetryIOTapNode::onLedCommand, this);
         led_back_out_sub_ =
             createSubscription<messages::LEDCommand>("led/back/cmd", &TelemetryIOTapNode::onLedCommand, this);
+        led_dome_eye_out_sub_ =
+            createSubscription<messages::LEDCommand>("led/dome_eye/cmd", &TelemetryIOTapNode::onLedCommand, this);
         audio_out_sub_ =
             createSubscription<messages::AudioCommand>("audio/cmd", &TelemetryIOTapNode::onAudioCommand, this);
         status_sub_ =
@@ -50,7 +52,7 @@ public:
 
         return drive_in_sub_ && dome_in_sub_ && animation_in_sub_ && camera_in_sub_ && motor_out_sub_ &&
                dome_motor_out_sub_ && servo_out_sub_ && servo_body_out_sub_ && servo_dome_out_sub_ && led_out_sub_ &&
-               led_front_out_sub_ && led_back_out_sub_ && audio_out_sub_ && status_sub_;
+               led_front_out_sub_ && led_back_out_sub_ && led_dome_eye_out_sub_ && audio_out_sub_ && status_sub_;
     }
 
     void process(uint64_t) override {
@@ -166,6 +168,7 @@ private:
     core::TypedSubscriptionPtr<messages::LEDCommand> led_out_sub_;
     core::TypedSubscriptionPtr<messages::LEDCommand> led_front_out_sub_;
     core::TypedSubscriptionPtr<messages::LEDCommand> led_back_out_sub_;
+    core::TypedSubscriptionPtr<messages::LEDCommand> led_dome_eye_out_sub_;
     core::TypedSubscriptionPtr<messages::AudioCommand> audio_out_sub_;
     core::TypedSubscriptionPtr<messages::SystemStatus> status_sub_;
 };

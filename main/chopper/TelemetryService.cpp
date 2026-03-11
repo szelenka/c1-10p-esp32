@@ -45,7 +45,7 @@ uint64_t monotonicNowUs() {
 TelemetryService::TelemetryService()
     : serial_sink_(&defaultSerialSink)
 #ifdef ESP_PLATFORM
-          async_task_handle_(nullptr)
+    , async_task_handle_(nullptr)
     , async_queue_(nullptr)
 #endif
 #if CHOPPER_HAS_HTTP_SERVER
@@ -332,7 +332,7 @@ void TelemetryService::formatJsonFromFrame(const PublishFrame& frame, char* out_
         if (!out_json || out_len == 0 || used >= out_len) {
             return;
         }
-        va_list args = nullptr;
+        va_list args;
         va_start(args, fmt);
         int n = std::vsnprintf(out_json + used, out_len - used, fmt, args);
         va_end(args);
