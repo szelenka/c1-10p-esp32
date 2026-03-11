@@ -494,6 +494,208 @@ void test_periscope_no_spin_when_down() {
     PASS();
 }
 
+void test_periscope_auto_wander_activates_when_up() {
+    TEST(periscope_auto_wander_activates_when_up);
+    resetFramework();
+    mock_esp_timer_set(1'000'000);  // 1s
+
+    auto node = std::make_shared<chopper::nodes::PeriscopeNode>();
+    ASSERT(node->initialize());
+    node->activate();
+    ASSERT(!node->isAutoWanderActive());
+
+    int cmd_count = 0;
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
+        "servo/dome/cmd",
+        [](const chopper::messages::ServoCommand&, void* c) {
+            int* count = static_cast<int*>(c);
+            (*count)++;
+        },
+        &cmd_count);
+
+    // process() while down — no auto-wander
+    node->process(0);
+    ASSERT(!node->isAutoWanderActive());
+
+    // Raise the periscope via intent
+    auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
+    chopper::messages::ControllerInput input;
+    input.has_intents = true;
+    input.intent_periscope_up = true;
+    pub->publish(input);
+    ASSERT(!node->isPeriscopeDown());
+    int count_after_lift = cmd_count;
+
+    // First process() when up — activates auto-wander, sets speed, schedules first move
+    mock_esp_timer_set(2'000'000);
+    node->process(0);
+    ASSERT(node->isAutoWanderActive());
+    // SET_SPEED command should have been published
+    ASSERT(cmd_count > count_after_lift);
+
+    mock_esp_timer_reset();
+    PASS();
+}
+
+void test_periscope_auto_wander_publishes_position() {
+    TEST(periscope_auto_wander_publishes_position);
+    resetFramework();
+    mock_esp_timer_set(1'000'000);  // 1s
+
+    auto& ps = chopper::core::ParameterServer::getInstance();
+
+    auto node = std::make_shared<chopper::nodes::PeriscopeNode>();
+    ASSERT(node->initialize());
+    node->activate();
+
+    // Use smallest allowed delays (min=500ms per declared range)
+    ps.set("servo.peri_spin.auto_min_delay", static_cast<int32_t>(500));
+    ps.set("servo.peri_spin.auto_max_delay", static_cast<int32_t>(1000));
+
+    float last_position = -1.0f;
+    uint8_t last_servo_id = 255;
+    uint8_t last_cmd_type = 255;
+
+    struct Ctx { float* pos; uint8_t* id; uint8_t* type; };
+    Ctx ctx{&last_position, &last_servo_id, &last_cmd_type};
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
+        "servo/dome/cmd",
+        [](const chopper::messages::ServoCommand& cmd, void* c) {
+            auto* ctx = static_cast<Ctx*>(c);
+            *ctx->pos = cmd.value;
+            *ctx->id = cmd.servo_id;
+            *ctx->type = static_cast<uint8_t>(cmd.command_type);
+        },
+        &ctx);
+
+    // Raise periscope
+    auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
+    chopper::messages::ControllerInput input;
+    input.has_intents = true;
+    input.intent_periscope_up = true;
+    pub->publish(input);
+    ASSERT(!node->isPeriscopeDown());
+
+    // First process — activates, schedules move at now + [500,1000)ms
+    mock_esp_timer_set(2'000'000);  // 2s
+    node->process(0);
+    ASSERT(node->isAutoWanderActive());
+
+    // Advance well past max delay — should publish a SET_POSITION to spin channel
+    mock_esp_timer_set(4'000'000);  // 4s (+2s, well past 1s max delay)
+    node->process(0);
+
+    ASSERT(last_servo_id == chopper::config::servo_channel::DOME_PERISCOPE_SPIN);
+    ASSERT(last_cmd_type == static_cast<uint8_t>(chopper::messages::ServoCommand::CommandType::SET_POSITION));
+
+    // Target should be within spin range
+    int32_t spin_min = 500, spin_max = 2500;
+    ps.get("servo.peri_spin.min", spin_min);
+    ps.get("servo.peri_spin.max", spin_max);
+    ASSERT(last_position >= static_cast<float>(spin_min));
+    ASSERT(last_position <= static_cast<float>(spin_max));
+
+    mock_esp_timer_reset();
+    PASS();
+}
+
+void test_periscope_auto_wander_stops_when_lowered() {
+    TEST(periscope_auto_wander_stops_when_lowered);
+    resetFramework();
+    mock_esp_timer_set(1'000'000);
+
+    auto node = std::make_shared<chopper::nodes::PeriscopeNode>();
+    ASSERT(node->initialize());
+    node->activate();
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
+
+    // Raise
+    chopper::messages::ControllerInput input;
+    input.has_intents = true;
+    input.intent_periscope_up = true;
+    pub->publish(input);
+    ASSERT(!node->isPeriscopeDown());
+
+    // Start auto-wander
+    mock_esp_timer_set(2'000'000);
+    node->process(0);
+    ASSERT(node->isAutoWanderActive());
+
+    // Lower periscope
+    mock_esp_timer_set(3'000'000);
+    input.intent_periscope_up = false;
+    pub->publish(input);
+    input.intent_periscope_down = true;
+    pub->publish(input);
+    ASSERT(node->isPeriscopeDown());
+
+    // process() should deactivate auto-wander
+    mock_esp_timer_set(4'000'000);
+    node->process(0);
+    ASSERT(!node->isAutoWanderActive());
+
+    mock_esp_timer_reset();
+    PASS();
+}
+
+void test_periscope_manual_spin_resets_auto_wander() {
+    TEST(periscope_manual_spin_resets_auto_wander);
+    resetFramework();
+    mock_esp_timer_set(1'000'000);  // 1s
+
+    auto& ps = chopper::core::ParameterServer::getInstance();
+
+    auto node = std::make_shared<chopper::nodes::PeriscopeNode>();
+    ASSERT(node->initialize());
+    node->activate();
+
+    // Use smallest allowed delays for faster test
+    ps.set("servo.peri_spin.auto_min_delay", static_cast<int32_t>(500));
+    ps.set("servo.peri_spin.auto_max_delay", static_cast<int32_t>(1000));
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
+
+    // Raise
+    chopper::messages::ControllerInput input;
+    input.has_intents = true;
+    input.intent_periscope_up = true;
+    pub->publish(input);
+
+    // Start auto-wander
+    mock_esp_timer_set(2'000'000);  // 2s
+    node->process(0);
+    ASSERT(node->isAutoWanderActive());
+
+    // Manual spin left — should reset auto-wander
+    mock_esp_timer_set(3'000'000);  // 3s
+    input.intent_periscope_up = false;
+    pub->publish(input);
+    input.intent_periscope_spin_left = true;
+    pub->publish(input);
+    ASSERT(!node->isAutoWanderActive());
+
+    // Auto-wander should not reactivate until cooldown (auto_max_delay=1000ms) has passed
+    mock_esp_timer_set(3'500'000);  // 3.5s — only 500ms after manual input
+    input.intent_periscope_spin_left = false;
+    pub->publish(input);
+    node->process(0);
+    ASSERT(!node->isAutoWanderActive());
+
+    // After cooldown passes, auto-wander reactivates
+    mock_esp_timer_set(5'000'000);  // 5s — 2s after manual input, well past 1s cooldown
+    node->process(0);
+    ASSERT(node->isAutoWanderActive());
+
+    mock_esp_timer_reset();
+    PASS();
+}
+
 // ============================================================
 // DomeArmsNode tests
 // ============================================================
@@ -900,6 +1102,10 @@ int main() {
     test_periscope_intent_spins_left();
     test_periscope_intent_spins_right();
     test_periscope_no_spin_when_down();
+    test_periscope_auto_wander_activates_when_up();
+    test_periscope_auto_wander_publishes_position();
+    test_periscope_auto_wander_stops_when_lowered();
+    test_periscope_manual_spin_resets_auto_wander();
 
     // DomeArmsNode
     test_dome_arms_toggle_doors();
