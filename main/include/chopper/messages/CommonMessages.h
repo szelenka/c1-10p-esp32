@@ -97,6 +97,7 @@ public:
     bool intent_sound_b = false;
     bool intent_sound_random = false;
     bool intent_dome_rotate_right = false;
+    bool intent_eye_color_toggle = false;
     bool intent_dome_random_toggle = false;
     bool intent_face_tracking_toggle = false;  ///< One-shot: fires once after SL+SR held 2s
 };

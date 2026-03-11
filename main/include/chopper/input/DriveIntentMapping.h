@@ -14,6 +14,7 @@ enum class UserIntent {
     CARPET_MODE_TOGGLE,
     DOME_ROTATE_LEFT,
     DOME_ROTATE_RIGHT,
+    EYE_COLOR_TOGGLE,
     DOME_RANDOM_TOGGLE,
 };
 
@@ -179,6 +180,8 @@ inline ControlField resolveControl(UserIntent intent, const DriveIntentMap& map)
             return map.dome_rotate_left;
         case UserIntent::DOME_ROTATE_RIGHT:
             return map.dome_rotate_left;  // N/A for drive controller
+        case UserIntent::EYE_COLOR_TOGGLE:
+            return map.dome_rotate_left;  // N/A for drive controller
         case UserIntent::DOME_RANDOM_TOGGLE:
             return map.periscope_up;  // N/A for drive controller
     }
@@ -215,6 +218,7 @@ struct DomeIntentMap {
     ControlField sound_b = ControlField::BUTTON_B;
     ControlField sound_random = ControlField::MISC_START;
     ControlField dome_rotate_right = ControlField::BUTTON_L2;
+    ControlField eye_color_toggle = ControlField::BUTTON_R2;
     ControlField dome_random_toggle = ControlField::BUTTON_THUMB_R;
 };
 
@@ -231,6 +235,7 @@ inline void setDomeIntentsFromRaw(messages::ControllerInput& input, const DomeIn
     input.intent_sound_b = isControlPressed(input, map.sound_b);
     input.intent_sound_random = isControlPressed(input, map.sound_random);
     input.intent_dome_rotate_right = isControlPressed(input, map.dome_rotate_right);
+    input.intent_eye_color_toggle = isControlPressed(input, map.eye_color_toggle);
     input.intent_dome_random_toggle = isControlPressed(input, map.dome_random_toggle);
     // Note: intent_face_tracking_toggle is NOT set here — it requires
     // stateful 2-second hold detection, handled by BluepadInputNode.

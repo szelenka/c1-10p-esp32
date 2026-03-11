@@ -50,6 +50,7 @@ public:
         motor_pub_ = createPublisher<messages::MotorCommand>("dome/motor/cmd");
         sensor_pub_ = createPublisher<messages::SensorData>("dome/position");
         tracking_cmd_pub_ = createPublisher<messages::TrackingCommand>("openmv/tracking/cmd");
+        led_pub_ = createPublisher<messages::LEDCommand>("led/dome_eye/cmd");
         dome_input_sub_ =
             createSubscription<messages::ControllerInput>("controller/dome", &DomeNode::onDomeControllerInput, this);
         drive_input_sub_ =
@@ -81,7 +82,7 @@ public:
         listeners_ok &= ps.onChange("tracking.min_confidence", &DomeNode::onParameterChanged, this);
         listeners_ok &= ps.onChange("tracking.frame_width", &DomeNode::onParameterChanged, this);
 
-        return motor_pub_ != nullptr && sensor_pub_ != nullptr && tracking_cmd_pub_ != nullptr &&
+        return motor_pub_ != nullptr && sensor_pub_ != nullptr && tracking_cmd_pub_ != nullptr && led_pub_ != nullptr &&
                dome_input_sub_ != nullptr && drive_input_sub_ != nullptr && vision_sub_ != nullptr && listeners_ok;
     }
 
@@ -161,6 +162,9 @@ private:
         // Random mode toggle: double-click right thumb stick
         handleRandomToggle(input, now_ms);
 
+        // Eye color toggle: ZR button
+        handleEyeColorToggle(input);
+
         // Dome rotate right from dome controller button
         dome_rotate_right_ = input.has_intents ? input.intent_dome_rotate_right : input.button_l2;
         updateDomeSpin();
@@ -226,6 +230,33 @@ private:
             last_thumb_r_time_ = now_ms;
         }
         last_thumb_r_ = pressed;
+    }
+
+    // ── Eye color toggle ──────────────────────────────────────────────────
+
+    void handleEyeColorToggle(const messages::ControllerInput& input) {
+        const bool pressed = input.has_intents ? input.intent_eye_color_toggle : input.button_r2;
+        if (pressed && !last_eye_toggle_) {
+            eye_red_ = !eye_red_;
+            if (led_pub_) {
+                messages::LEDCommand cmd;
+                cmd.led_id = 0;
+                cmd.command_type = messages::LEDCommand::CommandType::SET_COLOR;
+                if (eye_red_) {
+                    cmd.color.red = 255;
+                    cmd.color.green = 0;
+                    cmd.color.blue = 0;
+                    cmd.color.white = 0;
+                } else {
+                    cmd.color.red = 0;
+                    cmd.color.green = 0;
+                    cmd.color.blue = 255;
+                    cmd.color.white = 0;
+                }
+                led_pub_->publish(cmd);
+            }
+        }
+        last_eye_toggle_ = pressed;
     }
 
     // ── Face tracking ────────────────────────────────────────────────────
@@ -520,6 +551,7 @@ private:
     core::TypedPublisherPtr<messages::MotorCommand> motor_pub_;
     core::TypedPublisherPtr<messages::SensorData> sensor_pub_;
     core::TypedPublisherPtr<messages::TrackingCommand> tracking_cmd_pub_;
+    core::TypedPublisherPtr<messages::LEDCommand> led_pub_;
     core::TypedSubscriptionPtr<messages::ControllerInput> dome_input_sub_;
     core::TypedSubscriptionPtr<messages::ControllerInput> drive_input_sub_;
     core::TypedSubscriptionPtr<messages::VisionResult> vision_sub_;
@@ -546,6 +578,10 @@ private:
     // Double-click detection for random toggle
     bool last_thumb_r_ = false;
     uint64_t last_thumb_r_time_ = 0;
+
+    // Eye color toggle state
+    bool eye_red_ = false;
+    bool last_eye_toggle_ = false;
 
     // Face tracking state
     bool tracking_enabled_ = false;

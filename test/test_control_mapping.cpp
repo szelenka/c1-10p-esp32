@@ -87,6 +87,7 @@ TEST_CASE("default_dome_mapping") {
     CHECK(map.sound_b == ControlField::BUTTON_B);
     CHECK(map.sound_random == ControlField::MISC_START);
     CHECK(map.dome_rotate_right == ControlField::BUTTON_L2);
+    CHECK(map.eye_color_toggle == ControlField::BUTTON_R2);
     CHECK(map.dome_random_toggle == ControlField::BUTTON_THUMB_R);
 }
 
@@ -116,6 +117,17 @@ TEST_CASE("set_dome_intents_dome_rotate_right") {
     CHECK(input.has_intents);
     CHECK(input.intent_dome_rotate_right);
     CHECK_FALSE(input.intent_sound_a);
+}
+
+TEST_CASE("set_dome_intents_eye_color_toggle") {
+    const DomeIntentMap map = chopper::input::defaultDomeIntentMap();
+    chopper::messages::ControllerInput input;
+    input.button_r2 = true;
+
+    chopper::input::setDomeIntentsFromRaw(input, map);
+    CHECK(input.has_intents);
+    CHECK(input.intent_eye_color_toggle);
+    CHECK_FALSE(input.intent_dome_rotate_right);
 }
 
 TEST_CASE("dome_override_mapping") {
