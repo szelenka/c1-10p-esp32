@@ -15,7 +15,7 @@ namespace chopper::nodes {
  * - Spin from canonical intents: PERISCOPE_SPIN_LEFT / PERISCOPE_SPIN_RIGHT.
  *   Legacy fallback: A = left, Y = right.
  *
- * Spin only works when periscope is down (retracted/stowed).
+ * Spin only works when periscope is up (raised/extended).
  * Publishes ServoCommand on "servo/dome/cmd".
  */
 class PeriscopeNode : public core::PublishingNode {
@@ -114,8 +114,8 @@ private:
         const bool spin_left_pressed = input.has_intents ? input.intent_periscope_spin_left : input.button_a;
         const bool spin_right_pressed = input.has_intents ? input.intent_periscope_spin_right : input.button_y;
 
-        // Spin only works when periscope is stowed (down)
-        if (!periscope_down_) {
+        // Spin only works when periscope is raised (up)
+        if (periscope_down_) {
             last_spin_left_ = spin_left_pressed;
             last_spin_right_ = spin_right_pressed;
             return;

@@ -304,8 +304,8 @@ void test_drive_node_carpet_mode_toggle() {
 // PeriscopeNode tests
 // ============================================================
 
-void test_periscope_x_toggles_lift() {
-    TEST(periscope_x_toggles_lift);
+void test_periscope_intent_toggles_lift() {
+    TEST(periscope_intent_toggles_lift);
     resetFramework();
 
     auto node = std::make_shared<chopper::nodes::PeriscopeNode>();
@@ -331,9 +331,10 @@ void test_periscope_x_toggles_lift() {
 
     auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
 
-    // Press X: should lift up (publish max)
+    // Intent: periscope up — should lift to max
     chopper::messages::ControllerInput input;
-    input.button_x = true;
+    input.has_intents = true;
+    input.intent_periscope_up = true;
     pub->publish(input);
 
     ASSERT(last_servo_id == chopper::config::servo_channel::DOME_PERISCOPE_LIFT);
@@ -343,10 +344,12 @@ void test_periscope_x_toggles_lift() {
     chopper::core::ParameterServer::getInstance().get("servo.peri_lift.max", lift_max);
     ASSERT_NEAR(last_position, static_cast<float>(lift_max), 0.1f);
 
-    // Release and press X again: should go down (publish min)
-    input.button_x = false;
+    // Release up intent
+    input.intent_periscope_up = false;
     pub->publish(input);
-    input.button_x = true;
+
+    // Intent: periscope down — should lower to min
+    input.intent_periscope_down = true;
     pub->publish(input);
 
     ASSERT(node->isPeriscopeDown());
@@ -357,8 +360,8 @@ void test_periscope_x_toggles_lift() {
     PASS();
 }
 
-void test_periscope_a_spins_left() {
-    TEST(periscope_a_spins_left);
+void test_periscope_intent_spins_left() {
+    TEST(periscope_intent_spins_left);
     resetFramework();
 
     auto node = std::make_shared<chopper::nodes::PeriscopeNode>();
@@ -385,9 +388,19 @@ void test_periscope_a_spins_left() {
 
     auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
 
-    // Press A: from center, should spin left (→ max)
+    // Raise the periscope first — spin only works when up
     chopper::messages::ControllerInput input;
-    input.button_a = true;
+    input.has_intents = true;
+    input.intent_periscope_up = true;
+    pub->publish(input);
+    ASSERT(!node->isPeriscopeDown());
+
+    // Release up intent
+    input.intent_periscope_up = false;
+    pub->publish(input);
+
+    // Spin left from center (→ max)
+    input.intent_periscope_spin_left = true;
     pub->publish(input);
 
     ASSERT(last_servo_id == chopper::config::servo_channel::DOME_PERISCOPE_SPIN);
@@ -399,8 +412,8 @@ void test_periscope_a_spins_left() {
     PASS();
 }
 
-void test_periscope_y_spins_right() {
-    TEST(periscope_y_spins_right);
+void test_periscope_intent_spins_right() {
+    TEST(periscope_intent_spins_right);
     resetFramework();
 
     auto node = std::make_shared<chopper::nodes::PeriscopeNode>();
@@ -427,9 +440,19 @@ void test_periscope_y_spins_right() {
 
     auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
 
-    // Press Y: from center, should spin right (→ min)
+    // Raise the periscope first — spin only works when up
     chopper::messages::ControllerInput input;
-    input.button_y = true;
+    input.has_intents = true;
+    input.intent_periscope_up = true;
+    pub->publish(input);
+    ASSERT(!node->isPeriscopeDown());
+
+    // Release up intent
+    input.intent_periscope_up = false;
+    pub->publish(input);
+
+    // Spin right from center (→ min)
+    input.intent_periscope_spin_right = true;
     pub->publish(input);
 
     ASSERT(last_servo_id == chopper::config::servo_channel::DOME_PERISCOPE_SPIN);
@@ -441,19 +464,20 @@ void test_periscope_y_spins_right() {
     PASS();
 }
 
-void test_periscope_no_spin_when_up() {
-    TEST(periscope_no_spin_when_up);
+void test_periscope_no_spin_when_down() {
+    TEST(periscope_no_spin_when_down);
     resetFramework();
 
     auto node = std::make_shared<chopper::nodes::PeriscopeNode>();
     ASSERT(node->initialize());
     node->activate();
+    ASSERT(node->isPeriscopeDown());
 
     int cmd_count = 0;
     auto& broker = chopper::core::MessageBroker::getInstance();
     auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
         "servo/dome/cmd",
-        [](const chopper::messages::ServoCommand& cmd, void* c) {
+        [](const chopper::messages::ServoCommand&, void* c) {
             int* count = static_cast<int*>(c);
             (*count)++;
         },
@@ -461,21 +485,12 @@ void test_periscope_no_spin_when_up() {
 
     auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
 
-    // First, lift the periscope up
+    // Try spin left while periscope is down — should produce no servo commands
     chopper::messages::ControllerInput input;
-    input.button_x = true;
+    input.has_intents = true;
+    input.intent_periscope_spin_left = true;
     pub->publish(input);
-    ASSERT(!node->isPeriscopeDown());
-    int count_after_lift = cmd_count;
-
-    // Release X
-    input.button_x = false;
-    pub->publish(input);
-
-    // Now try spinning A — should produce no additional servo commands
-    input.button_a = true;
-    pub->publish(input);
-    ASSERT(cmd_count == count_after_lift);
+    ASSERT(cmd_count == 0);
     PASS();
 }
 
@@ -881,10 +896,10 @@ int main() {
     test_drive_node_carpet_mode_toggle();
 
     // PeriscopeNode
-    test_periscope_x_toggles_lift();
-    test_periscope_a_spins_left();
-    test_periscope_y_spins_right();
-    test_periscope_no_spin_when_up();
+    test_periscope_intent_toggles_lift();
+    test_periscope_intent_spins_left();
+    test_periscope_intent_spins_right();
+    test_periscope_no_spin_when_down();
 
     // DomeArmsNode
     test_dome_arms_toggle_doors();
