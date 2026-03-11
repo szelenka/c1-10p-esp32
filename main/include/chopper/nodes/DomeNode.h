@@ -7,6 +7,9 @@
 #include "chopper/math/SlewRateLimiter.h"
 #include "chopper/messages/CommonMessages.h"
 #include "esp_timer.h"
+#ifdef ESP_PLATFORM
+#include "esp_random.h"
+#endif
 
 #include <algorithm>
 #include <cmath>
@@ -25,7 +28,7 @@ namespace chopper::nodes {
  * changes and return-to-home behavior (Roam-a-Dome style).
  *
  * Priority: manual joystick > face tracking > random roam.
- * Double-click right thumb stick to toggle random mode on/off.
+ * Press Home button to toggle random mode on/off.
  */
 class DomeNode : public core::PublishingNode {
 public:
@@ -203,33 +206,28 @@ private:
             }
         }
 
-        if (has_manual_input || !idle_) {
-            messages::MotorCommand cmd;
-            cmd.motor_id = motor_id_;
-            cmd.command_type = messages::MotorCommand::CommandType::SET_SPEED;
-            cmd.value = speed;
-            motor_pub_->publish(cmd);
-        }
+        // Always publish so telemetry reflects dome motor state
+        messages::MotorCommand cmd;
+        cmd.motor_id = motor_id_;
+        cmd.command_type = messages::MotorCommand::CommandType::SET_SPEED;
+        cmd.value = speed;
+        motor_pub_->publish(cmd);
     }
 
     void handleRandomToggle(const messages::ControllerInput& input, uint64_t now_ms) {
-        const bool pressed = input.has_intents ? input.intent_dome_random_toggle : input.button_thumb_r;
-        if (pressed && !last_thumb_r_) {
-            // Rising edge — check for double-click
-            if (now_ms - last_thumb_r_time_ < kDoubleClickMs) {
-                random_mode_enabled_ = !random_mode_enabled_;
-                if (dome_position_ != nullptr) {
-                    if (random_mode_enabled_) {
-                        dome_position_->setDomeDefaultMode(dome::DomePosition::kRandom, now_ms);
-                    } else {
-                        dome_position_->setDomeDefaultMode(dome::DomePosition::kOff, now_ms);
-                        auto_target_valid_ = false;
-                    }
+        const bool pressed = input.has_intents ? input.intent_dome_random_toggle : input.misc_select;
+        if (pressed && !last_random_toggle_) {
+            random_mode_enabled_ = !random_mode_enabled_;
+            if (dome_position_ != nullptr) {
+                if (random_mode_enabled_) {
+                    dome_position_->setDomeDefaultMode(dome::DomePosition::kRandom, now_ms);
+                } else {
+                    dome_position_->setDomeDefaultMode(dome::DomePosition::kOff, now_ms);
+                    auto_target_valid_ = false;
                 }
             }
-            last_thumb_r_time_ = now_ms;
         }
-        last_thumb_r_ = pressed;
+        last_random_toggle_ = pressed;
     }
 
     // ── Eye color toggle ──────────────────────────────────────────────────
@@ -536,8 +534,6 @@ private:
         }
     }
 
-    static constexpr uint64_t kDoubleClickMs = 500;
-
     dome::DomePosition* dome_position_;
     float max_speed_;
     float deadband_ = 0.05f;
@@ -575,9 +571,8 @@ private:
     bool drive_rotate_left_ = false;
     bool dome_rotate_right_ = false;
 
-    // Double-click detection for random toggle
-    bool last_thumb_r_ = false;
-    uint64_t last_thumb_r_time_ = 0;
+    // Random toggle (Home button)
+    bool last_random_toggle_ = false;
 
     // Eye color toggle state
     bool eye_red_ = false;

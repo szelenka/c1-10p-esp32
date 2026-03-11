@@ -124,6 +124,7 @@ class TelemetryParser:
         servos = self._normalize_servos(outputs.get("servos") or obj.get("servos") or [])
         leds = self._normalize_leds(
             outputs.get("leds")
+            or outputs.get("led")
             or obj.get("leds")
             or obj.get("led")
             or []
@@ -553,20 +554,44 @@ class TelemetryBridge:
                 await asyncio.sleep(self.reconnect_s)
 
     async def _simulate_loop(self) -> None:
-        """Generate synthetic telemetry at ~10 Hz so the 3D model animates."""
+        """Generate synthetic telemetry at ~10 Hz so the 3D model animates.
+
+        Mirrors firmware behavior: dome spin is driven by L2 button presses
+        on the drive (rotate left) and dome (rotate right) controllers,
+        NOT by joystick axes.
+        """
         await self.broadcast(self._status_payload(True, "Simulation active"))
         LOG.info("Simulation mode active (10 Hz)")
         t0 = time.monotonic()
         interval = 0.1  # 10 Hz
 
+        # Button bit positions (Joy-Con mapping)
+        L2_BIT = 7   # ZL on left Joy-Con / ZR on right Joy-Con
+
         while self._running:
             t = time.monotonic() - t0
 
-            # Motors: gentle wheel drift + dome sweeping back and forth
+            # Simulate dome rotation via button presses:
+            # Drive controller L2 = rotate left, Dome controller L2 = rotate right
+            # Alternate: 4s left, 2s idle, 4s right, 2s idle
+            dome_cycle = t % 12.0
+            drive_l2_pressed = dome_cycle < 4.0
+            dome_l2_pressed = 6.0 <= dome_cycle < 10.0
+
+            dome_speed = 0.0
+            if drive_l2_pressed and not dome_l2_pressed:
+                dome_speed = 0.5   # rotate left
+            elif dome_l2_pressed and not drive_l2_pressed:
+                dome_speed = -0.5  # rotate right
+
+            drive_btn_mask = (1 << L2_BIT) if drive_l2_pressed else 0
+            dome_btn_mask = (1 << L2_BIT) if dome_l2_pressed else 0
+
+            # Motors: gentle wheel drift + button-driven dome spin
             motors = [
                 {"id": 0, "type": 0, "value": round(0.3 * math.sin(t * 0.5), 3)},
                 {"id": 1, "type": 0, "value": round(0.3 * math.sin(t * 0.5), 3)},
-                {"id": 2, "type": 0, "value": round(0.4 * math.sin(t * 0.25), 3)},
+                {"id": 2, "type": 0, "value": round(dome_speed, 3)},
             ]
 
             # Body servos (PWM µs: 500-2500, center 1500)
@@ -612,10 +637,6 @@ class TelemetryBridge:
                 {"id": "3", "state": "on", "color": {"r": led_r, "g": led_b, "b": led_g}},
             ]
 
-            # Simulate button presses: cycle through bits
-            sim_btn_bit = int(t * 2) % 9
-            sim_btn_mask = 1 << sim_btn_bit
-
             event = {
                 "kind": "telemetry",
                 "format": "simulate",
@@ -626,7 +647,7 @@ class TelemetryBridge:
                         "role": "drive",
                         "type": "left",
                         "connected": True,
-                        "buttons": sim_btn_mask,
+                        "buttons": drive_btn_mask,
                         "misc": 0,
                         "axes": [
                             round(512 * math.sin(t * 0.8), 0),
@@ -640,13 +661,9 @@ class TelemetryBridge:
                         "role": "dome",
                         "type": "right",
                         "connected": True,
-                        "buttons": 0,
+                        "buttons": dome_btn_mask,
                         "misc": 0,
-                        "axes": [
-                            round(512 * math.cos(t * 0.5), 0),
-                            round(512 * math.sin(t * 0.7), 0),
-                            0, 0,
-                        ],
+                        "axes": [0, 0, 0, 0],
                         "player_leds": 0x0F,
                         "pressed": [],
                     },

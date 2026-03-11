@@ -4,6 +4,9 @@
 #include "chopper/core/ParameterServer.h"
 #include "chopper/config/HardwareConfig.h"
 #include "chopper/messages/CommonMessages.h"
+#ifdef ESP_PLATFORM
+#include "esp_random.h"
+#endif
 
 #include <cstdlib>
 

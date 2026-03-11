@@ -1,8 +1,61 @@
 #pragma once
 
+#include "chopper/bluetooth/ButtonMappingProfile.h"
 #include "chopper/messages/CommonMessages.h"
 
 namespace chopper::input {
+
+// clang-format off
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// Controller Button Reference (from Bluepad32 parser source)
+//
+// Bluepad32 normalizes all controllers to an Xbox-style positional layout.
+// "Position" = where the button sits on the face diamond when holding the controller normally.
+// Physical label varies per controller type.
+//
+// Table 1 — Standard controllers
+// ControlField      | Pos   | Xbox      | PS4/PS5    | Switch Pro
+// ──────────────────|───────|───────────|────────────|───────────
+// BUTTON_A          | south | A         | × cross    | B
+// BUTTON_B          | east  | B         | ○ circle   | A
+// BUTTON_X          | west  | X         | □ square   | Y
+// BUTTON_Y          | north | Y         | △ triangle | X
+// BUTTON_L1         | L bmp | LB        | L1         | L
+// BUTTON_R1         | R bmp | RB        | R1         | R
+// BUTTON_L2         | L trg | LT        | L2         | ZL
+// BUTTON_R2         | R trg | RT        | R2         | ZR
+// BUTTON_THUMB_L    | L stk | LS click  | L3         | L click
+// BUTTON_THUMB_R    | R stk | RS click  | R3         | R click
+// MISC_SELECT       | sel   | View      | Share/Crt  | − (minus)
+// MISC_START        | start | Menu      | Options    | + (plus)
+// MISC_SYSTEM       | home  | Xbox btn  | PS btn     | Home
+// MISC_CAPTURE      | extra | —         | Mute (PS5) | Capture
+//
+// Table 2 — JoyCon horizontal (Bluepad32 default, held sideways)
+// ControlField      | Pos   | JoyCon L (h) | JoyCon R (h)
+// ──────────────────|───────|──────────────|─────────────
+// BUTTON_A          | south | ←            | A
+// BUTTON_B          | east  | ↓            | X
+// BUTTON_X          | west  | ↑            | B
+// BUTTON_Y          | north | →            | Y
+// BUTTON_L1         | L bmp | SL           | SL
+// BUTTON_R1         | R bmp | SR           | SR
+// BUTTON_L2         | L trg | L            | R
+// BUTTON_R2         | R trg | ZL           | ZR
+// BUTTON_THUMB_L    | L stk | Stick click  | Stick click
+// BUTTON_THUMB_R    | R stk | —            | —
+// MISC_SELECT       | sel   | − (minus)    | Home
+// MISC_START        | start | Capture      | + (plus)
+// MISC_SYSTEM       | home  | —            | —
+// MISC_CAPTURE      | extra | —            | —
+//
+// JoyCon L face buttons are the d-pad arrows (labels printed on hardware).
+// JoyCon L/R: Stick click → BUTTON_THUMB_L for both; THUMB_R not available.
+// JoyCon L/R: SL/SR are the inner rail buttons; in (h) mode they sit on top/bottom
+//             like shoulder buttons; in (v) mode they're on the rail (hard to reach).
+// Xbox: LT/RT are analog triggers; digital BUTTON_L2/R2 fires at threshold 32.
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════════════════════════
+// clang-format on
 
 enum class UserIntent {
     PERISCOPE_UP,
@@ -31,6 +84,8 @@ enum class ControlField {
     BUTTON_THUMB_R,
     MISC_SELECT,
     MISC_START,
+    MISC_SYSTEM,
+    MISC_CAPTURE,
 };
 
 struct DriveIntentMap {
@@ -74,6 +129,8 @@ inline bool isControlPressed(const messages::ControllerInput& input, ControlFiel
             return input.misc_select;
         case ControlField::MISC_START:
             return input.misc_start;
+        case ControlField::MISC_SYSTEM:
+            return input.misc_system;
     }
     return false;
 }
@@ -116,6 +173,9 @@ inline void applyControlPress(messages::ControllerInput& input, ControlField con
         case ControlField::MISC_START:
             input.misc_start = true;
             break;
+        case ControlField::MISC_SYSTEM:
+            input.misc_system = true;
+            break;
     }
 }
 
@@ -156,6 +216,9 @@ inline void applyControlRelease(messages::ControllerInput& input, ControlField c
             break;
         case ControlField::MISC_START:
             input.misc_start = false;
+            break;
+        case ControlField::MISC_SYSTEM:
+            input.misc_system = false;
             break;
     }
 }
@@ -219,7 +282,7 @@ struct DomeIntentMap {
     ControlField sound_random = ControlField::MISC_START;
     ControlField dome_rotate_right = ControlField::BUTTON_L2;
     ControlField eye_color_toggle = ControlField::BUTTON_R2;
-    ControlField dome_random_toggle = ControlField::BUTTON_THUMB_R;
+    ControlField dome_random_toggle = ControlField::MISC_SELECT;
 };
 
 inline DomeIntentMap defaultDomeIntentMap() {
@@ -239,6 +302,67 @@ inline void setDomeIntentsFromRaw(messages::ControllerInput& input, const DomeIn
     input.intent_dome_random_toggle = isControlPressed(input, map.dome_random_toggle);
     // Note: intent_face_tracking_toggle is NOT set here — it requires
     // stateful 2-second hold detection, handled by BluepadInputNode.
+}
+
+// ── Per-controller-type intent maps ─────────────────────────────────
+//
+// Bluepad32 remaps JoyCon face buttons for horizontal hold.  On JoyCon R
+// the physical-label-to-ControlField mapping is:
+//   Physical A → BUTTON_A  (unchanged)
+//   Physical B → BUTTON_X  (swapped — B and X trade places)
+//   Physical X → BUTTON_B  (swapped)
+//   Physical Y → BUTTON_Y  (unchanged)
+//
+// On JoyCon L the d-pad arrows map as:
+//   ← → BUTTON_A,  ↓ → BUTTON_B,  ↑ → BUTTON_X,  → → BUTTON_Y
+//
+// The factory functions below return maps where each intent fires on
+// the same physical label regardless of controller type.  For standard
+// controllers (Xbox / PS / Switch Pro) the defaults are unchanged because
+// Bluepad32 already normalizes them to a consistent positional layout.
+
+inline DriveIntentMap driveIntentMapForController(uint16_t controller_type) {
+    using namespace bluetooth::ControllerType;
+    switch (controller_type) {
+        case kSwitchJoyConLeft: {
+            // ← = BUTTON_A, ↓ = BUTTON_B, ↑ = BUTTON_X, → = BUTTON_Y
+            // Default positional mapping is already intuitive for arrows.
+            return defaultDriveIntentMap();
+        }
+        case kSwitchJoyConRight: {
+            // Swap B ↔ X so physical labels match standard controllers.
+            // Standard:  periscope_up = BUTTON_X (west) → phys B on JoyCon R
+            //            body_utility = BUTTON_B (east) → phys X on JoyCon R
+            // Swapped:   periscope_up = BUTTON_B (east) → phys X on JoyCon R
+            //            body_utility = BUTTON_X (west) → phys B on JoyCon R
+            DriveIntentMap map = defaultDriveIntentMap();
+            map.periscope_up = ControlField::BUTTON_B;
+            map.periscope_down = ControlField::BUTTON_B;
+            map.body_utility_toggle = ControlField::BUTTON_X;
+            return map;
+        }
+        default:
+            return defaultDriveIntentMap();
+    }
+}
+
+inline DomeIntentMap domeIntentMapForController(uint16_t controller_type) {
+    using namespace bluetooth::ControllerType;
+    switch (controller_type) {
+        case kSwitchJoyConLeft: {
+            return defaultDomeIntentMap();
+        }
+        case kSwitchJoyConRight: {
+            // Swap B ↔ X so physical labels match standard controllers.
+            // Standard:  sound_b = BUTTON_B → phys X on JoyCon R
+            // Swapped:   sound_b = BUTTON_X → phys B on JoyCon R
+            DomeIntentMap map = defaultDomeIntentMap();
+            map.sound_b = ControlField::BUTTON_X;
+            return map;
+        }
+        default:
+            return defaultDomeIntentMap();
+    }
 }
 
 }  // namespace chopper::input

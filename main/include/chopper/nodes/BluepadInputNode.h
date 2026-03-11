@@ -133,6 +133,16 @@ private:
             std::memcpy(mac.addr, data.btaddr, sizeof(mac.addr));
             mapped_slot_[bt_slot] = controller_manager_->onConnect(mac, data.controller_type, 0, 0, now_ms);
             observed_connected_[bt_slot] = true;
+
+            // Select per-controller-type intent maps for the assigned role.
+            if (mapped_slot_[bt_slot] >= 0) {
+                const auto role = controller_manager_->getSlot(static_cast<uint8_t>(mapped_slot_[bt_slot])).role;
+                if (role == bluetooth::ControllerRole::DRIVE) {
+                    drive_intent_map_ = input::driveIntentMapForController(data.controller_type);
+                } else if (role == bluetooth::ControllerRole::DOME) {
+                    dome_intent_map_ = input::domeIntentMapForController(data.controller_type);
+                }
+            }
         } else if (!data.connected && observed_connected_[bt_slot]) {
             if (mapped_slot_[bt_slot] >= 0) {
                 controller_manager_->onDisconnect(static_cast<uint8_t>(mapped_slot_[bt_slot]), now_ms);

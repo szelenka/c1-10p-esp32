@@ -297,6 +297,25 @@ bool ParameterServer::onChange(const char* name, ParamChangeCallback callback, v
     return true;
 }
 
+void ParameterServer::removeListenersByContext(void* context) {
+    if (context == nullptr) {
+        return;
+    }
+    size_t write = 0;
+    for (size_t read = 0; read < listener_count_; ++read) {
+        if (listeners_[read].context != context) {
+            if (write != read) {
+                listeners_[write] = listeners_[read];
+            }
+            ++write;
+        }
+    }
+    for (size_t i = write; i < listener_count_; ++i) {
+        listeners_[i] = {};
+    }
+    listener_count_ = write;
+}
+
 void ParameterServer::notifyListeners(size_t param_index) {
     const char* name = params_[param_index].name;
     for (size_t i = 0; i < listener_count_; ++i) {

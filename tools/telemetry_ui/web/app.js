@@ -67,7 +67,7 @@ const controllers = CONTROLLER_SLOTS.map(() => ({
 
 function leftJoyConSVG(slotId) {
   const pfx = `jc${slotId}`;
-  return `<svg class="jc-svg" viewBox="0 0 100 200" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+  return `<svg class="jc-svg jc-orient-left" viewBox="0 0 100 200" overflow="visible" xmlns="http://www.w3.org/2000/svg">
   <!-- Body -->
   <path class="jc-body" id="${pfx}-body" d="M 78,5 C 45,5 5,5 5,50 L 5,150 C 5,195 45,195 78,195 Z"/>
   <!-- Rail -->
@@ -87,14 +87,18 @@ function leftJoyConSVG(slotId) {
   <circle class="jc-stick-dot" id="${pfx}-stick" cx="41" cy="65" r="7"/>
   <!-- Stick press -->
   <circle class="jc-btn-hidden" data-side="left" data-bit="8" cx="41" cy="65" r="18"/>
-  <!-- D-pad -->
-  <circle class="jc-btn-face" data-side="left" data-bit="3" cx="41" cy="105" r="6.5"/>
+  <!-- D-pad (data-bit = Bluepad32 normalized bit for JoyCon L) -->
+  <!-- Physical ↑ → BUTTON_X = bit 2 -->
+  <circle class="jc-btn-face" data-side="left" data-bit="2" cx="41" cy="105" r="6.5"/>
   <polygon class="jc-label" points="41,101 44.5,107 37.5,107"/>
-  <circle class="jc-btn-face" data-side="left" data-bit="0" cx="41" cy="131" r="6.5"/>
+  <!-- Physical ↓ → BUTTON_B = bit 1 -->
+  <circle class="jc-btn-face" data-side="left" data-bit="1" cx="41" cy="131" r="6.5"/>
   <polygon class="jc-label" points="41,135 44.5,129 37.5,129"/>
-  <circle class="jc-btn-face" data-side="left" data-bit="2" cx="28" cy="118" r="6.5"/>
+  <!-- Physical ← → BUTTON_A = bit 0 -->
+  <circle class="jc-btn-face" data-side="left" data-bit="0" cx="28" cy="118" r="6.5"/>
   <polygon class="jc-label" points="24,118 30,114.5 30,121.5"/>
-  <circle class="jc-btn-face" data-side="left" data-bit="1" cx="54" cy="118" r="6.5"/>
+  <!-- Physical → → BUTTON_Y = bit 3 -->
+  <circle class="jc-btn-face" data-side="left" data-bit="3" cx="54" cy="118" r="6.5"/>
   <polygon class="jc-label" points="58,118 52,114.5 52,121.5"/>
   <!-- Capture -->
   <rect class="jc-btn" data-side="left" data-misc-bit="2" x="42" y="162" width="12" height="12" rx="2"/>
@@ -116,7 +120,7 @@ function leftJoyConSVG(slotId) {
 
 function rightJoyConSVG(slotId) {
   const pfx = `jc${slotId}`;
-  return `<svg class="jc-svg" viewBox="0 0 100 200" overflow="visible" xmlns="http://www.w3.org/2000/svg">
+  return `<svg class="jc-svg jc-orient-right" viewBox="0 0 100 200" overflow="visible" xmlns="http://www.w3.org/2000/svg">
   <!-- Body -->
   <path class="jc-body" id="${pfx}-body" d="M 22,5 C 55,5 95,5 95,50 L 95,150 C 95,195 55,195 22,195 Z"/>
   <!-- Rail -->
@@ -134,14 +138,18 @@ function rightJoyConSVG(slotId) {
     <rect x="32" y="35" width="12" height="4" rx="1.5"/>
     <rect x="36" y="31" width="4" height="12" rx="1.5"/>
   </g>
-  <!-- ABXY face buttons -->
-  <circle class="jc-btn-face" data-side="right" data-bit="3" cx="59" cy="52" r="6.5"/>
+  <!-- ABXY face buttons (data-bit = Bluepad32 normalized bit for JoyCon R) -->
+  <!-- Physical X → BUTTON_B = bit 1 -->
+  <circle class="jc-btn-face" data-side="right" data-bit="1" cx="59" cy="52" r="6.5"/>
   <text class="jc-label jc-label-sm" x="59" y="55">X</text>
-  <circle class="jc-btn-face" data-side="right" data-bit="0" cx="59" cy="78" r="6.5"/>
+  <!-- Physical B → BUTTON_X = bit 2 -->
+  <circle class="jc-btn-face" data-side="right" data-bit="2" cx="59" cy="78" r="6.5"/>
   <text class="jc-label jc-label-sm" x="59" y="81">B</text>
-  <circle class="jc-btn-face" data-side="right" data-bit="2" cx="46" cy="65" r="6.5"/>
+  <!-- Physical Y → BUTTON_Y = bit 3 -->
+  <circle class="jc-btn-face" data-side="right" data-bit="3" cx="46" cy="65" r="6.5"/>
   <text class="jc-label jc-label-sm" x="46" y="68">Y</text>
-  <circle class="jc-btn-face" data-side="right" data-bit="1" cx="72" cy="65" r="6.5"/>
+  <!-- Physical A → BUTTON_A = bit 0 -->
+  <circle class="jc-btn-face" data-side="right" data-bit="0" cx="72" cy="65" r="6.5"/>
   <text class="jc-label jc-label-sm" x="72" y="68">A</text>
   <!-- Joystick -->
   <circle class="jc-stick-well" cx="59" cy="120" r="18"/>
@@ -154,11 +162,11 @@ function rightJoyConSVG(slotId) {
     <polygon points="52,159 49,162 55,162"/>
     <rect x="49.5" y="162" width="5" height="3.5" rx="0.5"/>
   </g>
-  <!-- SL / SR on rail side -->
-  <rect class="jc-btn" data-side="right" data-bit="4" x="13" y="47" width="6" height="14" rx="2"/>
-  <text class="jc-label jc-label-xs" x="16" y="56">SL</text>
-  <rect class="jc-btn" data-side="right" data-bit="5" x="13" y="139" width="6" height="14" rx="2"/>
-  <text class="jc-label jc-label-xs" x="16" y="148">SR</text>
+  <!-- SR / SL on rail side (JoyCon R: SR is near face buttons, SL near stick) -->
+  <rect class="jc-btn" data-side="right" data-bit="5" x="13" y="47" width="6" height="14" rx="2"/>
+  <text class="jc-label jc-label-xs" x="16" y="56">SR</text>
+  <rect class="jc-btn" data-side="right" data-bit="4" x="13" y="139" width="6" height="14" rx="2"/>
+  <text class="jc-label jc-label-xs" x="16" y="148">SL</text>
   <!-- Player LEDs -->
   <rect class="jc-player-led" id="${pfx}-pled-0" x="19" y="89" width="5" height="5" rx="1"/>
   <rect class="jc-player-led" id="${pfx}-pled-1" x="19" y="96" width="5" height="5" rx="1"/>
@@ -268,13 +276,26 @@ function setPlayerLeds(slotId, connected, ledMask) {
   }
 }
 
-function applyStickPosition(slotId, axes, centerX, centerY) {
+function applyStickPosition(slotId, axes, centerX, centerY, joyconType) {
   const stickEl = document.getElementById(`jc${slotId}-stick`);
   if (!stickEl || !axes || axes.length < 2) return;
   const ax = Number(axes[0]) || 0;
   const ay = Number(axes[1]) || 0;
-  const nx = Math.max(-1, Math.min(1, ax / AXIS_MAX));
-  const ny = Math.max(-1, Math.min(1, ay / AXIS_MAX));
+  // Bluepad32 reports axes in horizontal hold orientation.
+  // SVGs are drawn vertically, so rotate axes to match.
+  // Bluepad32 axes assume horizontal hold; SVGs are vertical.
+  // JoyCon L (horizontal→vertical = 90° CCW): display_x = -ay, display_y =  ax
+  // JoyCon R (horizontal→vertical = 90° CW):  display_x =  ay, display_y = -ax
+  let dx, dy;
+  if (joyconType === "left") {
+    dx = -ay;
+    dy = ax;
+  } else {
+    dx = ay;
+    dy = -ax;
+  }
+  const nx = Math.max(-1, Math.min(1, dx / AXIS_MAX));
+  const ny = Math.max(-1, Math.min(1, dy / AXIS_MAX));
   stickEl.setAttribute("cx", centerX + nx * STICK_MAX_DEFLECTION);
   stickEl.setAttribute("cy", centerY + ny * STICK_MAX_DEFLECTION);
 }
@@ -492,9 +513,56 @@ function updateController(slotId, data) {
 
   setControllerConnected(slotId, connected, role);
   applyMask(slotId, side, buttonMask, miscMask);
-  applyStickPosition(slotId, axes, slot.stickCX, slot.stickCY);
+  applyStickPosition(slotId, axes, slot.stickCX, slot.stickCY, slot.type);
   setPlayerLeds(slotId, connected, playerLeds);
   updateMaskDisplay(slotId, buttonMask, miscMask);
+}
+
+// ── Simulated node logic (mirrors firmware intent handling) ──────────
+
+const DOME_SLOT = 1;
+const ZR_BIT = 7;               // BUTTON_TRIGGER_R = ZR on Joy-Con (R)
+const CENTRE_EYE_LED_ID = "2";  // LED ID for centre eye lens
+
+let prevDomeButtons = 0;
+let eyeIsRed = false;
+
+/**
+ * Simulate the DomeNode eye-color toggle: when ZR on the dome controller
+ * has a rising edge, toggle the centre eye between red and blue and
+ * inject a synthetic LED event into the telemetry message.
+ */
+function simulateEyeColorToggle(msg) {
+  let domeButtons = 0;
+  if (msg.controllers && msg.controllers[DOME_SLOT]) {
+    domeButtons = msg.controllers[DOME_SLOT].buttons ?? 0;
+  } else if (msg.joycon) {
+    domeButtons = msg.joycon.right_mask ?? 0;
+  }
+
+  const pressed = ((domeButtons >> ZR_BIT) & 1) === 1;
+  const wasPrev = ((prevDomeButtons >> ZR_BIT) & 1) === 1;
+  prevDomeButtons = domeButtons;
+
+  if (pressed && !wasPrev) {
+    eyeIsRed = !eyeIsRed;
+  }
+
+  const color = eyeIsRed
+    ? { r: 255, g: 0, b: 0 }
+    : { r: 0, g: 0, b: 255 };
+
+  if (!msg.leds) {
+    msg.leds = [];
+  }
+  // Replace or append centre eye LED entry
+  const existing = msg.leds.findIndex((l) => String(l.id) === CENTRE_EYE_LED_ID);
+  const entry = { id: CENTRE_EYE_LED_ID, state: "on", color };
+  if (existing >= 0) {
+    msg.leds[existing] = entry;
+  } else {
+    msg.leds.push(entry);
+  }
 }
 
 // ── Telemetry handler ────────────────────────────────────────────────
@@ -531,6 +599,9 @@ function handleTelemetry(msg) {
       role: joy.right_role,
     });
   }
+
+  // Simulate firmware node behaviour for peripherals connected via OpenMV
+  simulateEyeColorToggle(msg);
 
   if (msg.audio && typeof msg.audio === "object") {
     const previous = state.audio || {};

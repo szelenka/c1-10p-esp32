@@ -796,6 +796,7 @@ void test_neck_node_emergency_stop() {
 
 void test_dome_node_publishes_position() {
     TEST(dome_node_publishes_position);
+    
 
     chopper::dome::DomePosition domePos;
     domePos.update(180, 1000);
@@ -821,6 +822,7 @@ void test_dome_node_publishes_position() {
 
 void test_dome_node_spin_control() {
     TEST(dome_node_spin_control);
+    
 
     chopper::dome::DomePosition domePos;
     auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 100.0f, 2, false);
@@ -852,6 +854,7 @@ void test_dome_node_spin_control() {
 
 void test_dome_node_emergency_stop() {
     TEST(dome_node_emergency_stop);
+    
 
     chopper::dome::DomePosition domePos;
     auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos);
@@ -880,7 +883,8 @@ void test_dome_node_emergency_stop() {
 // ============================================================
 
 void test_dome_node_random_toggle() {
-    TEST(dome_node_random_toggle_double_click);
+    TEST(dome_node_random_toggle);
+    
 
     chopper::dome::DomePosition domePos;
     domePos.update(180, 1000);
@@ -894,15 +898,10 @@ void test_dome_node_random_toggle() {
 
     ASSERT(!node->isRandomModeEnabled());
 
-    // Double click: press, release, press, release
-    // First press sets the timestamp, second press detects double-click → toggles ON
+    // Single press toggles ON
     chopper::messages::ControllerInput input;
     input.has_intents = true;
 
-    input.intent_dome_random_toggle = true;
-    pub->publish(input);
-    input.intent_dome_random_toggle = false;
-    pub->publish(input);
     input.intent_dome_random_toggle = true;
     pub->publish(input);
     input.intent_dome_random_toggle = false;
@@ -911,7 +910,7 @@ void test_dome_node_random_toggle() {
     ASSERT(node->isRandomModeEnabled());
     ASSERT(domePos.getDomeDefaultMode() == chopper::dome::DomePosition::kRandom);
 
-    // One more press within 500ms triggers another toggle → OFF
+    // Another press toggles OFF
     input.intent_dome_random_toggle = true;
     pub->publish(input);
     input.intent_dome_random_toggle = false;
@@ -925,6 +924,7 @@ void test_dome_node_random_toggle() {
 
 void test_dome_node_auto_safety_gate() {
     TEST(dome_node_auto_safety_gate);
+    
 
     chopper::dome::DomePosition domePos;
     domePos.update(180, 1000);
@@ -964,6 +964,7 @@ void test_dome_node_auto_safety_gate() {
 
 void test_dome_node_idle_transition() {
     TEST(dome_node_idle_transition);
+    
 
     chopper::dome::DomePosition domePos;
     domePos.update(180, 0);
@@ -975,12 +976,13 @@ void test_dome_node_idle_transition() {
     // Node starts idle
     ASSERT(node->isIdle());
 
-    // Simulate controller input with nonzero stick
+    // Simulate dome rotate button press via intent
     auto& broker = chopper::core::MessageBroker::getInstance();
     auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/dome");
 
     chopper::messages::ControllerInput input;
-    input.axis_x_normalized = 0.5f;
+    input.has_intents = true;
+    input.intent_dome_rotate_right = true;
     pub->publish(input);
 
     // After manual input, should not be idle
@@ -992,6 +994,7 @@ void test_dome_node_idle_transition() {
 
 void test_dome_node_move_to_target() {
     TEST(dome_node_move_to_target);
+    
 
     // Test the auto-dome movement by enabling random mode and processing
     chopper::dome::DomePosition domePos;

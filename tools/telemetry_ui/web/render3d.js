@@ -290,6 +290,10 @@ function applyLedColors(robot, THREE) {
 
     linkObj.traverse((child) => {
       if (!child.isMesh) return;
+      if (!child.material._ledOwned) {
+        child.material = child.material.clone();
+        child.material._ledOwned = true;
+      }
       if (data.on) {
         const color = new THREE.Color(data.r / 255, data.g / 255, data.b / 255);
         child.material.emissive = color;

@@ -1078,6 +1078,121 @@ void test_sound_a_via_intent() {
 }
 
 // ============================================================
+// DomeNode button rotation tests
+// ============================================================
+
+void test_dome_drive_l2_publishes_positive_speed() {
+    TEST(dome_drive_l2_publishes_positive_speed);
+    resetFramework();
+
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    ASSERT(node->initialize());
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto drive_pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
+
+    float last_speed = 0.0f;
+    int motor_count = 0;
+    struct Ctx {
+        float* speed;
+        int* count;
+    };
+    Ctx ctx{&last_speed, &motor_count};
+    auto motor_sub = broker.createSubscription<chopper::messages::MotorCommand>(
+        "dome/motor/cmd",
+        [](const chopper::messages::MotorCommand& cmd, void* c) {
+            auto* x = static_cast<Ctx*>(c);
+            (*x->count)++;
+            *x->speed = cmd.value;
+        },
+        &ctx);
+
+    // Drive controller L2 pressed → dome rotate left → positive speed
+    chopper::messages::ControllerInput input;
+    input.has_intents = true;
+    input.intent_dome_rotate_left = true;
+    node->setTime(1000);
+    drive_pub->publish(input);
+
+    ASSERT(motor_count > 0);
+    ASSERT_NEAR(last_speed, 0.5f, 0.01f);
+    PASS();
+}
+
+void test_dome_dome_l2_publishes_negative_speed() {
+    TEST(dome_dome_l2_publishes_negative_speed);
+    resetFramework();
+
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    ASSERT(node->initialize());
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto dome_pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/dome");
+
+    float last_speed = 0.0f;
+    int motor_count = 0;
+    struct Ctx {
+        float* speed;
+        int* count;
+    };
+    Ctx ctx{&last_speed, &motor_count};
+    auto motor_sub = broker.createSubscription<chopper::messages::MotorCommand>(
+        "dome/motor/cmd",
+        [](const chopper::messages::MotorCommand& cmd, void* c) {
+            auto* x = static_cast<Ctx*>(c);
+            (*x->count)++;
+            *x->speed = cmd.value;
+        },
+        &ctx);
+
+    // Dome controller L2 pressed → dome rotate right → negative speed
+    chopper::messages::ControllerInput input;
+    input.has_intents = true;
+    input.intent_dome_rotate_right = true;
+    dome_pub->publish(input);
+
+    ASSERT(motor_count > 0);
+    ASSERT_NEAR(last_speed, -0.5f, 0.01f);
+    PASS();
+}
+
+void test_dome_no_button_publishes_zero() {
+    TEST(dome_no_button_publishes_zero);
+    resetFramework();
+
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    ASSERT(node->initialize());
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto dome_pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/dome");
+
+    float last_speed = -999.0f;
+    int motor_count = 0;
+    struct Ctx {
+        float* speed;
+        int* count;
+    };
+    Ctx ctx{&last_speed, &motor_count};
+    auto motor_sub = broker.createSubscription<chopper::messages::MotorCommand>(
+        "dome/motor/cmd",
+        [](const chopper::messages::MotorCommand& cmd, void* c) {
+            auto* x = static_cast<Ctx*>(c);
+            (*x->count)++;
+            *x->speed = cmd.value;
+        },
+        &ctx);
+
+    // No buttons pressed → should still publish with zero speed
+    chopper::messages::ControllerInput input;
+    input.has_intents = true;
+    dome_pub->publish(input);
+
+    ASSERT(motor_count > 0);
+    ASSERT_NEAR(last_speed, 0.0f, 0.01f);
+    PASS();
+}
+
+// ============================================================
 // DomeNode face tracking tests
 // ============================================================
 
@@ -1311,6 +1426,11 @@ int main() {
     test_body_utility_intent_extends();
     test_drive_node_carpet_mode_via_intent();
     test_sound_a_via_intent();
+
+    // DomeNode button rotation
+    test_dome_drive_l2_publishes_positive_speed();
+    test_dome_dome_l2_publishes_negative_speed();
+    test_dome_no_button_publishes_zero();
 
     // DomeNode face tracking
     test_dome_tracking_toggle_via_intent();
