@@ -24,10 +24,8 @@ public:
 
     bool initialize() override {
         auto& ps = core::ParameterServer::getInstance();
-        if (!ps.get(kTimingLogParamName, timing_logs_enabled_)) {
-            ps.declare(kTimingLogParamName, false);
-            (void)ps.get(kTimingLogParamName, timing_logs_enabled_);
-        }
+        // Params are declared in DefaultParameters.h (single source of truth).
+        (void)ps.get(kTimingLogParamName, timing_logs_enabled_);
         (void)ps.onChange(kTimingLogParamName, &DriverUpdateNode::onParamChanged, this);
 
         last_tick_us_ = static_cast<uint64_t>(esp_timer_get_time());

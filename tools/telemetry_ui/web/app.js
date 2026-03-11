@@ -177,6 +177,35 @@ function rightJoyConSVG(slotId) {
 </svg>`;
 }
 
+// ── Battery SVG template ─────────────────────────────────────────────
+
+const BATT_LEVELS = 6;
+const BATT_W = 30;
+const BATT_H = 12;
+const BATT_CAP_W = 3;
+const BATT_PAD = 1.5;
+const BATT_GAP = 1;
+
+function batterySVG(slotId) {
+  const pfx = `jc${slotId}-batt`;
+  const innerW = BATT_W - BATT_PAD * 2;
+  const innerH = BATT_H - BATT_PAD * 2;
+  const segW = (innerW - BATT_GAP * (BATT_LEVELS - 1)) / BATT_LEVELS;
+
+  let segs = "";
+  for (let i = 0; i < BATT_LEVELS; i++) {
+    const x = BATT_PAD + i * (segW + BATT_GAP);
+    segs += `<rect id="${pfx}-seg-${i}" class="batt-seg" x="${x}" y="${BATT_PAD}" width="${segW}" height="${innerH}" rx="0.5"/>`;
+  }
+
+  return `<svg class="batt-svg" viewBox="0 0 ${BATT_W + BATT_CAP_W} ${BATT_H}" xmlns="http://www.w3.org/2000/svg">
+  <rect class="batt-outline" x="0.5" y="0.5" width="${BATT_W - 1}" height="${BATT_H - 1}" rx="2" ry="2"/>
+  <rect class="batt-cap" x="${BATT_W}" y="${BATT_H / 2 - 2.5}" width="${BATT_CAP_W}" height="5" rx="1"/>
+  ${segs}
+  <line id="${pfx}-slash" class="batt-slash hidden" x1="2" y1="${BATT_H - 1}" x2="${BATT_W - 2}" y2="1"/>
+</svg>`;
+}
+
 // ── Initialize controller overlays ───────────────────────────────────
 
 function initControllerSlots() {
@@ -187,6 +216,31 @@ function initControllerSlots() {
     const svgWrap = document.createElement("div");
     svgWrap.innerHTML = slot.type === "left" ? leftJoyConSVG(slot.id) : rightJoyConSVG(slot.id);
     container.appendChild(svgWrap);
+
+    const infoEl = document.createElement("div");
+    infoEl.className = "jc-info";
+
+    const roleEl = document.createElement("span");
+    roleEl.className = "jc-role";
+    roleEl.id = `jc${slot.id}-role`;
+    roleEl.textContent = slot.role;
+    infoEl.appendChild(roleEl);
+
+    const latEl = document.createElement("span");
+    latEl.className = "jc-latency";
+    latEl.id = `jc${slot.id}-latency`;
+    latEl.textContent = "—ms";
+    infoEl.appendChild(latEl);
+
+    container.appendChild(infoEl);
+
+    const battEl = document.createElement("div");
+    battEl.className = "jc-battery";
+    battEl.innerHTML = batterySVG(slot.id);
+    container.appendChild(battEl);
+
+    // Set initial state: empty battery with slash
+    updateBatteryDisplay(slot.id, null, false);
 
     const maskEl = document.createElement("div");
     maskEl.className = "jc-mask";
@@ -304,6 +358,28 @@ function updateMaskDisplay(slotId, buttonMask, miscMask) {
   const el = document.getElementById(`jc${slotId}-mask`);
   if (!el) return;
   el.innerHTML = `mask: ${hexMask(buttonMask)}<br>misc: ${hexMask(miscMask)}`;
+}
+
+function updateBatteryDisplay(slotId, battery, connected) {
+  const pfx = `jc${slotId}-batt`;
+  const slash = document.getElementById(`${pfx}-slash`);
+  if (!slash) return;
+
+  const hasData = connected && battery !== null && battery !== undefined && battery > 0 && battery !== 255;
+  const filledSegs = hasData ? Math.min(BATT_LEVELS, Math.max(0, Math.ceil((battery / 254) * BATT_LEVELS))) : 0;
+
+  for (let i = 0; i < BATT_LEVELS; i++) {
+    const seg = document.getElementById(`${pfx}-seg-${i}`);
+    if (!seg) continue;
+    const filled = i < filledSegs;
+    seg.classList.toggle("filled", filled);
+    seg.classList.toggle("batt-low", filled && filledSegs <= 1);
+    seg.classList.toggle("batt-mid", filled && filledSegs >= 2 && filledSegs <= 3);
+    seg.classList.toggle("batt-high", filled && filledSegs > 3);
+  }
+
+  // Show slash when disconnected or no battery data
+  slash.classList.toggle("hidden", hasData);
 }
 
 // ── Panel toggle nav ─────────────────────────────────────────────────
@@ -516,12 +592,25 @@ function updateController(slotId, data) {
   applyStickPosition(slotId, axes, slot.stickCX, slot.stickCY, slot.type);
   setPlayerLeds(slotId, connected, playerLeds);
   updateMaskDisplay(slotId, buttonMask, miscMask);
+  updateBatteryDisplay(slotId, data.battery, connected);
+  const roleEl = document.getElementById(`jc${slotId}-role`);
+  if (roleEl) roleEl.textContent = role;
+  const latEl = document.getElementById(`jc${slotId}-latency`);
+  if (latEl) {
+    const intervalUs = data.avg_interval_us;
+    if (connected && intervalUs && intervalUs > 0) {
+      latEl.textContent = `${(intervalUs / 1000).toFixed(1)}ms`;
+    } else {
+      latEl.textContent = "—ms";
+    }
+  }
 }
 
 // ── Simulated node logic (mirrors firmware intent handling) ──────────
 
 const DOME_SLOT = 1;
 const ZR_BIT = 7;               // BUTTON_TRIGGER_R = ZR on Joy-Con (R)
+const RIGHT_EYE_LED_ID = "1";   // LED ID for right eye lens
 const CENTRE_EYE_LED_ID = "2";  // LED ID for centre eye lens
 
 let prevDomeButtons = 0;
@@ -529,8 +618,8 @@ let eyeIsRed = false;
 
 /**
  * Simulate the DomeNode eye-color toggle: when ZR on the dome controller
- * has a rising edge, toggle the centre eye between red and blue and
- * inject a synthetic LED event into the telemetry message.
+ * has a rising edge, toggle the centre and right eyes between red and blue
+ * and inject synthetic LED events into the telemetry message.
  */
 function simulateEyeColorToggle(msg) {
   let domeButtons = 0;
@@ -555,13 +644,15 @@ function simulateEyeColorToggle(msg) {
   if (!msg.leds) {
     msg.leds = [];
   }
-  // Replace or append centre eye LED entry
-  const existing = msg.leds.findIndex((l) => String(l.id) === CENTRE_EYE_LED_ID);
-  const entry = { id: CENTRE_EYE_LED_ID, state: "on", color };
-  if (existing >= 0) {
-    msg.leds[existing] = entry;
-  } else {
-    msg.leds.push(entry);
+  // Replace or append LED entries — centre and right eyes stay in sync
+  for (const ledId of [RIGHT_EYE_LED_ID, CENTRE_EYE_LED_ID]) {
+    const existing = msg.leds.findIndex((l) => String(l.id) === ledId);
+    const entry = { id: ledId, state: "on", color };
+    if (existing >= 0) {
+      msg.leds[existing] = entry;
+    } else {
+      msg.leds.push(entry);
+    }
   }
 }
 

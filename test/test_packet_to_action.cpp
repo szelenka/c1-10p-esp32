@@ -19,6 +19,7 @@
 #include "chopper/core/MessageBroker.h"
 #include "chopper/core/ParameterServer.h"
 #include "chopper/messages/CommonMessages.h"
+#include "chopper/config/DefaultParameters.h"
 #include "chopper/config/HardwareConfig.h"
 #include "chopper/nodes/PeriscopeNode.h"
 
@@ -36,6 +37,7 @@ static int pass_count = 0;
 
 static void resetFramework() {
     chopper::core::ParameterServer::getInstance().reset();
+    chopper::config::registerDefaultParameters();
 }
 
 struct ServoCapture {

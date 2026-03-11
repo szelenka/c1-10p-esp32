@@ -31,6 +31,7 @@
 #include "chopper/core/PublishingNode.h"
 #include "chopper/core/ParameterServer.h"
 #include "chopper/messages/CommonMessages.h"
+#include "chopper/config/DefaultParameters.h"
 #include "chopper/config/HardwareConfig.h"
 
 // Nodes under test
@@ -38,6 +39,7 @@
 #include "chopper/nodes/DriveNode.h"
 #include "chopper/nodes/PeriscopeNode.h"
 #include "chopper/nodes/DomeArmsNode.h"
+#include "chopper/nodes/BodyLedNode.h"
 #include "chopper/nodes/BodyUtilityNode.h"
 #include "chopper/nodes/SoundNode.h"
 
@@ -55,10 +57,11 @@ static int pass_count = 0;
 #define ASSERT_NEAR(a, b, tol) \
     ASSERT(std::fabs((a) - (b)) < (tol))
 
-/// Reset ParameterServer between tests. MessageBroker auto-cleans
-/// via shared_ptr destructors when test-local objects go out of scope.
+/// Reset ParameterServer and register all default parameters.
+/// DefaultParameters.h is the single source of truth for all param values.
 static void resetFramework() {
     chopper::core::ParameterServer::getInstance().reset();
+    chopper::config::registerDefaultParameters();
 }
 
 // ============================================================
@@ -1113,9 +1116,13 @@ void test_dome_drive_l2_publishes_positive_speed() {
     input.intent_dome_rotate_left = true;
     node->setTime(1000);
     drive_pub->publish(input);
+    // Motor commands are published during process(), not in the input handler
+    node->process(1000 * 1000);
 
     ASSERT(motor_count > 0);
-    ASSERT_NEAR(last_speed, 0.5f, 0.01f);
+    float dome_max_speed = 0.5f;
+    chopper::core::ParameterServer::getInstance().get("dome.max_speed", dome_max_speed);
+    ASSERT_NEAR(last_speed, dome_max_speed, 0.01f);
     PASS();
 }
 
@@ -1150,9 +1157,12 @@ void test_dome_dome_l2_publishes_negative_speed() {
     input.has_intents = true;
     input.intent_dome_rotate_right = true;
     dome_pub->publish(input);
+    node->process(1000);
 
     ASSERT(motor_count > 0);
-    ASSERT_NEAR(last_speed, -0.5f, 0.01f);
+    float dome_max_speed = 0.5f;
+    chopper::core::ParameterServer::getInstance().get("dome.max_speed", dome_max_speed);
+    ASSERT_NEAR(last_speed, -dome_max_speed, 0.01f);
     PASS();
 }
 
@@ -1186,6 +1196,7 @@ void test_dome_no_button_publishes_zero() {
     chopper::messages::ControllerInput input;
     input.has_intents = true;
     dome_pub->publish(input);
+    node->process(1000);
 
     ASSERT(motor_count > 0);
     ASSERT_NEAR(last_speed, 0.0f, 0.01f);
@@ -1378,6 +1389,131 @@ void test_dome_tracking_toggle_publishes_tracking_cmd() {
 }
 
 // ============================================================
+// BodyLedNode tests
+// ============================================================
+
+static uint8_t g_led_brightness = 0;
+static int g_led_write_count = 0;
+
+static void testLedWrite(uint8_t brightness, void* /*ctx*/) {
+    g_led_brightness = brightness;
+    g_led_write_count++;
+}
+
+void test_body_led_starts_at_zero() {
+    TEST(body_led_starts_at_zero);
+    resetFramework();
+    g_led_brightness = 99;
+    g_led_write_count = 0;
+
+    chopper::nodes::BodyLedNode node(&testLedWrite, nullptr, 1'000'000);
+    ASSERT(node.initialize());
+    node.activate();
+
+    // First call at time 0 → brightness should be 0
+    node.process(1'000);
+    ASSERT(g_led_write_count == 1);
+    ASSERT(g_led_brightness == 0);
+    PASS();
+}
+
+void test_body_led_peaks_at_half_period() {
+    TEST(body_led_peaks_at_half_period);
+    resetFramework();
+    g_led_brightness = 0;
+
+    constexpr uint64_t period = 1'000'000;
+    chopper::nodes::BodyLedNode node(&testLedWrite, nullptr, period);
+    ASSERT(node.initialize());
+    node.activate();
+
+    // Seed start time
+    node.process(0);
+
+    // At half period → brightness should be at or near 255
+    node.process(period / 2);
+    ASSERT(g_led_brightness >= 250);
+    PASS();
+}
+
+void test_body_led_returns_to_zero_at_full_period() {
+    TEST(body_led_returns_to_zero_at_full_period);
+    resetFramework();
+    g_led_brightness = 99;
+
+    constexpr uint64_t period = 1'000'000;
+    chopper::nodes::BodyLedNode node(&testLedWrite, nullptr, period);
+    ASSERT(node.initialize());
+    node.activate();
+
+    // Seed start time
+    node.process(0);
+
+    // At full period → brightness wraps back to 0
+    node.process(period);
+    ASSERT(g_led_brightness <= 5);
+    PASS();
+}
+
+void test_body_led_emergency_stop_turns_off() {
+    TEST(body_led_emergency_stop_turns_off);
+    resetFramework();
+    g_led_brightness = 99;
+
+    chopper::nodes::BodyLedNode node(&testLedWrite);
+    ASSERT(node.initialize());
+    node.activate();
+
+    // Advance to mid-fade so LED is on
+    node.process(0);
+    node.process(250'000);
+    ASSERT(g_led_brightness > 0);
+
+    // Emergency stop should turn off
+    node.emergencyStop();
+    ASSERT(g_led_brightness == 0);
+    PASS();
+}
+
+void test_body_led_publishes_led_command() {
+    TEST(body_led_publishes_led_command);
+    resetFramework();
+
+    chopper::nodes::BodyLedNode node(&testLedWrite);
+    ASSERT(node.initialize());
+    node.activate();
+
+    // Subscribe to the LED topic
+    uint8_t received_brightness = 0;
+    uint8_t received_led_id = 255;
+    bool received = false;
+    auto sub = chopper::core::MessageBroker::getInstance().createSubscription<chopper::messages::LEDCommand>(
+        "led/front/cmd",
+        [](const chopper::messages::LEDCommand& cmd, void* ctx) {
+            auto* flag = static_cast<bool*>(ctx);
+            // Store via globals since lambda captures aren't available with fn ptr
+            *flag = true;
+        },
+        &received);
+
+    // Process at mid-fade
+    node.process(0);
+    node.process(255'000);
+
+    ASSERT(received);
+    PASS();
+}
+
+void test_body_led_null_callback_fails_init() {
+    TEST(body_led_null_callback_fails_init);
+    resetFramework();
+
+    chopper::nodes::BodyLedNode node(nullptr);
+    ASSERT(!node.initialize());
+    PASS();
+}
+
+// ============================================================
 // Main
 // ============================================================
 
@@ -1438,6 +1574,14 @@ int main() {
     test_dome_tracking_no_face_zero_speed();
     test_dome_tracking_disabled_ignores_vision();
     test_dome_tracking_toggle_publishes_tracking_cmd();
+
+    // BodyLedNode
+    test_body_led_starts_at_zero();
+    test_body_led_peaks_at_half_period();
+    test_body_led_returns_to_zero_at_full_period();
+    test_body_led_emergency_stop_turns_off();
+    test_body_led_publishes_led_command();
+    test_body_led_null_callback_fails_init();
 
     printf("\n=== Results: %d/%d passed ===\n", pass_count, test_count);
     return (pass_count == test_count) ? 0 : 1;

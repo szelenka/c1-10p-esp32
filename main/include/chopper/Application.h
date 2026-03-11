@@ -114,6 +114,12 @@ public:
      */
     void emergencyStop(const char* reason);
     /**
+     * Clear a latched emergency stop and resume normal operation.
+     * Resets SafetyManager, clears executor E-STOP flag, and
+     * restores FULL_OPERATION degradation mode.
+     */
+    void clearEmergencyStop(const char* reason);
+    /**
      * Trigger a soft-stop from any external source:
      * - command all active nodes to safe outputs
      * - force SAFE_STOP degradation mode

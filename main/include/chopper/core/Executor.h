@@ -68,7 +68,11 @@ public:
     bool stop();
 
     /// Trigger emergency stop. Uses const char* — no heap allocation.
+    /// The executor loop keeps running but skips all node processing.
     void emergencyStop(const char* reason);
+    /// Clear emergency stop and resume normal node scheduling.
+    /// Caller must also reset SafetyManager separately.
+    void clearEmergencyStop(const char* reason);
     /// Request cooperative soft-stop: invokes emergencyStop() on active nodes
     /// but does not latch executor emergency-stop or stop the loop.
     void softStop(const char* reason);

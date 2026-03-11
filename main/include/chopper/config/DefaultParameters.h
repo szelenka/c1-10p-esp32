@@ -239,6 +239,12 @@ inline size_t registerDefaultParameters() {
     ok += ps.declare("servo.peri_spin.accel", 0.0f, 0.0f, 100.0f);
     ok += ps.declare("servo.peri_spin.easing", static_cast<int32_t>(9), static_cast<int32_t>(0),
                      static_cast<int32_t>(31));
+    ok += ps.declare("servo.peri_spin.auto_speed", static_cast<int32_t>(20), static_cast<int32_t>(1),
+                     static_cast<int32_t>(200));
+    ok += ps.declare("servo.peri_spin.auto_min_delay", static_cast<int32_t>(2000), static_cast<int32_t>(500),
+                     static_cast<int32_t>(30000));
+    ok += ps.declare("servo.peri_spin.auto_max_delay", static_cast<int32_t>(6000), static_cast<int32_t>(1000),
+                     static_cast<int32_t>(60000));
 
     // ========================================================================
     // Servo PWM — Dome Door Right
@@ -270,6 +276,24 @@ inline size_t registerDefaultParameters() {
     ok +=
         ps.declare("servo.ddoor_l.easing", static_cast<int32_t>(9), static_cast<int32_t>(0), static_cast<int32_t>(31));
 
+    // ========================================================================
+    // Face Tracking
+    // ========================================================================
+
+    ok += ps.declare("tracking.kp", 0.5f, 0.0f, 5.0f);
+    ok += ps.declare("tracking.max_speed", 0.4f, 0.0f, 1.0f);
+    ok += ps.declare("tracking.deadband", 0.05f, 0.0f, 0.5f);
+    ok += ps.declare("tracking.min_confidence", static_cast<int32_t>(50), static_cast<int32_t>(0),
+                     static_cast<int32_t>(255));
+    ok += ps.declare("tracking.frame_width", static_cast<int32_t>(320), static_cast<int32_t>(1),
+                     static_cast<int32_t>(1920));
+
+    // ========================================================================
+    // Diagnostics
+    // ========================================================================
+
+    ok += ps.declare("diag.driver_timing_logs", false);
+
     return ok;
 }
 
@@ -277,7 +301,7 @@ inline size_t registerDefaultParameters() {
  * Total number of parameters registered by registerDefaultParameters().
  * Useful for verification in tests.
  */
-constexpr size_t kExpectedParameterCount = 101;
+constexpr size_t kExpectedParameterCount = 110;
 
 }  // namespace config
 }  // namespace chopper

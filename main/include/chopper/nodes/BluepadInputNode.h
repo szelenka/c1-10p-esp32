@@ -31,6 +31,7 @@ public:
             last_misc_[i] = 0;
             last_dpad_[i] = 0;
             last_report_seen_us_[i] = 0;
+            connect_time_ms_[i] = 0;
             have_last_input_[i] = false;
         }
         // Controller join/reconnect can transiently take >100 ms when BT task
@@ -75,14 +76,18 @@ public:
                 have_last_input_[bt_slot] = true;
             }
 
-            if (slot >= 0 && slot < bluetooth::ControllerManager::kMaxSlots && have_last_input_[bt_slot]) {
-                // Use executor loop timestamp to keep ControllerManager timing
-                // monotonic within the same update cycle.
-                if (has_fresh_report) {
+            if (slot >= 0 && slot < bluetooth::ControllerManager::kMaxSlots) {
+                if (has_fresh_report && have_last_input_[bt_slot]) {
                     controller_manager_->recordInput(static_cast<uint8_t>(slot), now_ms, last_input_cache_[bt_slot]);
 
                     const auto role = controller_manager_->getSlot(static_cast<uint8_t>(slot)).role;
                     publishByRole(role, last_input_cache_[bt_slot]);
+                } else if (now_ms - connect_time_ms_[bt_slot] < kConnectGraceMs) {
+                    // Time-based grace period after BT connect.  JoyCons can
+                    // send one early report then go quiet for >500 ms while
+                    // finishing pairing.  Feed the watchdog so it doesn't trip
+                    // before regular reports begin.
+                    controller_manager_->feedSlotWatchdog(static_cast<uint8_t>(slot), now_ms);
                 }
             }
         }
@@ -133,6 +138,7 @@ private:
             std::memcpy(mac.addr, data.btaddr, sizeof(mac.addr));
             mapped_slot_[bt_slot] = controller_manager_->onConnect(mac, data.controller_type, 0, 0, now_ms);
             observed_connected_[bt_slot] = true;
+            connect_time_ms_[bt_slot] = now_ms;
 
             // Select per-controller-type intent maps for the assigned role.
             if (mapped_slot_[bt_slot] >= 0) {
@@ -150,6 +156,7 @@ private:
             observed_connected_[bt_slot] = false;
             mapped_slot_[bt_slot] = -1;
             last_report_seen_us_[bt_slot] = 0;
+            connect_time_ms_[bt_slot] = 0;
             have_last_input_[bt_slot] = false;
         }
     }
@@ -267,6 +274,7 @@ private:
         }
     }
 
+    static constexpr uint64_t kConnectGraceMs = 2000;  ///< Post-connect watchdog grace period
     static constexpr uint64_t kTrackingHoldMs = 2000;
 
     bluetooth::ControllerManager* controller_manager_;
@@ -286,6 +294,7 @@ private:
     uint8_t last_misc_[CHOPPER_BT_MAX_DEVICES];
     uint8_t last_dpad_[CHOPPER_BT_MAX_DEVICES];
     uint64_t last_report_seen_us_[CHOPPER_BT_MAX_DEVICES];
+    uint64_t connect_time_ms_[CHOPPER_BT_MAX_DEVICES];
     messages::ControllerInput last_input_cache_[CHOPPER_BT_MAX_DEVICES];
     bool have_last_input_[CHOPPER_BT_MAX_DEVICES];
 

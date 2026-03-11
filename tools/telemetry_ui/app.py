@@ -98,6 +98,8 @@ class TelemetryParser:
         misc = self._pick_int(source, ["misc", "misc_buttons"])
         axes = self._extract_axes(source)
         player_leds = self._pick_int(source, ["player_leds", "leds_mask"])
+        battery = self._pick_int(source, ["battery", "battery_level"])
+        avg_interval_us = self._pick_int(source, ["avg_interval_us", "avg_report_interval_us"])
         labels = LEFT_BUTTON_LABELS if jc_type == "left" else RIGHT_BUTTON_LABELS
         misc_labels = LEFT_MISC_LABELS if jc_type == "left" else RIGHT_MISC_LABELS
         return {
@@ -108,6 +110,8 @@ class TelemetryParser:
             "misc": misc or 0,
             "axes": axes,
             "player_leds": player_leds,
+            "battery": battery,
+            "avg_interval_us": avg_interval_us,
             "pressed": self._mask_to_labels(buttons, labels)
             + self._mask_to_labels(misc, misc_labels),
         }
@@ -184,15 +188,17 @@ class TelemetryParser:
                 motors.append({"id": int(m.group(1)), "value": float(value), "type": None})
                 continue
 
-            s = re.match(r"(?:servo|s)(\d+)$", low)
+            s = re.match(r"(?:servo|s)(a|b|d)?(\d+)$", low)
             if s and value is not None:
+                group_char = s.group(1)
+                group_map = {"a": "any", "b": "body", "d": "dome"}
                 servos.append(
                     {
-                        "id": int(s.group(1)),
+                        "id": int(s.group(2)),
                         "value": float(value),
                         "type": None,
                         "dur_ms": None,
-                        "group": None,
+                        "group": group_map.get(group_char) if group_char else None,
                     }
                 )
                 continue
@@ -301,6 +307,7 @@ class TelemetryParser:
                         "id": str(led_id),
                         "state": item.get("state") or item.get("on"),
                         "color": item.get("color") or item.get("rgb") or item.get("hex"),
+                        "brightness": item.get("brightness"),
                         "value": item.get("value"),
                     }
                 )
@@ -594,28 +601,37 @@ class TelemetryBridge:
                 {"id": 2, "type": 0, "value": round(dome_speed, 3)},
             ]
 
-            # Body servos (PWM µs: 500-2500, center 1500)
+            # Body servos — PWM values match DefaultParameters.h calibration
+            # Servo sim helper: oscillate between neutral and max
+            def servo_sim(neutral, mn, mx, phase):
+                half_range = (mx - mn) / 2
+                return round(neutral + half_range * math.sin(phase), 1)
+
+            def servo_extend(neutral, mx, phase):
+                """Extend from neutral toward max on positive half of sine."""
+                return round(neutral + (mx - neutral) * max(0, math.sin(phase)), 1)
+
             body_servos = [
-                # Neck legs: gentle tilt
-                {"id": 0, "group": "body", "type": 0, "value": round(1500 + 200 * math.sin(t * 0.7), 1), "dur_ms": 0},
-                {"id": 1, "group": "body", "type": 0, "value": round(1500 + 200 * math.sin(t * 0.7 + 2.09), 1), "dur_ms": 0},
-                {"id": 2, "group": "body", "type": 0, "value": round(1500 + 200 * math.sin(t * 0.7 + 4.19), 1), "dur_ms": 0},
-                # Utility arm: periodic extend/retract
-                {"id": 3, "group": "body", "type": 0, "value": round(1500 + 500 * max(0, math.sin(t * 0.4)), 1), "dur_ms": 0},
-                # Body doors: open together periodically
-                {"id": 4, "group": "body", "type": 0, "value": round(1500 + 500 * max(0, math.sin(t * 0.3)), 1), "dur_ms": 0},
-                {"id": 5, "group": "body", "type": 0, "value": round(1500 - 500 * max(0, math.sin(t * 0.3)), 1), "dur_ms": 0},
+                # Neck legs: gentle tilt within calibrated range
+                {"id": 0, "group": "body", "type": 0, "value": servo_sim(2256, 2032, 2256, t * 0.7), "dur_ms": 0},
+                {"id": 1, "group": "body", "type": 0, "value": servo_sim(2176, 1952, 2176, t * 0.7 + 2.09), "dur_ms": 0},
+                {"id": 2, "group": "body", "type": 0, "value": servo_sim(2272, 2048, 2272, t * 0.7 + 4.19), "dur_ms": 0},
+                # Utility arm: extend from neutral(1264) toward max(2384)
+                {"id": 3, "group": "body", "type": 0, "value": servo_extend(1264, 2384, t * 0.4), "dur_ms": 0},
+                # Body doors: open from neutral toward min (right) / max (left)
+                {"id": 4, "group": "body", "type": 0, "value": servo_extend(1920, 992, t * 0.3), "dur_ms": 0},
+                {"id": 5, "group": "body", "type": 0, "value": servo_extend(1030, 1696, t * 0.3), "dur_ms": 0},
             ]
 
-            # Dome servos
+            # Dome servos — PWM values match DefaultParameters.h calibration
             dome_servos = [
-                # Periscope lift: slow rise/fall
-                {"id": 0, "group": "dome", "type": 0, "value": round(1500 + 500 * max(0, math.sin(t * 0.35)), 1), "dur_ms": 0},
-                # Periscope spin
-                {"id": 1, "group": "dome", "type": 0, "value": round(1500 + 400 * math.sin(t * 0.6), 1), "dur_ms": 0},
-                # Dome doors: alternate opening
-                {"id": 2, "group": "dome", "type": 0, "value": round(1500 + 500 * max(0, math.sin(t * 0.25)), 1), "dur_ms": 0},
-                {"id": 6, "group": "dome", "type": 0, "value": round(1500 - 500 * max(0, math.sin(t * 0.25 + 1.57)), 1), "dur_ms": 0},
+                # Periscope lift: rise from neutral(800) toward max(1744)
+                {"id": 0, "group": "dome", "type": 0, "value": servo_extend(800, 1744, t * 0.35), "dur_ms": 0},
+                # Periscope spin: oscillate around neutral(1282) within [496, 2496]
+                {"id": 1, "group": "dome", "type": 0, "value": servo_sim(1282, 496, 2496, t * 0.6), "dur_ms": 0},
+                # Dome doors: open from neutral toward min
+                {"id": 2, "group": "dome", "type": 0, "value": servo_extend(2304, 496, t * 0.25), "dur_ms": 0},
+                {"id": 6, "group": "dome", "type": 0, "value": servo_extend(576, 2496, t * 0.25 + 1.57), "dur_ms": 0},
                 # Right arm
                 {"id": 3, "group": "dome", "type": 0, "value": round(1500 + 300 * math.sin(t * 0.45), 1), "dur_ms": 0},
                 {"id": 4, "group": "dome", "type": 0, "value": round(1500 + 400 * max(0, math.sin(t * 0.5)), 1), "dur_ms": 0},
@@ -706,6 +722,56 @@ class TelemetryBridge:
             await asyncio.sleep(interval)
 
 
+def parse_servo_calibration() -> Dict[str, Dict[str, int]]:
+    """Parse DefaultParameters.h to extract servo min/max/neutral values.
+
+    Returns a dict like {"body:0": {"min": 2032, "max": 2256, "neutral": 2256}, ...}.
+    Maps parameter names to group:channel using the naming convention in HardwareConfig.h.
+    """
+    # Parameter name prefix → (group, channel)
+    SERVO_PARAM_MAP = {
+        "servo.neck_a":    ("body", 0),
+        "servo.neck_b":    ("body", 1),
+        "servo.neck_c":    ("body", 2),
+        "servo.util_arm":  ("body", 3),
+        "servo.bdoor_r":   ("body", 4),
+        "servo.bdoor_l":   ("body", 5),
+        "servo.peri_lift":  ("dome", 0),
+        "servo.peri_spin":  ("dome", 1),
+        "servo.ddoor_r":    ("dome", 2),
+        "servo.ddoor_l":    ("dome", 6),
+    }
+
+    defaults_path = Path(__file__).resolve().parent.parent.parent / "main" / "include" / "chopper" / "config" / "DefaultParameters.h"
+    if not defaults_path.is_file():
+        LOG.warning("DefaultParameters.h not found at %s", defaults_path)
+        return {}
+
+    text = defaults_path.read_text()
+
+    # Match: ps.declare("servo.xxx.min", static_cast<int32_t>(VALUE), ...)
+    declare_re = re.compile(
+        r'ps\.declare\(\s*"([^"]+)"\s*,\s*static_cast<int32_t>\((\d+)\)'
+    )
+
+    # Collect raw param values
+    raw: Dict[str, int] = {}
+    for m in declare_re.finditer(text):
+        raw[m.group(1)] = int(m.group(2))
+
+    # Build calibration map
+    result: Dict[str, Dict[str, int]] = {}
+    for prefix, (group, channel) in SERVO_PARAM_MAP.items():
+        key = f"{group}:{channel}"
+        mn = raw.get(f"{prefix}.min")
+        mx = raw.get(f"{prefix}.max")
+        neutral = raw.get(f"{prefix}.neutral")
+        if mn is not None and mx is not None and neutral is not None:
+            result[key] = {"min": mn, "max": mx, "neutral": neutral}
+
+    return result
+
+
 def build_app(bridge: TelemetryBridge, description_dir: Optional[Path] = None) -> web.Application:
     app = web.Application()
 
@@ -721,13 +787,19 @@ def build_app(bridge: TelemetryBridge, description_dir: Optional[Path] = None) -
     async def index(_: web.Request) -> web.FileResponse:
         return web.FileResponse(bridge.web_dir / "index.html")
 
-    # Serve joint_mapping.json from the telemetry_ui dir alongside web assets
+    # Serve joint_mapping.json merged with live servo calibration from DefaultParameters.h
     mapping_path = Path(__file__).parent / "joint_mapping.json"
+    servo_cal = parse_servo_calibration()
+    if servo_cal:
+        LOG.info("Parsed %d servo calibrations from DefaultParameters.h", len(servo_cal))
 
     async def joint_mapping(_: web.Request) -> web.Response:
-        if mapping_path.is_file():
-            return web.FileResponse(mapping_path, headers={"Content-Type": "application/json"})
-        return web.Response(status=404, text="joint_mapping.json not found")
+        if not mapping_path.is_file():
+            return web.Response(status=404, text="joint_mapping.json not found")
+        cfg = json.loads(mapping_path.read_text())
+        if servo_cal:
+            cfg["servo_calibration"] = servo_cal
+        return web.json_response(cfg)
 
     app.router.add_get("/", index)
     app.router.add_get("/ws", bridge.ws_handler)

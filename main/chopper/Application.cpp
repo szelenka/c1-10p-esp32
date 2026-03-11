@@ -189,6 +189,13 @@ void Application::emergencyStop(const char* reason) {
     executor_.emergencyStop(reason);
 }
 
+void Application::clearEmergencyStop(const char* reason) {
+    ESP_LOGW(TAG, "Clear emergency stop requested: %s", reason ? reason : "(none)");
+    safetyManager_.resetEmergencyStop();
+    executor_.clearEmergencyStop(reason);
+    safetyManager_.getDegradationManager().forceMode(safety::DegradationMode::FULL_OPERATION);
+}
+
 void Application::softStop(const char* reason) {
     ESP_LOGW(TAG, "Soft stop requested: %s", reason ? reason : "(none)");
     executor_.softStop(reason);

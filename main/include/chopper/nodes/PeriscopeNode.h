@@ -28,7 +28,11 @@ namespace chopper::nodes {
  */
 class PeriscopeNode : public core::PublishingNode {
 public:
-    PeriscopeNode() : PublishingNode("periscope") {}
+    PeriscopeNode() : PublishingNode("periscope") {
+        // Auto-wander publishes servo commands through the broker which can
+        // take several ms on ESP32 due to synchronous subscriber dispatch.
+        setMaxExecutionTime(5000);
+    }
 
     bool initialize() override {
         servo_pub_ = createPublisher<messages::ServoCommand>("servo/dome/cmd");
@@ -36,23 +40,9 @@ public:
             createSubscription<messages::ControllerInput>("controller/drive", &PeriscopeNode::onControllerInput, this);
 
         auto& ps = core::ParameterServer::getInstance();
-        ps.declare("servo.peri_lift.min", static_cast<int32_t>(500), static_cast<int32_t>(500),
-                   static_cast<int32_t>(2500));
-        ps.declare("servo.peri_lift.max", static_cast<int32_t>(2500), static_cast<int32_t>(500),
-                   static_cast<int32_t>(2500));
-        ps.declare("servo.peri_spin.min", static_cast<int32_t>(500), static_cast<int32_t>(500),
-                   static_cast<int32_t>(2500));
-        ps.declare("servo.peri_spin.max", static_cast<int32_t>(2500), static_cast<int32_t>(500),
-                   static_cast<int32_t>(2500));
-        ps.declare("servo.peri_spin.neutral", static_cast<int32_t>(1500), static_cast<int32_t>(500),
-                   static_cast<int32_t>(2500));
-        ps.declare("servo.peri_spin.auto_speed", static_cast<int32_t>(20), static_cast<int32_t>(1),
-                   static_cast<int32_t>(200));
-        ps.declare("servo.peri_spin.auto_min_delay", static_cast<int32_t>(2000), static_cast<int32_t>(500),
-                   static_cast<int32_t>(30000));
-        ps.declare("servo.peri_spin.auto_max_delay", static_cast<int32_t>(6000), static_cast<int32_t>(1000),
-                   static_cast<int32_t>(60000));
 
+        // Params are declared in DefaultParameters.h (single source of truth).
+        // Just read current values and register for change notifications.
         refreshCachedParams();
         bool listeners_ok = true;
         listeners_ok &= ps.onChange("servo.peri_lift.min", &PeriscopeNode::onParameterChanged, this);
@@ -109,11 +99,16 @@ private:
         const bool toggle_pressed = using_intents ? false : input.button_x;
 
         if (using_intents) {
+            // Guard: when up and down map to the same physical button, both
+            // intents fire simultaneously.  Only allow one action per frame
+            // so the commands don't cancel each other out.
+            bool handled = false;
             if (up_pressed && !last_lift_up_ && periscope_down_) {
                 moveLiftTo(static_cast<float>(lift_max_));
                 periscope_down_ = false;
+                handled = true;
             }
-            if (down_pressed && !last_lift_down_ && !periscope_down_) {
+            if (!handled && down_pressed && !last_lift_down_ && !periscope_down_) {
                 moveLiftTo(static_cast<float>(lift_min_));
                 periscope_down_ = true;
             }
@@ -346,15 +341,15 @@ private:
 
     // Auto-wander state
     bool auto_wander_active_ = false;
-    int32_t auto_wander_target_ = 1500;
+    int32_t auto_wander_target_ = 1282;
     uint64_t next_auto_move_ms_ = 0;
 
-    // Cached parameters
-    int32_t lift_min_ = 500;
-    int32_t lift_max_ = 2500;
-    int32_t spin_min_ = 500;
-    int32_t spin_max_ = 2500;
-    int32_t spin_neutral_ = 1500;
+    // Cached parameters (defaults from ServoPWM.h hardware calibration)
+    int32_t lift_min_ = 800;
+    int32_t lift_max_ = 1744;
+    int32_t spin_min_ = 496;
+    int32_t spin_max_ = 2496;
+    int32_t spin_neutral_ = 1282;
     int32_t auto_speed_ = 20;
     int32_t auto_min_delay_ms_ = 2000;
     int32_t auto_max_delay_ms_ = 6000;

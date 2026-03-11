@@ -47,7 +47,11 @@ public:
         , motor_id_(motor_id)
         , inverted_(inverted)
         , frame_width_(frame_width)
-        , slew_(slew_rate) {}
+        , slew_(slew_rate) {
+        // process() does dead-reckoning, auto-dome, and motor publish —
+        // synchronous broker dispatch can spike on ESP32.
+        setMaxExecutionTime(5000);
+    }
 
     bool initialize() override {
         motor_pub_ = createPublisher<messages::MotorCommand>("dome/motor/cmd");
@@ -61,19 +65,9 @@ public:
         vision_sub_ = createSubscription<messages::VisionResult>("vision/result", &DomeNode::onVisionResult, this);
 
         auto& ps = core::ParameterServer::getInstance();
-        ps.declare("dome.max_speed", max_speed_, 0.0f, 1.0f);
-        ps.declare("dome.deadband", 0.05f, 0.0f, 0.5f);
-        ps.declare("dome.motor_inverted", inverted_);
-        ps.declare("dome.spin_slew_rate", 2.0f, 0.1f, 20.0f);
-        ps.declare("dome.auto_safety", false);
-        ps.declare("tracking.kp", 0.5f, 0.0f, 5.0f);
-        ps.declare("tracking.max_speed", 0.4f, 0.0f, 1.0f);
-        ps.declare("tracking.deadband", 0.05f, 0.0f, 0.5f);
-        ps.declare("tracking.min_confidence", static_cast<int32_t>(50), static_cast<int32_t>(0),
-                   static_cast<int32_t>(255));
-        ps.declare("tracking.frame_width", static_cast<int32_t>(frame_width_), static_cast<int32_t>(1),
-                   static_cast<int32_t>(1920));
 
+        // Params are declared in DefaultParameters.h (single source of truth).
+        // Just read current values and register for change notifications.
         refreshCachedParams();
         bool listeners_ok = true;
         listeners_ok &= ps.onChange("dome.max_speed", &DomeNode::onParameterChanged, this);
@@ -262,7 +256,6 @@ private:
             eye_red_ = !eye_red_;
             if (led_pub_) {
                 messages::LEDCommand cmd;
-                cmd.led_id = 0;
                 cmd.command_type = messages::LEDCommand::CommandType::SET_COLOR;
                 if (eye_red_) {
                     cmd.color.red = 255;
@@ -275,6 +268,10 @@ private:
                     cmd.color.blue = 255;
                     cmd.color.white = 0;
                 }
+                // Send to both eyes — center and right stay in sync
+                cmd.led_id = LED_ID_RIGHT_EYE;
+                led_pub_->publish(cmd);
+                cmd.led_id = LED_ID_CENTER_EYE;
                 led_pub_->publish(cmd);
             }
         }
@@ -625,6 +622,10 @@ private:
 
     // Random toggle (Home button)
     bool last_random_toggle_ = false;
+
+    // Dome eye LED IDs (from joint_mapping.json led_links)
+    static constexpr uint8_t LED_ID_RIGHT_EYE = 1;
+    static constexpr uint8_t LED_ID_CENTER_EYE = 2;
 
     // Eye color toggle state
     bool eye_red_ = false;

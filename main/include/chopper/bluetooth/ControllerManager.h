@@ -7,6 +7,7 @@
 #include "chopper/messages/CommonMessages.h"
 #include "chopper/chopper_limits.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include <cstring>
 
 namespace chopper::bluetooth {
@@ -181,7 +182,10 @@ public:
         slot.vendor_id = vendorId;
         slot.product_id = productId;
         slot.connect_time_ms = now_ms;
-        slot.last_input_time_ms = now_ms;
+        // Use fresh wall-clock time so the watchdog window starts from the
+        // actual connection moment, not the (potentially stale) loop-start
+        // timestamp — BT handshake can block for >100 ms.
+        slot.last_input_time_ms = static_cast<uint64_t>(esp_timer_get_time() / 1000ULL);
         slot.state = ControllerSlot::State::IDENTIFYING;
 
         // Move through IDENTIFYING -> ASSIGNING -> ACTIVE
@@ -271,6 +275,16 @@ public:
                 }
             }
         }
+    }
+
+    /// Keep the watchdog alive for a connected slot without updating input data.
+    /// Call this every cycle a controller is seen as connected by the BT stack,
+    /// even if no fresh gamepad report has arrived yet.
+    void feedSlotWatchdog(uint8_t slotIndex, uint64_t now_ms) {
+        if (slotIndex >= kMaxSlots) {
+            return;
+        }
+        m_slots[slotIndex].last_input_time_ms = now_ms;
     }
 
     /// Record that input was received from a slot (updates watchdog timer).

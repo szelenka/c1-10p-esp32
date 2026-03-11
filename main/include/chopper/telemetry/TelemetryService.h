@@ -118,6 +118,8 @@ private:
         uint32_t button_edge_count = 0;
         uint16_t button_edge_mask = 0;
         uint64_t last_change_us = 0;
+        uint64_t last_report_us = 0;
+        uint32_t avg_report_interval_us = 0;
     };
 
     struct MotorState {

@@ -233,6 +233,13 @@ void Executor::emergencyStop(const char* reason) {
     }
 }
 
+void Executor::clearEmergencyStop(const char* reason) {
+    bool was_stopped = emergency_stop_.exchange(false);
+    if (was_stopped) {
+        ESP_LOGW(TAG, "EMERGENCY STOP CLEARED: %s", reason ? reason : "(none)");
+    }
+}
+
 void Executor::softStop(const char* reason) {
     bool was_soft = soft_stop_.exchange(true);
     if (!was_soft) {
@@ -267,7 +274,18 @@ void Executor::executionLoop() {
     const TickType_t period_ticks = pdMS_TO_TICKS(1000 / config_.loop_frequency_hz);
     TickType_t last_wake_time = xTaskGetTickCount();
 
-    while (!should_stop_.load() && !emergency_stop_.load()) {
+    while (!should_stop_.load()) {
+        // In E-STOP: keep loop alive for recovery but skip all node processing.
+        if (emergency_stop_.load()) {
+            feedWatchdog();
+            if (period_ticks > 0) {
+                vTaskDelayUntil(&last_wake_time, period_ticks);
+            } else {
+                taskYIELD();
+            }
+            continue;
+        }
+
         uint64_t loop_start = esp_timer_get_time();
 
         // Process messages (reserved for future batched delivery)

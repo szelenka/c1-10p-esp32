@@ -1,6 +1,8 @@
 #include "chopper/Application.h"
+#include "chopper/config/DefaultParameters.h"
 #include "chopper/config/HardwareConfig.h"
 #include "chopper/bluetooth/RoleManager.h"
+#include "chopper/nodes/BodyLedNode.h"
 #include "chopper/nodes/BodyUtilityNode.h"
 #include "chopper/nodes/BluepadInputNode.h"
 #include "chopper/dome/DomePosition.h"
@@ -23,6 +25,7 @@
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
 #include "driver/gpio.h"
+#include "driver/ledc.h"
 
 #include <cstdio>
 
@@ -31,6 +34,15 @@ static const char* const TAG = "RuntimeMain";
 static chopper::bluetooth::MacBasedPolicy g_role_policy;
 static bool g_policy_initialized = false;
 static bool g_runtime_started = false;
+
+constexpr ledc_timer_t LED_TIMER = LEDC_TIMER_0;
+constexpr ledc_channel_t LED_CHANNEL = LEDC_CHANNEL_0;
+constexpr int LED_DUTY_RESOLUTION = LEDC_TIMER_8_BIT;  // 0–255
+
+void ledWriteCallback(uint8_t brightness, void* /*context*/) {
+    ledc_set_duty(LEDC_LOW_SPEED_MODE, LED_CHANNEL, brightness);
+    ledc_update_duty(LEDC_LOW_SPEED_MODE, LED_CHANNEL);
+}
 
 bool parseMacAddress(const char* text, chopper::bluetooth::MacAddress& out) {
     unsigned int b[6] = {0};
@@ -118,9 +130,12 @@ void onControllerConnected(uint8_t slot_index, chopper::bluetooth::ControllerRol
         }
     }
 
-    ESP_LOGI(TAG, "Controller connected: slot=%u role=%s -> clear soft stop", static_cast<unsigned>(slot_index),
+    ESP_LOGI(TAG, "Controller connected: slot=%u role=%s -> clear stop", static_cast<unsigned>(slot_index),
              chopper::bluetooth::roleToString(role));
     if (app != nullptr) {
+        if (app->getExecutor().isEmergencyStop()) {
+            app->clearEmergencyStop("Controller connected");
+        }
         app->clearSoftStop("Controller connected");
     }
 }
@@ -139,6 +154,9 @@ extern "C" int chopper_runtime_start(void) {
     // execution can exceed 25 ms under normal command load.
     exec_cfg.max_loop_time_us = 100000;
     exec_cfg.loop_timeout_triggers_estop = false;
+    // BT controller connect/disconnect can cause one-time spikes >160 ms
+    // in BluepadInputNode.  Warn but do not kill the system for transients.
+    exec_cfg.node_timeout_triggers_estop = false;
 #if defined(CONFIG_FREERTOS_UNICORE) && CONFIG_FREERTOS_UNICORE
     exec_cfg.executor_task_core = 0;
 #else
@@ -226,13 +244,23 @@ extern "C" int chopper_runtime_start(void) {
     mp3_serial.begin();
     openmv_serial.begin();
 
-    // Legacy setupLeds(): configure LED GPIOs and default to OFF.
-    gpio_set_direction(static_cast<gpio_num_t>(chopper::config::pins::LED_FRONT), GPIO_MODE_OUTPUT);
-    gpio_set_level(static_cast<gpio_num_t>(chopper::config::pins::LED_FRONT), 0);
-    if (chopper::config::pins::LED_BACK != chopper::config::pins::LED_FRONT) {
-        gpio_set_direction(static_cast<gpio_num_t>(chopper::config::pins::LED_BACK), GPIO_MODE_OUTPUT);
-        gpio_set_level(static_cast<gpio_num_t>(chopper::config::pins::LED_BACK), 0);
-    }
+    // Configure LEDC PWM for body LED fading (replaces legacy analogWrite).
+    ledc_timer_config_t led_timer_cfg{};
+    led_timer_cfg.speed_mode = LEDC_LOW_SPEED_MODE;
+    led_timer_cfg.timer_num = LED_TIMER;
+    led_timer_cfg.duty_resolution = static_cast<ledc_timer_bit_t>(LED_DUTY_RESOLUTION);
+    led_timer_cfg.freq_hz = 5000;
+    led_timer_cfg.clk_cfg = LEDC_AUTO_CLK;
+    ledc_timer_config(&led_timer_cfg);
+
+    ledc_channel_config_t led_ch_cfg{};
+    led_ch_cfg.speed_mode = LEDC_LOW_SPEED_MODE;
+    led_ch_cfg.channel = LED_CHANNEL;
+    led_ch_cfg.timer_sel = LED_TIMER;
+    led_ch_cfg.gpio_num = chopper::config::pins::LED_FRONT;
+    led_ch_cfg.duty = 0;
+    led_ch_cfg.hpoint = 0;
+    ledc_channel_config(&led_ch_cfg);
 
     // Runtime E2E path uses serial telemetry for local UI bridging.
     // Keep HTTP/WS disabled here unless network stack is explicitly initialized.
@@ -249,6 +277,10 @@ extern "C" int chopper_runtime_start(void) {
              exec_cfg.max_loop_time_us, exec_cfg.executor_task_core, exec_cfg.loop_timeout_triggers_estop ? 1 : 0,
              exec_cfg.node_timeout_triggers_estop ? 1 : 0);
     ESP_LOGI(TAG, "Telemetry enabled (serial JSON only; HTTP/WS disabled in runtime)");
+
+    // Register all default parameters (servo limits, drive config, etc.)
+    // before nodes are initialized so they read correct hardware values.
+    chopper::config::registerDefaultParameters();
 
     initRolePolicy();
     app.getControllerManager().getRoleManager().setPolicy(g_role_policy.getPolicy());
@@ -290,6 +322,12 @@ extern "C" int chopper_runtime_start(void) {
     auto body_utility_node = std::make_shared<chopper::nodes::BodyUtilityNode>();
     if (!app.addNode(body_utility_node)) {
         ESP_LOGE(TAG, "Failed to add BodyUtilityNode");
+        return 1;
+    }
+
+    auto body_led_node = std::make_shared<chopper::nodes::BodyLedNode>(&ledWriteCallback);
+    if (!app.addNode(body_led_node)) {
+        ESP_LOGE(TAG, "Failed to add BodyLedNode");
         return 1;
     }
 

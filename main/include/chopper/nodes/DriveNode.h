@@ -34,16 +34,9 @@ public:
             createSubscription<messages::ControllerInput>("controller/drive", &DriveNode::onControllerInput, this);
 
         auto& ps = core::ParameterServer::getInstance();
-        ps.declare("drive.system", static_cast<int32_t>(config::drive_mode::ARCADE), static_cast<int32_t>(0),
-                   static_cast<int32_t>(3));
-        ps.declare("drive.deadband", 0.05f, 0.0f, 0.5f);
-        ps.declare("drive.max_speed", 0.75f, 0.0f, 1.0f);
-        ps.declare("drive.speed_boost", 0.25f, 0.0f, 1.0f);
-        float declared_slew = 0.0f;
-        if (!ps.get("ctrl.drive.slew_rate", declared_slew)) {
-            ps.declare("ctrl.drive.slew_rate", 3.0f, 0.1f, 20.0f);
-        }
 
+        // Params are declared in DefaultParameters.h (single source of truth).
+        // Just read current values and register for change notifications.
         refreshCachedParams();
         bool listeners_ok = true;
         listeners_ok &= ps.onChange("drive.system", &DriveNode::onParameterChanged, this);

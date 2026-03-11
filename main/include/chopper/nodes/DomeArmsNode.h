@@ -26,15 +26,9 @@ public:
             createSubscription<messages::ControllerInput>("controller/drive", &DomeArmsNode::onControllerInput, this);
 
         auto& ps = core::ParameterServer::getInstance();
-        ps.declare("servo.ddoor_r.min", static_cast<int32_t>(500), static_cast<int32_t>(500),
-                   static_cast<int32_t>(2500));
-        ps.declare("servo.ddoor_r.max", static_cast<int32_t>(2500), static_cast<int32_t>(500),
-                   static_cast<int32_t>(2500));
-        ps.declare("servo.ddoor_l.neutral", static_cast<int32_t>(1500), static_cast<int32_t>(500),
-                   static_cast<int32_t>(2500));
-        ps.declare("servo.ddoor_l.max", static_cast<int32_t>(2500), static_cast<int32_t>(500),
-                   static_cast<int32_t>(2500));
 
+        // Params are declared in DefaultParameters.h (single source of truth).
+        // Just read current values and register for change notifications.
         refreshCachedParams();
         bool listeners_ok = true;
         listeners_ok &= ps.onChange("servo.ddoor_r.min", &DomeArmsNode::onParameterChanged, this);

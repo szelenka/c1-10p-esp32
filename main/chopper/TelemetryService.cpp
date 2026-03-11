@@ -186,6 +186,19 @@ void TelemetryService::observeInput(InputRole role, const messages::ControllerIn
     st.misc_buttons = input.misc_buttons;
     st.report_count++;
 
+    // Compute exponential moving average of report interval
+    const uint64_t now_us = monotonicNowUs();
+    if (st.last_report_us > 0 && now_us > st.last_report_us) {
+        const auto interval = static_cast<uint32_t>(now_us - st.last_report_us);
+        if (st.avg_report_interval_us == 0) {
+            st.avg_report_interval_us = interval;
+        } else {
+            // EMA with alpha ~1/8: fast enough to track changes, smooth enough to read
+            st.avg_report_interval_us = st.avg_report_interval_us - (st.avg_report_interval_us >> 3) + (interval >> 3);
+        }
+    }
+    st.last_report_us = now_us;
+
     const auto button_edges = static_cast<uint16_t>(prev_buttons ^ st.buttons);
     if (button_edges != 0) {
         st.button_edge_mask = static_cast<uint16_t>(st.button_edge_mask | button_edges);
@@ -242,7 +255,9 @@ void TelemetryService::observeLedCommand(const messages::LEDCommand& cmd) {
     st.pattern_id = cmd.pattern_id;
     if (cmd.command_type == messages::LEDCommand::CommandType::TURN_OFF) {
         st.is_on = false;
-    } else if (cmd.command_type == messages::LEDCommand::CommandType::TURN_ON) {
+    } else if (cmd.command_type == messages::LEDCommand::CommandType::TURN_ON ||
+               cmd.command_type == messages::LEDCommand::CommandType::SET_BRIGHTNESS ||
+               cmd.command_type == messages::LEDCommand::CommandType::SET_COLOR) {
         st.is_on = true;
     }
 }
@@ -289,7 +304,7 @@ void TelemetryService::emitSerialCompact(const PublishFrame& frame) {
 
     const auto& drive = frame.input_states[static_cast<size_t>(InputRole::DRIVE)];
     const auto& dome = frame.input_states[static_cast<size_t>(InputRole::DOME)];
-    char line[512];
+    char line[768];
     if (config_.include_perf) {
         std::snprintf(line, sizeof(line),
                       "TEL:t=%llu lc=%llu loop_max=%llu loop_avg=%llu mode=%u estop=%u/%u "
@@ -324,6 +339,40 @@ void TelemetryService::emitSerialCompact(const PublishFrame& frame) {
                       static_cast<long>(dome.axis_x), static_cast<long>(dome.axis_y), static_cast<long>(dome.axis_rx),
                       static_cast<long>(dome.axis_ry));
     }
+
+    size_t pos = std::strlen(line);
+    size_t cap = sizeof(line);
+
+    // Append motor outputs: m0=0.1234 m1=...
+    for (size_t i = 0; i < limits::MAX_MOTORS && (cap - pos) > 16; ++i) {
+        const auto& st = frame.motor_states[i];
+        if (!st.valid) {
+            continue;
+        }
+        int n =
+            std::snprintf(line + pos, cap - pos, " m%u=%.4f", static_cast<unsigned>(i), static_cast<double>(st.value));
+        if (n > 0 && static_cast<size_t>(n) < (cap - pos)) {
+            pos += static_cast<size_t>(n);
+        }
+    }
+
+    // Append servo outputs with group prefix: sb0=1500.0 sd0=2500.0
+    // sa=any, sb=body, sd=dome
+    static constexpr const char* group_prefix[] = {"sa", "sb", "sd"};
+    for (size_t g = 0; g < static_cast<size_t>(ServoSourceGroup::COUNT); ++g) {
+        for (size_t i = 0; i < limits::MAX_MOTORS && (cap - pos) > 16; ++i) {
+            const auto& st = frame.servo_states[g][i];
+            if (!st.valid) {
+                continue;
+            }
+            int n = std::snprintf(line + pos, cap - pos, " %s%u=%.1f", group_prefix[g], static_cast<unsigned>(i),
+                                  static_cast<double>(st.value));
+            if (n > 0 && static_cast<size_t>(n) < (cap - pos)) {
+                pos += static_cast<size_t>(n);
+            }
+        }
+    }
+
     serial_sink_(line, serial_sink_context_);
 }
 
@@ -370,14 +419,15 @@ void TelemetryService::formatJsonFromFrame(const PublishFrame& frame, char* out_
         appendf(used,
                 "%s\"%s\":{\"valid\":%s,\"connected\":%s,\"battery\":%u,"
                 "\"dpad\":%u,\"axes\":[%ld,%ld,%ld,%ld],\"buttons\":%u,\"misc\":%u,"
-                "\"reports\":%u,\"changes\":%u,\"btn_edges\":%u,\"btn_edge_mask\":%u,\"last_change_us\":%llu}",
+                "\"reports\":%u,\"changes\":%u,\"btn_edges\":%u,\"btn_edge_mask\":%u,\"last_change_us\":%llu,"
+                "\"avg_interval_us\":%u}",
                 (i == 0) ? "" : ",", role_keys[i], st.valid ? "true" : "false", st.connected ? "true" : "false",
                 static_cast<unsigned>(st.battery), static_cast<unsigned>(st.dpad), static_cast<long>(st.axis_x),
                 static_cast<long>(st.axis_y), static_cast<long>(st.axis_rx), static_cast<long>(st.axis_ry),
                 static_cast<unsigned>(st.buttons), static_cast<unsigned>(st.misc_buttons),
                 static_cast<unsigned>(st.report_count), static_cast<unsigned>(st.change_count),
                 static_cast<unsigned>(st.button_edge_count), static_cast<unsigned>(st.button_edge_mask),
-                static_cast<unsigned long long>(st.last_change_us));
+                static_cast<unsigned long long>(st.last_change_us), static_cast<unsigned>(st.avg_report_interval_us));
     }
     appendf(used, "}");
 
