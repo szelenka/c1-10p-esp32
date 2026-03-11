@@ -96,6 +96,7 @@ public:
     bool intent_sound_b = false;
     bool intent_sound_random = false;
     bool intent_dome_random_toggle = false;
+    bool intent_face_tracking_toggle = false;  ///< One-shot: fires once after SL+SR held 2s
 };
 
 /**
@@ -240,6 +241,32 @@ public:
     Color color;               ///< RGB(W) color values
     uint8_t brightness = 255;  ///< Brightness (0-255)
     uint8_t pattern_id = 0;    ///< Pattern identifier for animations
+};
+
+/**
+ * @brief Tracking enable/disable command for OpenMV camera
+ */
+class TrackingCommand : public core::TypedMessage<TrackingCommand> {
+public:
+    TrackingCommand() = default;
+    explicit TrackingCommand(bool en) : enabled(en) {}
+
+    bool enabled = false;  ///< true = start sending vision results, false = stop
+};
+
+/**
+ * @brief Vision detection result from OpenMV camera
+ */
+class VisionResult : public core::TypedMessage<VisionResult> {
+public:
+    VisionResult() = default;
+
+    int16_t center_x = 0;    ///< Bounding box center X (pixels)
+    int16_t center_y = 0;    ///< Bounding box center Y (pixels)
+    uint16_t width = 0;      ///< Bounding box width (pixels)
+    uint16_t height = 0;     ///< Bounding box height (pixels)
+    uint8_t confidence = 0;  ///< Detection confidence (0-255)
+    bool detected = false;   ///< Whether a target was detected this frame
 };
 
 }  // namespace chopper::messages

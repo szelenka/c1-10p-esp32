@@ -204,6 +204,8 @@ inline void setDomeIntentsFromRaw(messages::ControllerInput& input, const DomeIn
     input.intent_sound_b = isControlPressed(input, map.sound_b);
     input.intent_sound_random = isControlPressed(input, map.sound_random);
     input.intent_dome_random_toggle = isControlPressed(input, map.dome_random_toggle);
+    // Note: intent_face_tracking_toggle is NOT set here — it requires
+    // stateful 2-second hold detection, handled by BluepadInputNode.
 }
 
 }  // namespace chopper::input

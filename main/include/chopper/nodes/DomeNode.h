@@ -18,10 +18,13 @@ namespace chopper::nodes {
  * Node that manages dome spin and publishes dome position data.
  *
  * Manual mode: joystick X-axis from the dome controller drives the motor.
+ * Tracking mode: proportional controller centers a detected face horizontally.
+ *   Hold SL+SR for 2 seconds on dome controller to toggle.
  * Auto mode (kRandom): after an idle timeout, picks random targets within
  * a configurable arc and moves toward them, with probabilistic direction
  * changes and return-to-home behavior (Roam-a-Dome style).
  *
+ * Priority: manual joystick > face tracking > random roam.
  * Double-click right thumb stick to toggle random mode on/off.
  */
 class DomeNode : public core::PublishingNode {
@@ -34,25 +37,35 @@ public:
      * @param inverted       Invert dome spin direction.
      */
     explicit DomeNode(dome::DomePosition* dome_position = nullptr, float max_speed = 0.5f, float slew_rate = 1.0f,
-                      uint8_t motor_id = 0, bool inverted = false)
+                      uint8_t motor_id = 0, bool inverted = false, uint16_t frame_width = 320)
         : PublishingNode("dome")
         , dome_position_(dome_position)
         , max_speed_(max_speed)
         , motor_id_(motor_id)
         , inverted_(inverted)
+        , frame_width_(frame_width)
         , slew_(slew_rate) {}
 
     bool initialize() override {
         motor_pub_ = createPublisher<messages::MotorCommand>("dome/motor/cmd");
         sensor_pub_ = createPublisher<messages::SensorData>("dome/position");
+        tracking_cmd_pub_ = createPublisher<messages::TrackingCommand>("openmv/tracking/cmd");
         input_sub_ =
             createSubscription<messages::ControllerInput>("controller/dome", &DomeNode::onControllerInput, this);
+        vision_sub_ = createSubscription<messages::VisionResult>("vision/result", &DomeNode::onVisionResult, this);
 
         auto& ps = core::ParameterServer::getInstance();
         ps.declare("dome.max_speed", max_speed_, 0.0f, 1.0f);
         ps.declare("dome.deadband", 0.05f, 0.0f, 0.5f);
         ps.declare("dome.motor_inverted", inverted_);
         ps.declare("dome.spin_slew_rate", 2.0f, 0.1f, 20.0f);
+        ps.declare("tracking.kp", 0.5f, 0.0f, 5.0f);
+        ps.declare("tracking.max_speed", 0.4f, 0.0f, 1.0f);
+        ps.declare("tracking.deadband", 0.05f, 0.0f, 0.5f);
+        ps.declare("tracking.min_confidence", static_cast<int32_t>(50), static_cast<int32_t>(0),
+                   static_cast<int32_t>(255));
+        ps.declare("tracking.frame_width", static_cast<int32_t>(frame_width_), static_cast<int32_t>(1),
+                   static_cast<int32_t>(1920));
 
         refreshCachedParams();
         bool listeners_ok = true;
@@ -60,8 +73,14 @@ public:
         listeners_ok &= ps.onChange("dome.deadband", &DomeNode::onParameterChanged, this);
         listeners_ok &= ps.onChange("dome.motor_inverted", &DomeNode::onParameterChanged, this);
         listeners_ok &= ps.onChange("dome.spin_slew_rate", &DomeNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("tracking.kp", &DomeNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("tracking.max_speed", &DomeNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("tracking.deadband", &DomeNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("tracking.min_confidence", &DomeNode::onParameterChanged, this);
+        listeners_ok &= ps.onChange("tracking.frame_width", &DomeNode::onParameterChanged, this);
 
-        return motor_pub_ != nullptr && sensor_pub_ != nullptr && input_sub_ != nullptr && listeners_ok;
+        return motor_pub_ != nullptr && sensor_pub_ != nullptr && tracking_cmd_pub_ != nullptr &&
+               input_sub_ != nullptr && vision_sub_ != nullptr && listeners_ok;
     }
 
     void process(uint64_t now) override {
@@ -117,8 +136,11 @@ public:
 
     [[nodiscard]] dome::DomePosition* getDomePosition() const { return dome_position_; }
     [[nodiscard]] bool isRandomModeEnabled() const { return random_mode_enabled_; }
+    [[nodiscard]] bool isTrackingEnabled() const { return tracking_enabled_; }
     [[nodiscard]] bool isIdle() const { return idle_; }
     [[nodiscard]] bool hasDomeMovedManually() const { return dome_has_moved_manually_; }
+    [[nodiscard]] float getTrackingError() const { return tracking_last_error_; }
+    [[nodiscard]] float getTrackingSpeed() const { return tracking_last_speed_; }
 
     /// Allow tests to inject time
     void setTime(uint64_t ms) { last_time_ms_ = ms; }
@@ -136,6 +158,9 @@ private:
 
         auto now_ms = static_cast<uint64_t>(esp_timer_get_time() / 1000ULL);
         last_time_ms_ = now_ms;
+
+        // Face tracking toggle: one-shot from BluepadInputNode after 2s hold
+        handleTrackingToggle(input);
 
         // Random mode toggle: double-click right thumb stick
         handleRandomToggle(input, now_ms);
@@ -196,6 +221,46 @@ private:
             last_thumb_r_time_ = now_ms;
         }
         last_thumb_r_ = pressed;
+    }
+
+    // ── Face tracking ────────────────────────────────────────────────────
+
+    void handleTrackingToggle(const messages::ControllerInput& input) {
+        const bool toggle = input.has_intents ? input.intent_face_tracking_toggle : false;
+        if (toggle && !last_tracking_toggle_) {
+            tracking_enabled_ = !tracking_enabled_;
+            // Notify OpenMV to start/stop sending vision results
+            if (tracking_cmd_pub_) {
+                messages::TrackingCommand cmd(tracking_enabled_);
+                tracking_cmd_pub_->publish(cmd);
+            }
+        }
+        last_tracking_toggle_ = toggle;
+    }
+
+    void onVisionResult(const messages::VisionResult& vision) {
+        if (!tracking_enabled_ || !motor_pub_) {
+            return;
+        }
+
+        float speed = 0.0f;
+
+        if (vision.detected && vision.confidence >= tracking_min_confidence_) {
+            float half_width = static_cast<float>(frame_width_) * 0.5f;
+            float error = static_cast<float>(vision.center_x) / half_width;
+            error = std::clamp(error, -1.0f, 1.0f);
+
+            if (std::fabs(error) > tracking_deadband_) {
+                speed = tracking_kp_ * error;
+                speed = std::clamp(speed, -tracking_max_speed_, tracking_max_speed_);
+            }
+            tracking_last_error_ = error;
+        } else {
+            tracking_last_error_ = 0.0f;
+        }
+
+        tracking_last_speed_ = speed;
+        publishMotorSpeed(speed);
     }
 
     // ── Auto-dome logic (runs in process()) ─────────────────────────────
@@ -417,6 +482,16 @@ private:
         (void)ps.get("dome.deadband", deadband_);
         (void)ps.get("dome.motor_inverted", inverted_);
         (void)ps.get("dome.spin_slew_rate", spin_slew_rate_);
+        (void)ps.get("tracking.kp", tracking_kp_);
+        (void)ps.get("tracking.max_speed", tracking_max_speed_);
+        (void)ps.get("tracking.deadband", tracking_deadband_);
+        int32_t conf = 50;
+        (void)ps.get("tracking.min_confidence", conf);
+        tracking_min_confidence_ =
+            static_cast<uint8_t>(std::clamp(conf, static_cast<int32_t>(0), static_cast<int32_t>(255)));
+        int32_t fw = static_cast<int32_t>(frame_width_);
+        (void)ps.get("tracking.frame_width", fw);
+        frame_width_ = static_cast<uint16_t>(std::max(fw, static_cast<int32_t>(1)));
 
         // Sync home position from parameter to DomePosition
         int32_t home_pos = 0;
@@ -432,13 +507,16 @@ private:
     float deadband_ = 0.05f;
     uint8_t motor_id_;
     bool inverted_;
+    uint16_t frame_width_;
     float spin_slew_rate_ = 2.0f;
     float slew_rate_current_ = 1.0f;
     math::SlewRateLimiter slew_;
 
     core::TypedPublisherPtr<messages::MotorCommand> motor_pub_;
     core::TypedPublisherPtr<messages::SensorData> sensor_pub_;
+    core::TypedPublisherPtr<messages::TrackingCommand> tracking_cmd_pub_;
     core::TypedSubscriptionPtr<messages::ControllerInput> input_sub_;
+    core::TypedSubscriptionPtr<messages::VisionResult> vision_sub_;
 
     // Auto-dome state
     uint64_t last_time_ms_ = 0;
@@ -458,6 +536,16 @@ private:
     // Double-click detection for random toggle
     bool last_thumb_r_ = false;
     uint64_t last_thumb_r_time_ = 0;
+
+    // Face tracking state
+    bool tracking_enabled_ = false;
+    bool last_tracking_toggle_ = false;
+    float tracking_kp_ = 0.5f;
+    float tracking_max_speed_ = 0.4f;
+    float tracking_deadband_ = 0.05f;
+    uint8_t tracking_min_confidence_ = 50;
+    float tracking_last_error_ = 0.0f;
+    float tracking_last_speed_ = 0.0f;
 };
 
 }  // namespace chopper::nodes

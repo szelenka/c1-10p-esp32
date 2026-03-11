@@ -34,6 +34,7 @@
 #include "chopper/config/HardwareConfig.h"
 
 // Nodes under test
+#include "chopper/nodes/DomeNode.h"
 #include "chopper/nodes/DriveNode.h"
 #include "chopper/nodes/PeriscopeNode.h"
 #include "chopper/nodes/DomeArmsNode.h"
@@ -1077,6 +1078,191 @@ void test_sound_a_via_intent() {
 }
 
 // ============================================================
+// DomeNode face tracking tests
+// ============================================================
+
+void test_dome_tracking_toggle_via_intent() {
+    TEST(dome_tracking_toggle_via_intent);
+    resetFramework();
+
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    ASSERT(node->initialize());
+    ASSERT(!node->isTrackingEnabled());
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/dome");
+
+    // Send toggle intent
+    chopper::messages::ControllerInput input;
+    input.has_intents = true;
+    input.intent_face_tracking_toggle = true;
+    pub->publish(input);
+
+    ASSERT(node->isTrackingEnabled());
+
+    // Send toggle again to disable
+    input.intent_face_tracking_toggle = false;
+    pub->publish(input);
+    // Not toggled — still enabled (need rising edge)
+    ASSERT(node->isTrackingEnabled());
+
+    // Release then press again
+    input.intent_face_tracking_toggle = true;
+    pub->publish(input);
+    ASSERT(!node->isTrackingEnabled());
+    PASS();
+}
+
+void test_dome_tracking_face_right_rotates() {
+    TEST(dome_tracking_face_right_rotates);
+    resetFramework();
+
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    ASSERT(node->initialize());
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto ctrl_pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/dome");
+    auto vision_pub = broker.createPublisher<chopper::messages::VisionResult>("vision/result");
+
+    float last_speed = 0.0f;
+    int motor_count = 0;
+    struct Ctx {
+        float* speed;
+        int* count;
+    };
+    Ctx ctx{&last_speed, &motor_count};
+    auto motor_sub = broker.createSubscription<chopper::messages::MotorCommand>(
+        "dome/motor/cmd",
+        [](const chopper::messages::MotorCommand& cmd, void* c) {
+            auto* x = static_cast<Ctx*>(c);
+            (*x->count)++;
+            *x->speed = cmd.value;
+        },
+        &ctx);
+
+    // Enable tracking
+    chopper::messages::ControllerInput input;
+    input.has_intents = true;
+    input.intent_face_tracking_toggle = true;
+    ctrl_pub->publish(input);
+    ASSERT(node->isTrackingEnabled());
+
+    // Publish face detected to the right
+    chopper::messages::VisionResult v;
+    v.detected = true;
+    v.center_x = 80;  // error = 80/160 = 0.5
+    v.confidence = 200;
+    vision_pub->publish(v);
+
+    // kp=0.5, error=0.5 → speed = 0.25
+    ASSERT(node->getTrackingSpeed() > 0.0f);
+    ASSERT_NEAR(node->getTrackingSpeed(), 0.25f, 0.01f);
+    PASS();
+}
+
+void test_dome_tracking_no_face_zero_speed() {
+    TEST(dome_tracking_no_face_zero_speed);
+    resetFramework();
+
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    ASSERT(node->initialize());
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto ctrl_pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/dome");
+    auto vision_pub = broker.createPublisher<chopper::messages::VisionResult>("vision/result");
+
+    // Enable tracking
+    chopper::messages::ControllerInput input;
+    input.has_intents = true;
+    input.intent_face_tracking_toggle = true;
+    ctrl_pub->publish(input);
+
+    // No face detected
+    chopper::messages::VisionResult v;
+    v.detected = false;
+    v.center_x = 100;
+    v.confidence = 200;
+    vision_pub->publish(v);
+
+    ASSERT_NEAR(node->getTrackingSpeed(), 0.0f, 0.001f);
+    PASS();
+}
+
+void test_dome_tracking_disabled_ignores_vision() {
+    TEST(dome_tracking_disabled_ignores_vision);
+    resetFramework();
+
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    ASSERT(node->initialize());
+    ASSERT(!node->isTrackingEnabled());
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto vision_pub = broker.createPublisher<chopper::messages::VisionResult>("vision/result");
+
+    int motor_count = 0;
+    auto motor_sub = broker.createSubscription<chopper::messages::MotorCommand>(
+        "dome/motor/cmd",
+        [](const chopper::messages::MotorCommand&, void* c) { (*static_cast<int*>(c))++; },
+        &motor_count);
+
+    chopper::messages::VisionResult v;
+    v.detected = true;
+    v.center_x = 80;
+    v.confidence = 200;
+    vision_pub->publish(v);
+
+    // Tracking disabled — no motor command from vision
+    ASSERT(motor_count == 0);
+    PASS();
+}
+
+void test_dome_tracking_toggle_publishes_tracking_cmd() {
+    TEST(dome_tracking_toggle_publishes_tracking_cmd);
+    resetFramework();
+
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    ASSERT(node->initialize());
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto ctrl_pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/dome");
+
+    bool last_enabled = false;
+    int tracking_count = 0;
+    struct Ctx {
+        bool* enabled;
+        int* count;
+    };
+    Ctx ctx{&last_enabled, &tracking_count};
+    auto tracking_sub = broker.createSubscription<chopper::messages::TrackingCommand>(
+        "openmv/tracking/cmd",
+        [](const chopper::messages::TrackingCommand& cmd, void* c) {
+            auto* x = static_cast<Ctx*>(c);
+            (*x->count)++;
+            *x->enabled = cmd.enabled;
+        },
+        &ctx);
+
+    // Enable
+    chopper::messages::ControllerInput input;
+    input.has_intents = true;
+    input.intent_face_tracking_toggle = true;
+    ctrl_pub->publish(input);
+
+    ASSERT(tracking_count == 1);
+    ASSERT(last_enabled == true);
+
+    // Disable
+    input.intent_face_tracking_toggle = false;
+    ctrl_pub->publish(input);
+    input.intent_face_tracking_toggle = true;
+    ctrl_pub->publish(input);
+
+    ASSERT(tracking_count == 2);
+    ASSERT(last_enabled == false);
+    PASS();
+}
+
+// ============================================================
 // Main
 // ============================================================
 
@@ -1125,6 +1311,13 @@ int main() {
     test_body_utility_intent_extends();
     test_drive_node_carpet_mode_via_intent();
     test_sound_a_via_intent();
+
+    // DomeNode face tracking
+    test_dome_tracking_toggle_via_intent();
+    test_dome_tracking_face_right_rotates();
+    test_dome_tracking_no_face_zero_speed();
+    test_dome_tracking_disabled_ignores_vision();
+    test_dome_tracking_toggle_publishes_tracking_cmd();
 
     printf("\n=== Results: %d/%d passed ===\n", pass_count, test_count);
     return (pass_count == test_count) ? 0 : 1;

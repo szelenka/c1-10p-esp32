@@ -201,6 +201,7 @@ DEPS_test_telemetry            := $(TELEMETRY_SRC)
 DEPS_test_button_nodes         := $(CORE_SRCS) $(PARAM_SRC)
 DEPS_test_sabertooth           :=
 DEPS_test_mp3trigger           :=
+DEPS_test_openmv_bridge        := $(CORE_SRCS)
 DEPS_test_control_mapping      :=
 DEPS_test_packet_to_action     := $(CORE_SRCS) $(PARAM_SRC)
 

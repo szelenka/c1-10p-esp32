@@ -212,6 +212,7 @@ private:
             input::setDriveIntentsFromRaw(mapped, drive_intent_map_);
         } else if (role == bluetooth::ControllerRole::DOME) {
             input::setDomeIntentsFromRaw(mapped, dome_intent_map_);
+            detectFaceTrackingHold(mapped);
         }
         switch (role) {
             case bluetooth::ControllerRole::DRIVE:
@@ -235,6 +236,29 @@ private:
         }
     }
 
+    /// Detect SL+SR (L1+R1) held for 2 seconds on the dome controller.
+    /// Sets intent_face_tracking_toggle = true for one publish cycle
+    /// when the hold threshold is reached, then suppresses until released.
+    void detectFaceTrackingHold(messages::ControllerInput& input) {
+        const bool both_held = input.button_l1 && input.button_r1;
+        const auto now_ms = static_cast<uint64_t>(esp_timer_get_time() / 1000ULL);
+
+        if (both_held) {
+            if (tracking_hold_start_ms_ == 0) {
+                tracking_hold_start_ms_ = now_ms;
+            }
+            if (!tracking_hold_fired_ && (now_ms - tracking_hold_start_ms_) >= kTrackingHoldMs) {
+                input.intent_face_tracking_toggle = true;
+                tracking_hold_fired_ = true;
+            }
+        } else {
+            tracking_hold_start_ms_ = 0;
+            tracking_hold_fired_ = false;
+        }
+    }
+
+    static constexpr uint64_t kTrackingHoldMs = 2000;
+
     bluetooth::ControllerManager* controller_manager_;
     bool trace_input_;
     double hz_;
@@ -254,6 +278,10 @@ private:
     uint64_t last_report_seen_us_[CHOPPER_BT_MAX_DEVICES];
     messages::ControllerInput last_input_cache_[CHOPPER_BT_MAX_DEVICES];
     bool have_last_input_[CHOPPER_BT_MAX_DEVICES];
+
+    // Face tracking SL+SR hold state
+    uint64_t tracking_hold_start_ms_ = 0;
+    bool tracking_hold_fired_ = false;
 };
 
 }  // namespace nodes

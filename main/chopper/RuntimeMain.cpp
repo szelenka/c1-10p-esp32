@@ -7,6 +7,7 @@
 #include "chopper/nodes/DomeArmsNode.h"
 #include "chopper/nodes/DriveNode.h"
 #include "chopper/nodes/DriverUpdateNode.h"
+#include "chopper/nodes/OpenMvBridgeNode.h"
 #include "chopper/nodes/PeriscopeNode.h"
 #include "chopper/nodes/SoundNode.h"
 #include "chopper/hal/DriverManager.h"
@@ -267,7 +268,7 @@ extern "C" int chopper_runtime_start(void) {
 
     // DOME controller drives a single dome motor on its own command topic.
     // Use motor_id=2 so it remains distinct from DRIVE motor IDs 0/1.
-    auto dome_node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 2.0f, 2, false);
+    auto dome_node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 2.0f, 2, false, 320);
     if (!app.addNode(dome_node)) {
         ESP_LOGE(TAG, "Failed to add DomeNode");
         return 1;
@@ -294,6 +295,12 @@ extern "C" int chopper_runtime_start(void) {
     auto periscope_node = std::make_shared<chopper::nodes::PeriscopeNode>();
     if (!app.addNode(periscope_node)) {
         ESP_LOGE(TAG, "Failed to add PeriscopeNode");
+        return 1;
+    }
+
+    auto openmv_node = std::make_shared<chopper::nodes::OpenMvBridgeNode>(&openmv_serial);
+    if (!app.addNode(openmv_node)) {
+        ESP_LOGE(TAG, "Failed to add OpenMvBridgeNode");
         return 1;
     }
 
