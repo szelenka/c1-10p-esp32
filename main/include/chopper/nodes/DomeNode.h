@@ -65,6 +65,7 @@ public:
         ps.declare("dome.deadband", 0.05f, 0.0f, 0.5f);
         ps.declare("dome.motor_inverted", inverted_);
         ps.declare("dome.spin_slew_rate", 2.0f, 0.1f, 20.0f);
+        ps.declare("dome.auto_safety", false);
         ps.declare("tracking.kp", 0.5f, 0.0f, 5.0f);
         ps.declare("tracking.max_speed", 0.4f, 0.0f, 1.0f);
         ps.declare("tracking.deadband", 0.05f, 0.0f, 0.5f);
@@ -90,6 +91,31 @@ public:
     }
 
     void process(uint64_t now) override {
+        uint64_t now_ms = now / 1000ULL;
+
+        // Dead-reckoning fallback: estimate dome angle from motor speed
+        // when no encoder is feeding position updates.
+        // If the position changed since our last tick, an encoder is active
+        // — skip dead-reckoning and let the real sensor drive position.
+        if (dome_position_ != nullptr && dome_position_->ready() && last_process_ms_ > 0) {
+            unsigned cur_pos = dome_position_->getDomePosition();
+            bool encoder_updated = (cur_pos != last_known_pos_);
+            if (encoder_updated) {
+                last_known_pos_ = cur_pos;
+            } else {
+                uint64_t dt_ms = now_ms - last_process_ms_;
+                if (dt_ms > 0 && std::fabs(last_published_speed_) > 0.001f) {
+                    constexpr float kDegreesPerSecAtFull = 72.0f;
+                    float degrees = last_published_speed_ * kDegreesPerSecAtFull * static_cast<float>(dt_ms) / 1000.0f;
+                    long cur = static_cast<long>(cur_pos);
+                    unsigned next = dome::DomePosition::normalize(cur + static_cast<long>(degrees));
+                    dome_position_->update(next, now_ms);
+                    last_known_pos_ = next;
+                }
+            }
+        }
+        last_process_ms_ = now_ms;
+
         // Publish dome position if available
         if ((dome_position_ != nullptr) && dome_position_->ready()) {
             messages::SensorData sd;
@@ -100,8 +126,12 @@ public:
             sensor_pub_->publish(sd);
         }
 
-        // Run auto-dome logic when idle
-        processAutoDome(now);
+        // Update auto-dome request (sets auto_speed_)
+        auto_speed_ = 0.0f;
+        processAutoDome(now_ms);
+
+        // Resolve priority: manual > tracking > auto — single publish per tick
+        resolveAndPublish();
     }
 
     void emergencyStop() override {
@@ -127,6 +157,7 @@ public:
         drive_rotate_left_ = rotate_left;
         dome_rotate_right_ = rotate_right;
         updateDomeSpin();
+        resolveAndPublish();
     }
 
     [[nodiscard]] dome::DomePosition* getDomePosition() const { return dome_position_; }
@@ -191,7 +222,7 @@ private:
             slew_rate_current_ = spin_slew_rate_;
             slew_.Reset(slew_rate_current_, -slew_rate_current_, slew_.LastValue());
         }
-        float speed = slew_.Calculate(target, now_ms);
+        manual_speed_ = slew_.Calculate(target, now_ms);
 
         bool has_manual_input = std::fabs(target) > 0.001f;
         if (has_manual_input) {
@@ -205,13 +236,6 @@ private:
                 }
             }
         }
-
-        // Always publish so telemetry reflects dome motor state
-        messages::MotorCommand cmd;
-        cmd.motor_id = motor_id_;
-        cmd.command_type = messages::MotorCommand::CommandType::SET_SPEED;
-        cmd.value = speed;
-        motor_pub_->publish(cmd);
     }
 
     void handleRandomToggle(const messages::ControllerInput& input, uint64_t now_ms) {
@@ -294,7 +318,7 @@ private:
         }
 
         tracking_last_speed_ = speed;
-        publishMotorSpeed(speed);
+        tracking_speed_ = speed;
     }
 
     // ── Auto-dome logic (runs in process()) ─────────────────────────────
@@ -373,9 +397,11 @@ private:
 
         // Moving toward target
         if (auto_target_valid_) {
-            // Watchdog: if dome hasn't moved, error out
+            // Watchdog: if dome position hasn't changed, treat as "arrived"
+            // and schedule the next move.  Without an encoder the position
+            // never updates, so this is the normal completion path.
             if (auto_movement_started_ && dome_position_->isTimeout(now)) {
-                dome_position_->setDomeMode(dome::DomePosition::kOff, now);
+                next_auto_move_ms_ = now + domeRandom(min_delay_ms, max_delay_ms);
                 auto_target_valid_ = false;
                 auto_movement_started_ = false;
                 return;
@@ -388,7 +414,7 @@ private:
                 auto_target_valid_ = false;
                 auto_movement_started_ = false;
             } else {
-                publishMotorSpeed(motor_out);
+                auto_speed_ = motor_out;
             }
         }
     }
@@ -444,7 +470,7 @@ private:
             // At home — revert to default mode
             dome_position_->resetDefaultMode(now);
         } else {
-            publishMotorSpeed(motor_out);
+            auto_speed_ = motor_out;
         }
     }
 
@@ -475,10 +501,25 @@ private:
         return false;
     }
 
+    /// Priority resolution: manual > tracking > auto.
+    /// Called once per process() tick — the only path that publishes motor commands.
+    void resolveAndPublish() {
+        float speed = 0.0f;
+        if (std::fabs(manual_speed_) > 0.001f) {
+            speed = manual_speed_;
+        } else if (tracking_enabled_ && std::fabs(tracking_speed_) > 0.001f) {
+            speed = tracking_speed_;
+        } else {
+            speed = auto_speed_;
+        }
+        publishMotorSpeed(speed);
+    }
+
     void publishMotorSpeed(float speed) {
         if (!motor_pub_) {
             return;
         }
+        last_published_speed_ = speed;
         messages::MotorCommand cmd;
         cmd.motor_id = motor_id_;
         cmd.command_type = messages::MotorCommand::CommandType::SET_SPEED;
@@ -551,6 +592,17 @@ private:
     core::TypedSubscriptionPtr<messages::ControllerInput> dome_input_sub_;
     core::TypedSubscriptionPtr<messages::ControllerInput> drive_input_sub_;
     core::TypedSubscriptionPtr<messages::VisionResult> vision_sub_;
+
+    // Priority-resolved motor speed requests (written by each source,
+    // resolved once per tick in resolveAndPublish)
+    float manual_speed_ = 0.0f;
+    float tracking_speed_ = 0.0f;
+    float auto_speed_ = 0.0f;
+
+    // Dead-reckoning state
+    uint64_t last_process_ms_ = 0;
+    float last_published_speed_ = 0.0f;
+    unsigned last_known_pos_ = 0;
 
     // Auto-dome state
     uint64_t last_time_ms_ = 0;

@@ -3,6 +3,7 @@
 #include "chopper/bluetooth/RoleManager.h"
 #include "chopper/nodes/BodyUtilityNode.h"
 #include "chopper/nodes/BluepadInputNode.h"
+#include "chopper/dome/DomePosition.h"
 #include "chopper/nodes/DomeNode.h"
 #include "chopper/nodes/DomeArmsNode.h"
 #include "chopper/nodes/DriveNode.h"
@@ -266,9 +267,15 @@ extern "C" int chopper_runtime_start(void) {
         return 1;
     }
 
+    // Dome position tracker — seeded at home (0°) so auto-dome can run
+    // even without a physical encoder.  If an encoder is wired later,
+    // feed it via dome_position.update(angle, now_ms).
+    static chopper::dome::DomePosition dome_position;
+    dome_position.update(0, 0);
+
     // DOME controller drives a single dome motor on its own command topic.
     // Use motor_id=2 so it remains distinct from DRIVE motor IDs 0/1.
-    auto dome_node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 2.0f, 2, false, 320);
+    auto dome_node = std::make_shared<chopper::nodes::DomeNode>(&dome_position, 0.5f, 2.0f, 2, false, 320);
     if (!app.addNode(dome_node)) {
         ESP_LOGE(TAG, "Failed to add DomeNode");
         return 1;
