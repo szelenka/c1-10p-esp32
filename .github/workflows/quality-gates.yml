@@ -5,17 +5,39 @@ on:
   pull_request:
 
 jobs:
-  static-analysis:
+  repo-health:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install cppcheck
-        run: sudo apt-get update && sudo apt-get install -y cppcheck
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install quality gate dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cppcheck clang-tidy clang-format
+          python -m pip install pyyaml
+
+      - name: Run single-agent readiness gate
+        run: make agent-gate-fast
 
       - name: Run static analysis
-        run: make analysis-cppcheck
+        run: make analyze-cppcheck
+
+      - name: Run clang-tidy
+        run: make lint-tidy
+
+      - name: Check formatting
+        run: make check-format
 
   traceability:
     runs-on: ubuntu-latest
@@ -24,4 +46,4 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Check traceability matrix
-        run: make traceability-check
+        run: make check-traceability

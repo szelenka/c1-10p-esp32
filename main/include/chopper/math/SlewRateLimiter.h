@@ -3,8 +3,7 @@
 #include <algorithm>
 #include <cstdint>
 
-namespace chopper {
-namespace math {
+namespace chopper::math {
 
 /**
  * Limits the rate of change of an input value.
@@ -22,21 +21,17 @@ public:
      * @param negativeRateLimit  Rate limit in negative direction (units/sec, negative).
      * @param initialValue       Starting value.
      */
-    SlewRateLimiter(float positiveRateLimit, float negativeRateLimit,
-                    float initialValue = 0.0f)
+    SlewRateLimiter(float positiveRateLimit, float negativeRateLimit, float initialValue = 0.0f)
         : m_positiveRateLimit(positiveRateLimit)
         , m_negativeRateLimit(negativeRateLimit)
         , m_prevVal(initialValue)
         , m_prevTime(0)
-        , m_seeded(false)
-    {}
+        , m_seeded(false) {}
 
     /**
      * Symmetric rate limit (positive = rateLimit, negative = -rateLimit).
      */
-    explicit SlewRateLimiter(float rateLimit)
-        : SlewRateLimiter(rateLimit, -rateLimit)
-    {}
+    explicit SlewRateLimiter(float rateLimit) : SlewRateLimiter(rateLimit, -rateLimit) {}
 
     /**
      * Filter the input.  Caller provides current time in milliseconds.
@@ -50,18 +45,15 @@ public:
             return m_prevVal;
         }
         float elapsed = static_cast<float>(now_ms - m_prevTime);
-        m_prevVal += std::clamp(
-            input - m_prevVal,
-            m_negativeRateLimit * elapsed / 1000.0f,
-            m_positiveRateLimit * elapsed / 1000.0f);
+        m_prevVal += std::clamp(input - m_prevVal, m_negativeRateLimit * elapsed / 1000.0f,
+                                m_positiveRateLimit * elapsed / 1000.0f);
         m_prevTime = now_ms;
         return m_prevVal;
     }
 
-    float LastValue() const { return m_prevVal; }
+    [[nodiscard]] float LastValue() const { return m_prevVal; }
 
-    void Reset(float positiveRateLimit, float negativeRateLimit,
-               float initialValue = 0.0f) {
+    void Reset(float positiveRateLimit, float negativeRateLimit, float initialValue = 0.0f) {
         m_positiveRateLimit = positiveRateLimit;
         m_negativeRateLimit = negativeRateLimit;
         m_prevVal = initialValue;
@@ -83,5 +75,4 @@ private:
     bool m_seeded;
 };
 
-} // namespace math
-} // namespace chopper
+}  // namespace chopper::math

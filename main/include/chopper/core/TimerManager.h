@@ -4,21 +4,20 @@
 #include <cstddef>
 #include "chopper/chopper_limits.h"
 
-namespace chopper {
-namespace core {
+namespace chopper::core {
 
 /// Callback type for timer expiry.
-using TimerCallback = void(*)(void* context);
+using TimerCallback = void (*)(void* context);
 
 /// A single timer entry in the fixed-size array.
 struct TimerEntry {
-    uint32_t      id;
-    uint32_t      period_us;
-    uint64_t      next_fire_us;
+    uint32_t id;
+    uint32_t period_us;
+    uint64_t next_fire_us;
     TimerCallback callback;
-    void*         context;
-    bool          one_shot;
-    bool          active;
+    void* context;
+    bool one_shot;
+    bool active;
 };
 
 /**
@@ -39,8 +38,7 @@ public:
      * @param one_shot  If true, the timer fires once then deactivates.
      * @return Timer ID (>0 on success, 0 on failure / array full).
      */
-    uint32_t createTimer(uint32_t period_us, TimerCallback callback,
-                         void* context, bool one_shot = false);
+    uint32_t createTimer(uint32_t period_us, TimerCallback callback, void* context, bool one_shot = false);
 
     /**
      * @brief Cancel a timer by ID. The slot is marked inactive and may be reused.
@@ -61,17 +59,17 @@ public:
     void tick(uint64_t now_us);
 
     /// Number of currently active timers.
-    size_t activeCount() const;
+    [[nodiscard]] size_t activeCount() const;
 
 private:
     TimerManager();
 
-    TimerEntry timers_[limits::MAX_TIMERS];
-    uint32_t   next_id_;
+    TimerEntry timers_[limits::MAX_TIMERS]{};
+    uint32_t next_id_ = 1;
 
+public:
     TimerManager(const TimerManager&) = delete;
     TimerManager& operator=(const TimerManager&) = delete;
 };
 
-} // namespace core
-} // namespace chopper
+}  // namespace chopper::core

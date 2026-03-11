@@ -24,8 +24,7 @@
 #include "freertos/task.h"
 #endif
 
-namespace chopper {
-namespace telemetry {
+namespace chopper::telemetry {
 
 class TelemetryService {
 public:
@@ -78,7 +77,7 @@ public:
         uint8_t degradation_mode = 0;
     };
 
-    using SerialSink = void(*)(const char* line, void* context);
+    using SerialSink = void (*)(const char* line, void* context);
 
     TelemetryService();
 
@@ -88,14 +87,13 @@ public:
     void update(const Snapshot& snapshot);
     void observeInput(InputRole role, const messages::ControllerInput& input);
     void observeMotorCommand(const messages::MotorCommand& cmd);
-    void observeServoCommand(const messages::ServoCommand& cmd,
-                             ServoSourceGroup group = ServoSourceGroup::ANY);
+    void observeServoCommand(const messages::ServoCommand& cmd, ServoSourceGroup group = ServoSourceGroup::ANY);
     void observeLedCommand(const messages::LEDCommand& cmd);
     void observeAudioCommand(const messages::AudioCommand& cmd);
     void observeSystemStatus(const messages::SystemStatus& status);
 
-    const char* getLastJson() const { return last_json_; }
-    bool isRunning() const { return running_; }
+    [[nodiscard]] const char* getLastJson() const { return last_json_; }
+    [[nodiscard]] bool isRunning() const { return running_; }
 
     void setSerialSink(SerialSink sink, void* context);
 
@@ -174,7 +172,7 @@ private:
 
     void emitSerial(const char* json);
     void emitSerialCompact(const PublishFrame& frame);
-    void formatJsonFromFrame(const PublishFrame& frame, char* out_json, size_t out_len);
+    void formatJsonFromFrame(const PublishFrame& frame, char* out_json, size_t out_len) const;
     void snapshotToFrame(PublishFrame& out);
     void publishFrame(const PublishFrame& frame);
 
@@ -210,18 +208,17 @@ private:
     StatusState status_state_;
     PublishFrame async_pending_frame_;
     PublishFrame publish_frame_;
-    char last_json_[kMaxJsonLen];
-    char json_work_[kMaxJsonLen];
-    char serial_line_[kMaxJsonLen + 8];
-    char ws_line_[kMaxJsonLen];
+    char last_json_[kMaxJsonLen]{};
+    char json_work_[kMaxJsonLen]{};
+    char serial_line_[kMaxJsonLen + 8]{};
+    char ws_line_[kMaxJsonLen]{};
     std::mutex state_mutex_;
     std::mutex json_mutex_;
-    uint64_t last_publish_us_;
-    bool running_;
+    uint64_t last_publish_us_ = 0;
+    bool running_ = false;
 
     SerialSink serial_sink_;
-    void* serial_sink_context_;
+    void* serial_sink_context_ = nullptr;
 };
 
-} // namespace telemetry
-} // namespace chopper
+}  // namespace chopper::telemetry

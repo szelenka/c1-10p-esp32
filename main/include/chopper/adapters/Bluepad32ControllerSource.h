@@ -4,8 +4,7 @@
 #include "chopper/core/ControllerDecorator.h"
 #include <memory>
 
-namespace chopper {
-namespace adapters {
+namespace chopper::adapters {
 
 /**
  * @brief Bluepad32 implementation of IControllerSource
@@ -65,7 +64,7 @@ private:
      * @brief Safe conversion using public ControllerDecorator interface
      * @param output Output ControllerInput message
      */
-    void convertControllerDataSafe(messages::ControllerInput& output);
+    void convertControllerDataSafe(messages::ControllerInput& output) const;
 
     /**
      * @brief Get controller capabilities based on Bluepad32 features
@@ -73,12 +72,11 @@ private:
      */
     uint32_t determineCapabilities() const;
 
-    std::shared_ptr<ControllerDecorator> controller_;
+    std::shared_ptr<ControllerDecorator> controller_{};
     bool initialized_;
     mutable ConnectionState cached_state_;
     mutable uint64_t last_state_check_time_;
-    static constexpr uint64_t STATE_CACHE_TIME_US = 10000; // 10ms cache
+    static constexpr uint64_t STATE_CACHE_TIME_US = 10000;  // 10ms cache
 };
 
-} // namespace adapters
-} // namespace chopper
+}  // namespace chopper::adapters

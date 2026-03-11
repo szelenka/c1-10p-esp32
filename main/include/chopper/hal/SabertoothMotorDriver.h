@@ -5,8 +5,7 @@
 #include "esp_log.h"
 #include <cstring>
 
-namespace chopper {
-namespace hal {
+namespace chopper::hal {
 
 /**
  * HAL motor driver that wraps a single motor channel on a Sabertooth/SyRen
@@ -28,13 +27,13 @@ namespace hal {
 class SabertoothMotorDriver : public IMotorDriver {
 public:
     // Packet Serial command bytes
-    static constexpr uint8_t CMD_MOTOR1_FORWARD  = 0;
-    static constexpr uint8_t CMD_MOTOR1_REVERSE  = 1;
-    static constexpr uint8_t CMD_MOTOR2_FORWARD  = 4;
-    static constexpr uint8_t CMD_MOTOR2_REVERSE  = 5;
-    static constexpr uint8_t CMD_SET_TIMEOUT     = 14;
-    static constexpr uint8_t CMD_SET_RAMPING      = 16;
-    static constexpr uint8_t CMD_SET_DEADBAND     = 17;
+    static constexpr uint8_t CMD_MOTOR1_FORWARD = 0;
+    static constexpr uint8_t CMD_MOTOR1_REVERSE = 1;
+    static constexpr uint8_t CMD_MOTOR2_FORWARD = 4;
+    static constexpr uint8_t CMD_MOTOR2_REVERSE = 5;
+    static constexpr uint8_t CMD_SET_TIMEOUT = 14;
+    static constexpr uint8_t CMD_SET_RAMPING = 16;
+    static constexpr uint8_t CMD_SET_DEADBAND = 17;
 
     static constexpr uint8_t AUTOBAUD_BYTE = 0xAA;
 
@@ -44,14 +43,8 @@ public:
      * @param motorId   Motor number on the controller (1 or 2).
      * @param name      Driver name for diagnostics (must be string literal / static).
      */
-    SabertoothMotorDriver(ISerialPort& serial, uint8_t address,
-                          uint8_t motorId, const char* name)
-        : m_serial(&serial)
-        , m_address(address)
-        , m_motorId(motorId)
-        , m_name(name)
-    {
-    }
+    SabertoothMotorDriver(ISerialPort& serial, uint8_t address, uint8_t motorId, const char* name)
+        : m_serial(&serial), m_address(address), m_motorId(motorId), m_name(name) {}
 
     // -- IDriver interface --
 
@@ -71,16 +64,20 @@ public:
         float effective = m_inverted ? -m_speed : m_speed;
         int power = static_cast<int>(effective * 127.0f);
         // Clamp to [-126, 126] (matches Sabertooth library behavior)
-        if (power > 126) power = 126;
-        if (power < -126) power = -126;
+        if (power > 126) {
+            power = 126;
+        }
+        if (power < -126) {
+            power = -126;
+        }
         sabertoothMotor(m_motorId, power);
     }
 
-    DriverStatus getStatus() const override { return m_status; }
+    [[nodiscard]] DriverStatus getStatus() const override { return m_status; }
 
-    ErrorInfo getErrorState() const override { return m_lastError; }
+    [[nodiscard]] ErrorInfo getErrorState() const override { return m_lastError; }
 
-    const char* getName() const override { return m_name; }
+    [[nodiscard]] const char* getName() const override { return m_name; }
 
     DriverStatus reset() override {
         m_speed = 0.0f;
@@ -99,15 +96,19 @@ public:
 
     void set(float speed) override {
         // Clamp to [-1.0, 1.0]
-        if (speed > 1.0f) speed = 1.0f;
-        if (speed < -1.0f) speed = -1.0f;
+        if (speed > 1.0f) {
+            speed = 1.0f;
+        }
+        if (speed < -1.0f) {
+            speed = -1.0f;
+        }
         m_speed = speed;
     }
 
-    float get() const override { return m_speed; }
+    [[nodiscard]] float get() const override { return m_speed; }
 
     void setInverted(bool inverted) override { m_inverted = inverted; }
-    bool isInverted() const override { return m_inverted; }
+    [[nodiscard]] bool isInverted() const override { return m_inverted; }
 
     void disable() override {
         m_speed = 0.0f;
@@ -120,11 +121,12 @@ public:
     }
 
     bool handleDiagnostic(const char* command, char* response, size_t maxLen) override {
-        if (!command || !response || maxLen == 0) return false;
+        if ((command == nullptr) || (response == nullptr) || maxLen == 0) {
+            return false;
+        }
 
         if (strcmp(command, "status") == 0) {
-            snprintf(response, maxLen, "%s, speed=%.2f, inverted=%s",
-                     driverStatusToString(m_status), m_speed,
+            snprintf(response, maxLen, "%s, speed=%.2f, inverted=%s", driverStatusToString(m_status), m_speed,
                      m_inverted ? "true" : "false");
             return true;
         }
@@ -144,8 +146,8 @@ public:
 
     // -- Test / inspection accessors --
 
-    uint8_t getAddress() const { return m_address; }
-    uint8_t getMotorId() const { return m_motorId; }
+    [[nodiscard]] uint8_t getAddress() const { return m_address; }
+    [[nodiscard]] uint8_t getMotorId() const { return m_motorId; }
 
 private:
     /**
@@ -179,8 +181,8 @@ private:
      * Motor 2: forward=cmd 4, reverse=cmd 5
      */
     void sabertoothMotor(uint8_t motor, int power) {
-        uint8_t cmd;
-        uint8_t absValue;
+        uint8_t cmd = 0;
+        uint8_t absValue = 0;
 
         if (power >= 0) {
             cmd = (motor == 1) ? CMD_MOTOR1_FORWARD : CMD_MOTOR2_FORWARD;
@@ -203,5 +205,4 @@ private:
     ErrorInfo m_lastError;
 };
 
-} // namespace hal
-} // namespace chopper
+}  // namespace chopper::hal

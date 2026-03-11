@@ -23,13 +23,10 @@ namespace dome {
  */
 class RSSMechanism : public math::RSSMachine {
 public:
-    RSSMechanism(float base_altitude, float end_effector_altitude,
-                 float bottom_link_length, float top_link_length,
+    RSSMechanism(float base_altitude, float end_effector_altitude, float bottom_link_length, float top_link_length,
                  float min_height, float limit_normal_vector, bool bend_out)
-        : RSSMachine(base_altitude, end_effector_altitude,
-                     bottom_link_length, top_link_length,
-                     min_height, limit_normal_vector, bend_out)
-    {
+        : RSSMachine(base_altitude, end_effector_altitude, bottom_link_length, top_link_length, min_height,
+                     limit_normal_vector, bend_out) {
         _platformCurrentHeight = (_platformMinHeight + _platformMaxHeight) / 2.0f;
         _platformPreviousHeight = _platformMinHeight;
     }
@@ -55,8 +52,7 @@ public:
     }
 
     void setRotationAngleOffset(float angle) {
-        _rotationRadianOffset = std::clamp(angle, 0.0f, 160.0f)
-                                * (static_cast<float>(M_PI) / 180.0f);
+        _rotationRadianOffset = std::clamp(angle, 0.0f, 160.0f) * (static_cast<float>(M_PI) / 180.0f);
     }
 
     void setActuationRange(uint16_t actuationRange) {
@@ -77,8 +73,7 @@ public:
         _servoMinPulse[0] = minA;
         _servoMinPulse[1] = minB;
         _servoMinPulse[2] = minC;
-        _referenceMinPWM = static_cast<uint16_t>(
-            std::round((static_cast<float>(minA) + minB + minC) / 3.0f));
+        _referenceMinPWM = static_cast<uint16_t>(std::round((static_cast<float>(minA) + minB + minC) / 3.0f));
         calculateLegOffsets();
     }
 
@@ -86,21 +81,18 @@ public:
         _servoMaxPulse[0] = maxA;
         _servoMaxPulse[1] = maxB;
         _servoMaxPulse[2] = maxC;
-        _referenceMaxPWM = static_cast<uint16_t>(
-            std::round((static_cast<float>(maxA) + maxB + maxC) / 3.0f));
+        _referenceMaxPWM = static_cast<uint16_t>(std::round((static_cast<float>(maxA) + maxB + maxC) / 3.0f));
         calculateLegOffsets();
     }
 
     void incrementHeight(float increment) {
         _platformPreviousHeight = _platformCurrentHeight;
-        _platformCurrentHeight = std::clamp(
-            _platformCurrentHeight + increment, _platformMinHeight, _platformMaxHeight);
+        _platformCurrentHeight = std::clamp(_platformCurrentHeight + increment, _platformMinHeight, _platformMaxHeight);
     }
 
     void decrementHeight(float decrement) {
         _platformPreviousHeight = _platformCurrentHeight;
-        _platformCurrentHeight = std::clamp(
-            _platformCurrentHeight - decrement, _platformMinHeight, _platformMaxHeight);
+        _platformCurrentHeight = std::clamp(_platformCurrentHeight - decrement, _platformMinHeight, _platformMaxHeight);
     }
 
     void setHeight(float height) {
@@ -117,24 +109,21 @@ public:
 
         for (size_t i = 0; i < 3; ++i) {
             if (_servoMinPulse[i] != 0 && _servoMaxPulse[i] == 0) {
-                offset = std::max(_referenceMinPWM, _referenceMaxPWM)
-                       - std::max(platformMinHeightPWM, platformMaxHeightPWM);
+                offset =
+                    std::max(_referenceMinPWM, _referenceMaxPWM) - std::max(platformMinHeightPWM, platformMaxHeightPWM);
                 _servoOffsetPWM[i] = offset + (_servoMinPulse[i] - _referenceMinPWM);
             } else if (_servoMinPulse[i] == 0 || _servoMaxPulse[i] != 0) {
-                offset = std::min(_referenceMinPWM, _referenceMaxPWM)
-                       - std::min(platformMinHeightPWM, platformMaxHeightPWM);
+                offset =
+                    std::min(_referenceMinPWM, _referenceMaxPWM) - std::min(platformMinHeightPWM, platformMaxHeightPWM);
                 _servoOffsetPWM[i] = offset + (_servoMaxPulse[i] - _referenceMaxPWM);
             } else {
-                offset = (
-                    std::max(_referenceMinPWM, _referenceMaxPWM)
-                    - std::max(platformMinHeightPWM, platformMaxHeightPWM)
-                    + std::min(_referenceMinPWM, _referenceMaxPWM)
-                    - std::min(platformMinHeightPWM, platformMaxHeightPWM)
-                ) / 2;
-                _servoOffsetPWM[i] = offset + (
-                    (_servoMinPulse[i] - _referenceMinPWM)
-                    + (_servoMaxPulse[i] - _referenceMaxPWM)
-                ) / 2;
+                offset = (std::max(_referenceMinPWM, _referenceMaxPWM) -
+                          std::max(platformMinHeightPWM, platformMaxHeightPWM) +
+                          std::min(_referenceMinPWM, _referenceMaxPWM) -
+                          std::min(platformMinHeightPWM, platformMaxHeightPWM)) /
+                         2;
+                _servoOffsetPWM[i] =
+                    offset + ((_servoMinPulse[i] - _referenceMinPWM) + (_servoMaxPulse[i] - _referenceMaxPWM)) / 2;
             }
             _servoOffsetAngle[i] = mapPWMToAngle(_servoOffsetPWM[i]);
         }
@@ -143,10 +132,8 @@ public:
     std::tuple<float, float> adjustJoystickToAngleOffset(float& x, float& y) {
         x = std::round(math::ApplyDeadband(x, m_deadband) * 100.0f) / 100.0f;
         y = std::round(math::ApplyDeadband(y, m_deadband) * 100.0f) / 100.0f;
-        float rotatedX = x * std::cos(_rotationRadianOffset)
-                       - y * std::sin(_rotationRadianOffset);
-        float rotatedY = x * std::sin(_rotationRadianOffset)
-                       + y * std::cos(_rotationRadianOffset);
+        float rotatedX = x * std::cos(_rotationRadianOffset) - y * std::sin(_rotationRadianOffset);
+        float rotatedY = x * std::sin(_rotationRadianOffset) + y * std::cos(_rotationRadianOffset);
         return std::make_tuple(rotatedX, rotatedY);
     }
 
@@ -202,16 +189,13 @@ protected:
 
 private:
     float mapPWMToAngle(uint16_t pulseWidth) {
-        return static_cast<float>(math::mapValue(
-            pulseWidth, _servoTheoreticalMinPulse, _servoTheoreticalMaxPulse,
-            0, _servoActuationRange));
+        return static_cast<float>(
+            math::mapValue(pulseWidth, _servoTheoreticalMinPulse, _servoTheoreticalMaxPulse, 0, _servoActuationRange));
     }
 
     uint16_t mapAngleToPWM(float angle) {
-        return static_cast<uint16_t>(math::mapValue(
-            static_cast<long>(std::round(angle)),
-            0, _servoActuationRange,
-            _servoTheoreticalMinPulse, _servoTheoreticalMaxPulse));
+        return static_cast<uint16_t>(math::mapValue(static_cast<long>(std::round(angle)), 0, _servoActuationRange,
+                                                    _servoTheoreticalMinPulse, _servoTheoreticalMaxPulse));
     }
 
     uint16_t _servoMinPulse[3] = {0, 0, 0};
@@ -232,5 +216,5 @@ private:
     float _platformPreviousHeight = 0.0f;
 };
 
-} // namespace dome
-} // namespace chopper
+}  // namespace dome
+}  // namespace chopper

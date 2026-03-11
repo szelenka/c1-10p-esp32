@@ -1,0 +1,327 @@
+{
+  "version": "2026-03-10",
+  "canonical_instruction": "CLAUDE.md",
+  "historical_documents": [
+    {
+      "path": "docs/INSTRUCTIONS.md",
+      "status": "historical",
+      "replacement": "CLAUDE.md"
+    }
+  ],
+  "default_gate": "agent-gate-fast",
+  "verification_targets": {
+    "agent-gate-fast": [
+      "test",
+      "lint-embedded",
+      "check-safety",
+      "check-docs",
+      "check-traceability",
+      "check-ui"
+    ],
+    "agent-gate-collab": [
+      "agent-gate-fast",
+      "check-handoff"
+    ]
+  },
+  "handoff_schema": {
+    "allowed_modes": [
+      "planning-only",
+      "single-thread-role-switch",
+      "parallel-subagents",
+      "human-checkpoint"
+    ],
+    "allowed_statuses": [
+      "draft",
+      "in-progress",
+      "blocked",
+      "review",
+      "done"
+    ],
+    "allowed_safety_impacts": [
+      "none",
+      "low",
+      "actuator",
+      "unknown"
+    ],
+    "parallel_required_string_fields": [
+      "task",
+      "primary_owner",
+      "final_integrator",
+      "goal"
+    ],
+    "required_sequence_field": "sequence",
+    "parallel_required_reservation_lists": [
+      "files",
+      "scopes"
+    ],
+    "parallel_required_human_summary_fields": [
+      "what_changed",
+      "why"
+    ],
+    "parallel_required_list_fields": [
+      "commands_run",
+      "commands_still_required",
+      "files_to_read",
+      "open_questions",
+      "risk_notes",
+      "evidence"
+    ]
+  },
+  "agents": [
+    {
+      "name": "orchestrator",
+      "file": ".agents/personas/orchestrator.md",
+      "writes_to": "nowhere (planning only)",
+      "load_when": "Multi-subsystem tasks, unclear scope"
+    },
+    {
+      "name": "architect",
+      "file": ".agents/personas/architect.md",
+      "writes_to": "docs/design/",
+      "load_when": "Design decisions, capacity checks"
+    },
+    {
+      "name": "implementer",
+      "file": ".agents/personas/implementer.md",
+      "writes_to": "main/ (except hal/adapters), Makefile, .scripts/, configs, docs/registry.md",
+      "load_when": "Most implementation work"
+    },
+    {
+      "name": "tester",
+      "file": ".agents/personas/tester.md",
+      "writes_to": "test/, Makefile test section",
+      "load_when": "Writing or modifying tests"
+    },
+    {
+      "name": "hardware",
+      "file": ".agents/personas/hardware.md",
+      "writes_to": "main/*/hal/, main/*/adapters/",
+      "load_when": "HAL/driver/serial changes"
+    },
+    {
+      "name": "telemetry-ui",
+      "file": ".agents/personas/telemetry-ui.md",
+      "writes_to": "tools/telemetry_ui/, description/",
+      "load_when": "UI dashboard changes"
+    },
+    {
+      "name": "docs",
+      "file": ".agents/personas/docs.md",
+      "writes_to": "docs/",
+      "load_when": "Documentation updates"
+    },
+    {
+      "name": "reviewer",
+      "file": ".agents/personas/reviewer.md",
+      "writes_to": "",
+      "read_only": true,
+      "load_when": "Pre-merge review"
+    },
+    {
+      "name": "safety-auditor",
+      "file": ".agents/personas/safety-auditor.md",
+      "writes_to": "",
+      "read_only": true,
+      "load_when": "Motor/servo/safety changes"
+    }
+  ],
+  "routes": [
+    {
+      "area": "safety",
+      "read": ".agents/personas/safety-auditor.md",
+      "patterns": [
+        "**/safety/**",
+        "**/nodes/Motor*",
+        "**/nodes/Servo*",
+        "**/hal/IMotor*",
+        "**/hal/IServo*"
+      ],
+      "notes": [
+        "run make check-safety before completion."
+      ]
+    },
+    {
+      "area": "hardware",
+      "read": ".agents/personas/hardware.md",
+      "patterns": [
+        "**/hal/**",
+        "**/adapters/**"
+      ]
+    },
+    {
+      "area": "implementation",
+      "read": ".agents/personas/implementer.md",
+      "patterns": [
+        "main/**",
+        "Makefile",
+        "platformio.ini",
+        "sdkconfig.defaults",
+        ".scripts/**",
+        "docs/registry.md"
+      ]
+    },
+    {
+      "area": "tests",
+      "read": ".agents/personas/tester.md",
+      "patterns": [
+        "test/test_*.cpp",
+        "test/mocks/**"
+      ]
+    },
+    {
+      "area": "telemetry-ui",
+      "read": ".agents/personas/telemetry-ui.md",
+      "patterns": [
+        "tools/telemetry_ui/**",
+        "description/**"
+      ]
+    },
+    {
+      "area": "docs",
+      "read": ".agents/personas/docs.md",
+      "patterns": [
+        "docs/**",
+        "CLAUDE.md",
+        ".agents/**"
+      ],
+      "notes": [
+        "Path-based detection cannot auto-exempt comment-only or whitespace-only doc edits."
+      ]
+    }
+  ],
+  "multi_area_rule": {
+    "read": ".agents/personas/orchestrator.md",
+    "note": "Multiple behavioral areas detected; orchestrator review is required."
+  },
+  "exempt_paths": [
+    "README",
+    ".gitignore",
+    ".github/**"
+  ],
+  "exempt_change_types": [
+    "comment-only",
+    "formatting-only",
+    "whitespace-only",
+    "typo-only"
+  ],
+  "golden_tasks": [
+    {
+      "name": "Add an existing-pattern node",
+      "touch_set": [
+        "main/include/chopper/nodes/NewNode.h",
+        "test/test_new_node.cpp",
+        "Makefile",
+        "docs/registry.md"
+      ],
+      "reads": [
+        "CLAUDE.md",
+        ".agents/personas/implementer.md",
+        ".agents/personas/tester.md",
+        ".agents/personas/docs.md",
+        ".agents/personas/orchestrator.md"
+      ],
+      "verification": [
+        "make test-build",
+        "make test",
+        "make lint-embedded",
+        "make check-docs"
+      ],
+      "done_when": [
+        "Node follows PublishingNode pattern.",
+        "A host test target and TEST_BINS entry exist.",
+        "docs/registry.md reflects the new node/topics."
+      ]
+    },
+    {
+      "name": "Safety-path behavior change",
+      "touch_set": [
+        "main/include/chopper/nodes/MotorBridgeNode.h",
+        "main/chopper/safety/DegradationManager.cpp",
+        "test/test_safety.cpp"
+      ],
+      "reads": [
+        "CLAUDE.md",
+        ".agents/personas/implementer.md",
+        ".agents/personas/safety-auditor.md",
+        ".agents/personas/tester.md",
+        ".agents/personas/orchestrator.md"
+      ],
+      "verification": [
+        "make test",
+        "make check-safety",
+        "make lint-embedded",
+        "make check-docs"
+      ],
+      "done_when": [
+        "Actuator commands remain gated by degradation mode.",
+        "Regression coverage exists for the changed safety path.",
+        "No BLOCKING safety findings remain."
+      ]
+    },
+    {
+      "name": "Telemetry UI parser or schema update",
+      "touch_set": [
+        "tools/telemetry_ui/app.py",
+        "tools/telemetry_ui/web/app.js",
+        ".scripts/test_ui_integration.py"
+      ],
+      "reads": [
+        "CLAUDE.md",
+        ".agents/personas/telemetry-ui.md",
+        ".agents/personas/tester.md",
+        ".agents/personas/orchestrator.md"
+      ],
+      "verification": [
+        "make check-ui",
+        "make test-ui-integration"
+      ],
+      "done_when": [
+        "The parser accepts the new frame shape.",
+        "The UI syntax gate passes.",
+        "Integration coverage reflects the updated schema."
+      ]
+    },
+    {
+      "name": "Fix a failing test",
+      "touch_set": [
+        "test/test_<name>.cpp",
+        "main/include/chopper/<area>/<File>.h"
+      ],
+      "reads": [
+        "CLAUDE.md",
+        ".agents/personas/tester.md",
+        ".agents/personas/implementer.md"
+      ],
+      "verification": [
+        "make test",
+        "make lint-embedded"
+      ],
+      "done_when": [
+        "Root cause identified (test bug vs code bug).",
+        "Fix applied to the correct side (test or production code).",
+        "No test assertions weakened to make the test pass.",
+        "All other tests still pass."
+      ]
+    },
+    {
+      "name": "Docs-only reference cleanup",
+      "touch_set": [
+        "CLAUDE.md",
+        ".agents/generated/trigger-rules.md",
+        ".agents/generated/golden-tasks.md"
+      ],
+      "reads": [
+        "CLAUDE.md",
+        ".agents/personas/docs.md"
+      ],
+      "verification": [
+        "make check-docs"
+      ],
+      "done_when": [
+        "Canonical docs point to one source of truth.",
+        "Historical docs are labeled as such.",
+        "Generated reference docs are refreshed."
+      ]
+    }
+  ]
+}

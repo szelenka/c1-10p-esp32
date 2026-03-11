@@ -3,8 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace chopper {
-namespace math {
+namespace chopper::math {
 
 /**
  * Pure-math drive mixing: converts joystick inputs to left/right wheel speeds.
@@ -21,8 +20,7 @@ struct WheelSpeeds {
  * Arcade drive: forward/backward + rotation.
  * Joystick desaturation keeps wheel speeds in [-1, 1].
  */
-inline WheelSpeeds ArcadeDriveIK(float xSpeed, float zRotation,
-                                   bool squareInputs = true) {
+inline WheelSpeeds ArcadeDriveIK(float xSpeed, float zRotation, bool squareInputs = true) {
     xSpeed = std::clamp(xSpeed, -1.0f, 1.0f);
     zRotation = std::clamp(zRotation, -1.0f, 1.0f);
 
@@ -50,8 +48,7 @@ inline WheelSpeeds ArcadeDriveIK(float xSpeed, float zRotation,
  * Curvature drive: speed scales rotation magnitude.
  * allowTurnInPlace enables point-turns when xSpeed is zero.
  */
-inline WheelSpeeds CurvatureDriveIK(float xSpeed, float zRotation,
-                                      bool allowTurnInPlace = true) {
+inline WheelSpeeds CurvatureDriveIK(float xSpeed, float zRotation, bool allowTurnInPlace = true) {
     xSpeed = std::clamp(xSpeed, -1.0f, 1.0f);
     zRotation = std::clamp(zRotation, -1.0f, 1.0f);
 
@@ -79,8 +76,7 @@ inline WheelSpeeds CurvatureDriveIK(float xSpeed, float zRotation,
  * ReelTwo drive: polar-coordinate conversion with 45-degree rotation
  * and sqrt(2) scaling for full range in cardinal directions.
  */
-inline WheelSpeeds ReelTwoDriveIK(float xSpeed, float zRotation,
-                                    bool squareInputs = true) {
+inline WheelSpeeds ReelTwoDriveIK(float xSpeed, float zRotation, bool squareInputs = true) {
     xSpeed = std::clamp(xSpeed, -1.0f, 1.0f);
     zRotation = std::clamp(zRotation, -1.0f, 1.0f);
 
@@ -110,8 +106,7 @@ inline WheelSpeeds ReelTwoDriveIK(float xSpeed, float zRotation,
 /**
  * Tank drive: direct left/right control with optional squared inputs.
  */
-inline WheelSpeeds TankDriveIK(float leftSpeed, float rightSpeed,
-                                 bool squareInputs = true) {
+inline WheelSpeeds TankDriveIK(float leftSpeed, float rightSpeed, bool squareInputs = true) {
     leftSpeed = std::clamp(leftSpeed, -1.0f, 1.0f);
     rightSpeed = std::clamp(rightSpeed, -1.0f, 1.0f);
 
@@ -123,5 +118,4 @@ inline WheelSpeeds TankDriveIK(float leftSpeed, float rightSpeed,
     return {leftSpeed, rightSpeed};
 }
 
-} // namespace math
-} // namespace chopper
+}  // namespace chopper::math

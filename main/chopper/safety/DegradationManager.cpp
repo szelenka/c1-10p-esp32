@@ -1,18 +1,11 @@
 #include "chopper/safety/DegradationManager.h"
 #include "esp_timer.h"
 
-static const char* TAG = "DegradMgr";
+static const char* const TAG = "DegradMgr";
 
-namespace chopper {
-namespace safety {
+namespace chopper::safety {
 
-DegradationManager::DegradationManager()
-    : current_mode_(DegradationMode::SAFE_STOP)
-    , transition_count_(0)
-    , last_transition_time_us_(0)
-    , callback_count_(0)
-{
-}
+DegradationManager::DegradationManager() = default;
 
 bool DegradationManager::requestTransition(DegradationMode new_mode) {
     // Only allow transitions toward more-degraded modes
@@ -56,7 +49,7 @@ void DegradationManager::forceMode(DegradationMode mode) {
 }
 
 bool DegradationManager::registerTransitionCallback(TransitionCallback cb, void* context) {
-    if (!cb || callback_count_ >= MAX_TRANSITION_CALLBACKS) {
+    if ((cb == nullptr) || callback_count_ >= MAX_TRANSITION_CALLBACKS) {
         return false;
     }
     callbacks_[callback_count_].callback = cb;
@@ -70,24 +63,18 @@ void DegradationManager::executeTransition(DegradationMode old_mode, Degradation
     transition_count_++;
     last_transition_time_us_ = static_cast<uint64_t>(esp_timer_get_time());
 
-    ESP_LOGW(TAG, "Mode transition: %s -> %s",
-             degradationModeToString(old_mode),
-             degradationModeToString(new_mode));
+    ESP_LOGW(TAG, "Mode transition: %s -> %s", degradationModeToString(old_mode), degradationModeToString(new_mode));
 
     // Log the transition
-    ErrorLog::getActive().log(
-        ErrorLog::DEGRADATION,
-        static_cast<uint8_t>(old_mode),
-        static_cast<uint32_t>(new_mode),
-        ErrorLog::INFO);
+    ErrorLog::getActive().log(ErrorLog::DEGRADATION, static_cast<uint8_t>(old_mode), static_cast<uint32_t>(new_mode),
+                              ErrorLog::INFO);
 
     // Fire all registered callbacks
     for (size_t i = 0; i < callback_count_; ++i) {
-        if (callbacks_[i].callback) {
+        if (callbacks_[i].callback != nullptr) {
             callbacks_[i].callback(old_mode, new_mode, callbacks_[i].context);
         }
     }
 }
 
-} // namespace safety
-} // namespace chopper
+}  // namespace chopper::safety

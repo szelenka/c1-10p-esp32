@@ -27,15 +27,8 @@ public:
      * @param baud    Baud rate.
      * @param rxBuf   Receive buffer size (default 256).
      */
-    HardwareSerialPort(uart_port_t port, int txPin, int rxPin,
-                       uint32_t baud, size_t rxBuf = kDefaultRxBufSize)
-        : m_port(port)
-        , m_txPin(txPin)
-        , m_rxPin(rxPin)
-        , m_baud(baud)
-        , m_rxBufSize(rxBuf)
-    {
-    }
+    HardwareSerialPort(uart_port_t port, int txPin, int rxPin, uint32_t baud, size_t rxBuf = kDefaultRxBufSize)
+        : m_port(port), m_txPin(txPin), m_rxPin(rxPin), m_baud(baud), m_rxBufSize(rxBuf) {}
 
     /**
      * Initialize the UART peripheral. Call once before use.
@@ -45,20 +38,17 @@ public:
         uart_config_t config = {};
         config.baud_rate = static_cast<int>(m_baud);
         config.data_bits = UART_DATA_8_BITS;
-        config.parity    = UART_PARITY_DISABLE;
-        config.stop_bits  = UART_STOP_BITS_1;
-        config.flow_ctrl  = UART_HW_FLOWCTRL_DISABLE;
+        config.parity = UART_PARITY_DISABLE;
+        config.stop_bits = UART_STOP_BITS_1;
+        config.flow_ctrl = UART_HW_FLOWCTRL_DISABLE;
         config.source_clk = UART_SCLK_DEFAULT;
 
         uart_param_config(m_port, &config);
-        uart_set_pin(m_port, m_txPin, m_rxPin,
-                     UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
+        uart_set_pin(m_port, m_txPin, m_rxPin, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
         uart_driver_install(m_port, m_rxBufSize, kDefaultTxBufSize, 0, nullptr, 0);
     }
 
-    ~HardwareSerialPort() override {
-        uart_driver_delete(m_port);
-    }
+    ~HardwareSerialPort() override { uart_driver_delete(m_port); }
 
     size_t write(const uint8_t* data, size_t length) override {
         int written = uart_write_bytes(m_port, data, length);
@@ -85,7 +75,7 @@ private:
     size_t m_rxBufSize;
 };
 
-} // namespace hal
-} // namespace chopper
+}  // namespace hal
+}  // namespace chopper
 
-#endif // ESP_PLATFORM
+#endif  // ESP_PLATFORM

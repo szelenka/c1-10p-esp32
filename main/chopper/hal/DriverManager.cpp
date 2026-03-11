@@ -1,31 +1,24 @@
 #include "chopper/hal/DriverManager.h"
 #include <cstring>
 
-static const char* TAG = "DriverManager";
+static const char* const TAG = "DriverManager";
 
-namespace chopper {
-namespace hal {
+namespace chopper::hal {
 
 DriverManager& DriverManager::getInstance() {
     static DriverManager instance;
     return instance;
 }
 
-DriverManager::DriverManager()
-    : m_drivers{}
-    , m_driverCount(0)
-    , m_sorted(false)
-{
-}
+DriverManager::DriverManager() = default;
 
 bool DriverManager::registerDriver(IDriver* driver, uint8_t priority) {
-    if (!driver) {
+    if (driver == nullptr) {
         ESP_LOGE(TAG, "Cannot register null driver");
         return false;
     }
     if (m_driverCount >= kMaxDrivers) {
-        ESP_LOGE(TAG, "Cannot register '%s': max drivers (%d) reached",
-                 driver->getName(), kMaxDrivers);
+        ESP_LOGE(TAG, "Cannot register '%s': max drivers (%d) reached", driver->getName(), kMaxDrivers);
         return false;
     }
 
@@ -45,8 +38,8 @@ bool DriverManager::registerDriver(IDriver* driver, uint8_t priority) {
     m_driverCount++;
     m_sorted = false;
 
-    ESP_LOGI(TAG, "Registered driver '%s' with priority %d (%d/%d)",
-             driver->getName(), priority, m_driverCount, kMaxDrivers);
+    ESP_LOGI(TAG, "Registered driver '%s' with priority %d (%d/%d)", driver->getName(), priority, m_driverCount,
+             kMaxDrivers);
     return true;
 }
 
@@ -73,13 +66,11 @@ void DriverManager::initAll() {
 
     for (uint8_t i = 0; i < m_driverCount; i++) {
         IDriver* drv = m_drivers[i].driver;
-        ESP_LOGI(TAG, "  [%d] init '%s' (priority %d)",
-                 i, drv->getName(), m_drivers[i].priority);
+        ESP_LOGI(TAG, "  [%d] init '%s' (priority %d)", i, drv->getName(), m_drivers[i].priority);
 
         DriverStatus status = drv->init();
         if (status != DriverStatus::kReady) {
-            ESP_LOGE(TAG, "  '%s' init failed: %s",
-                     drv->getName(), driverStatusToString(status));
+            ESP_LOGE(TAG, "  '%s' init failed: %s", drv->getName(), driverStatusToString(status));
         }
     }
 
@@ -92,7 +83,7 @@ void DriverManager::updateAll() {
         if (status == DriverStatus::kReady || status == DriverStatus::kDegraded) {
             uint64_t start = esp_timer_get_time();
             m_drivers[i].driver->update();
-            uint64_t elapsed = static_cast<uint64_t>(esp_timer_get_time() - start);
+            auto elapsed = static_cast<uint64_t>(esp_timer_get_time() - start);
 
             m_drivers[i].lastUpdateUs = elapsed;
             if (elapsed > m_drivers[i].worstCaseUs) {
@@ -116,9 +107,9 @@ void DriverManager::shutdownAll() {
     }
 }
 
-bool DriverManager::resetDriver(const char* name) {
+bool DriverManager::resetDriver(const char* name) const {
     IDriver* drv = findDriver(name);
-    if (!drv) {
+    if (drv == nullptr) {
         ESP_LOGW(TAG, "resetDriver: '%s' not found", name);
         return false;
     }
@@ -131,7 +122,7 @@ bool DriverManager::resetDriver(const char* name) {
 
 DriverStatus DriverManager::getDriverStatus(const char* name) const {
     const IDriver* drv = findDriver(name);
-    if (!drv) {
+    if (drv == nullptr) {
         return DriverStatus::kUninitialized;
     }
     return drv->getStatus();
@@ -146,11 +137,10 @@ IDriver* DriverManager::findDriver(const char* name) const {
     return nullptr;
 }
 
-bool DriverManager::routeDiagnostic(const char* driverName, const char* command,
-                                     char* response, size_t maxLen) {
+bool DriverManager::routeDiagnostic(const char* driverName, const char* command, char* response, size_t maxLen) const {
     IDriver* drv = findDriver(driverName);
-    if (!drv) {
-        if (response && maxLen > 0) {
+    if (drv == nullptr) {
+        if ((response != nullptr) && maxLen > 0) {
             snprintf(response, maxLen, "Driver '%s' not found", driverName);
         }
         return false;
@@ -162,13 +152,9 @@ void DriverManager::printDiagnostics() const {
     ESP_LOGI(TAG, "=== Driver Diagnostics (%d drivers) ===", m_driverCount);
     for (uint8_t i = 0; i < m_driverCount; i++) {
         const DriverEntry& entry = m_drivers[i];
-        ESP_LOGI(TAG, "  [%d] %-20s  status=%-14s  pri=%3d  last=%lluus  worst=%lluus",
-                 i,
-                 entry.driver->getName(),
-                 driverStatusToString(entry.driver->getStatus()),
-                 entry.priority,
-                 (unsigned long long)entry.lastUpdateUs,
-                 (unsigned long long)entry.worstCaseUs);
+        ESP_LOGI(TAG, "  [%d] %-20s  status=%-14s  pri=%3d  last=%lluus  worst=%lluus", i, entry.driver->getName(),
+                 driverStatusToString(entry.driver->getStatus()), entry.priority,
+                 (unsigned long long)entry.lastUpdateUs, (unsigned long long)entry.worstCaseUs);
 
         ErrorInfo err = entry.driver->getErrorState();
         if (err.code != 0) {
@@ -184,5 +170,4 @@ const DriverManager::DriverEntry* DriverManager::getEntry(uint8_t index) const {
     return &m_drivers[index];
 }
 
-} // namespace hal
-} // namespace chopper
+}  // namespace chopper::hal

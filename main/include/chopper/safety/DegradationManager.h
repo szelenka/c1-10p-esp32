@@ -5,8 +5,7 @@
 #include "chopper/safety/ErrorLog.h"
 #include "esp_log.h"
 
-namespace chopper {
-namespace safety {
+namespace chopper::safety {
 
 /**
  * @brief Degradation mode for the system.
@@ -15,22 +14,28 @@ namespace safety {
  * Higher numeric value = more degraded.
  */
 enum class DegradationMode : uint8_t {
-    FULL_OPERATION   = 0,  ///< All nodes active, all features enabled
+    FULL_OPERATION = 0,    ///< All nodes active, all features enabled
     REDUCED_FEATURES = 1,  ///< LED, audio, telemetry disabled
-    ESSENTIAL_ONLY   = 2,  ///< Only drive (reduced speed), controller, safety
-    SAFE_STOP        = 3,  ///< All actuators stopped, waiting for reconnect
-    EMERGENCY_STOP   = 4,  ///< All outputs disabled, requires reset
+    ESSENTIAL_ONLY = 2,    ///< Only drive (reduced speed), controller, safety
+    SAFE_STOP = 3,         ///< All actuators stopped, waiting for reconnect
+    EMERGENCY_STOP = 4,    ///< All outputs disabled, requires reset
 };
 
 /// Convert DegradationMode to a human-readable string.
 inline const char* degradationModeToString(DegradationMode mode) {
     switch (mode) {
-        case DegradationMode::FULL_OPERATION:   return "FULL";
-        case DegradationMode::REDUCED_FEATURES: return "REDUCED";
-        case DegradationMode::ESSENTIAL_ONLY:   return "ESSENTIAL";
-        case DegradationMode::SAFE_STOP:        return "SAFE_STOP";
-        case DegradationMode::EMERGENCY_STOP:   return "ESTOP";
-        default: return "UNKNOWN";
+        case DegradationMode::FULL_OPERATION:
+            return "FULL";
+        case DegradationMode::REDUCED_FEATURES:
+            return "REDUCED";
+        case DegradationMode::ESSENTIAL_ONLY:
+            return "ESSENTIAL";
+        case DegradationMode::SAFE_STOP:
+            return "SAFE_STOP";
+        case DegradationMode::EMERGENCY_STOP:
+            return "ESTOP";
+        default:
+            return "UNKNOWN";
     }
 }
 
@@ -51,14 +56,12 @@ public:
      * @param new_mode  The mode being entered.
      * @param context   User-provided context pointer.
      */
-    using TransitionCallback = void(*)(DegradationMode old_mode,
-                                       DegradationMode new_mode,
-                                       void* context);
+    using TransitionCallback = void (*)(DegradationMode old_mode, DegradationMode new_mode, void* context);
 
     DegradationManager();
 
     /// Get the current degradation mode.
-    DegradationMode getCurrentMode() const { return current_mode_; }
+    [[nodiscard]] DegradationMode getCurrentMode() const { return current_mode_; }
 
     /**
      * @brief Request a transition to a new mode.
@@ -95,25 +98,24 @@ public:
     bool registerTransitionCallback(TransitionCallback cb, void* context);
 
     /// Get the number of transitions since boot.
-    uint32_t getTransitionCount() const { return transition_count_; }
+    [[nodiscard]] uint32_t getTransitionCount() const { return transition_count_; }
 
     /// Get the timestamp of the last transition.
-    uint64_t getLastTransitionTime() const { return last_transition_time_us_; }
+    [[nodiscard]] uint64_t getLastTransitionTime() const { return last_transition_time_us_; }
 
 private:
     void executeTransition(DegradationMode old_mode, DegradationMode new_mode);
 
-    DegradationMode current_mode_;
-    uint32_t transition_count_;
-    uint64_t last_transition_time_us_;
+    DegradationMode current_mode_ = DegradationMode::SAFE_STOP;
+    uint32_t transition_count_ = 0;
+    uint64_t last_transition_time_us_ = 0;
 
     struct CallbackEntry {
         TransitionCallback callback = nullptr;
         void* context = nullptr;
     };
     CallbackEntry callbacks_[MAX_TRANSITION_CALLBACKS] = {};
-    size_t callback_count_;
+    size_t callback_count_ = 0;
 };
 
-} // namespace safety
-} // namespace chopper
+}  // namespace chopper::safety

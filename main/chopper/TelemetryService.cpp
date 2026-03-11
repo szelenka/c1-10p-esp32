@@ -17,10 +17,9 @@
 #include <cstdarg>
 #include <chrono>
 
-static const char* TAG = "TelemetrySvc";
+static const char* const TAG = "TelemetrySvc";
 
-namespace chopper {
-namespace telemetry {
+namespace chopper::telemetry {
 
 #if CHOPPER_HAS_HTTP_SERVER && defined(CONFIG_HTTPD_WS_SUPPORT)
 #define CHOPPER_HAS_HTTP_WS 1
@@ -38,19 +37,15 @@ uint64_t monotonicNowUs() {
     return static_cast<uint64_t>(esp_timer_get_time());
 #else
     using namespace std::chrono;
-    return static_cast<uint64_t>(
-        duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count());
+    return static_cast<uint64_t>(duration_cast<microseconds>(steady_clock::now().time_since_epoch()).count());
 #endif
 }
-}
+}  // namespace
 
 TelemetryService::TelemetryService()
-    : last_publish_us_(0)
-    , running_(false)
-    , serial_sink_(&defaultSerialSink)
-    , serial_sink_context_(nullptr)
+    : serial_sink_(&defaultSerialSink)
 #ifdef ESP_PLATFORM
-    , async_task_handle_(nullptr)
+          async_task_handle_(nullptr)
     , async_queue_(nullptr)
 #endif
 #if CHOPPER_HAS_HTTP_SERVER
@@ -107,12 +102,8 @@ bool TelemetryService::begin(const Config& config) {
 #endif
 
     ESP_LOGI(TAG, "Telemetry service started (serial=%d compact=%d async=%d core=%d, http=%d, ws=%d perf=%d)",
-             config_.serial_enabled ? 1 : 0,
-             config_.serial_compact ? 1 : 0,
-             config_.async_enabled ? 1 : 0,
-             static_cast<int>(config_.async_task_core),
-             config_.http_enabled ? 1 : 0,
-             config_.websocket_enabled ? 1 : 0,
+             config_.serial_enabled ? 1 : 0, config_.serial_compact ? 1 : 0, config_.async_enabled ? 1 : 0,
+             static_cast<int>(config_.async_task_core), config_.http_enabled ? 1 : 0, config_.websocket_enabled ? 1 : 0,
              config_.include_perf ? 1 : 0);
     return true;
 }
@@ -128,7 +119,7 @@ void TelemetryService::shutdown() {
 }
 
 void TelemetryService::setSerialSink(SerialSink sink, void* context) {
-    serial_sink_ = sink ? sink : &defaultSerialSink;
+    serial_sink_ = (sink != nullptr) ? sink : &defaultSerialSink;
     serial_sink_context_ = context;
 }
 
@@ -143,8 +134,7 @@ void TelemetryService::update(const Snapshot& snapshot) {
     }
 
     uint64_t min_interval_us = static_cast<uint64_t>(config_.min_publish_interval_ms) * 1000ULL;
-    if (min_interval_us > 0 && last_publish_us_ > 0 &&
-        (snapshot.timestamp_us - last_publish_us_) < min_interval_us) {
+    if (min_interval_us > 0 && last_publish_us_ > 0 && (snapshot.timestamp_us - last_publish_us_) < min_interval_us) {
         return;
     }
 
@@ -196,20 +186,15 @@ void TelemetryService::observeInput(InputRole role, const messages::ControllerIn
     st.misc_buttons = input.misc_buttons;
     st.report_count++;
 
-    const uint16_t button_edges = static_cast<uint16_t>(prev_buttons ^ st.buttons);
+    const auto button_edges = static_cast<uint16_t>(prev_buttons ^ st.buttons);
     if (button_edges != 0) {
         st.button_edge_mask = static_cast<uint16_t>(st.button_edge_mask | button_edges);
         st.button_edge_count++;
     }
 
-    const bool changed =
-        (prev_dpad != st.dpad) ||
-        (prev_axis_x != st.axis_x) ||
-        (prev_axis_y != st.axis_y) ||
-        (prev_axis_rx != st.axis_rx) ||
-        (prev_axis_ry != st.axis_ry) ||
-        (prev_buttons != st.buttons) ||
-        (prev_misc != st.misc_buttons);
+    const bool changed = (prev_dpad != st.dpad) || (prev_axis_x != st.axis_x) || (prev_axis_y != st.axis_y) ||
+                         (prev_axis_rx != st.axis_rx) || (prev_axis_ry != st.axis_ry) || (prev_buttons != st.buttons) ||
+                         (prev_misc != st.misc_buttons);
     if (changed) {
         st.change_count++;
         st.last_change_us = monotonicNowUs();
@@ -227,8 +212,7 @@ void TelemetryService::observeMotorCommand(const messages::MotorCommand& cmd) {
     st.value = cmd.value;
 }
 
-void TelemetryService::observeServoCommand(const messages::ServoCommand& cmd,
-                                           ServoSourceGroup group) {
+void TelemetryService::observeServoCommand(const messages::ServoCommand& cmd, ServoSourceGroup group) {
     if (cmd.servo_id >= limits::MAX_MOTORS) {
         return;
     }
@@ -280,11 +264,11 @@ void TelemetryService::observeSystemStatus(const messages::SystemStatus& status)
 }
 
 void TelemetryService::emitSerial(const char* json) {
-    if (!serial_sink_) {
+    if (serial_sink_ == nullptr) {
         return;
     }
 
-    std::snprintf(serial_line_, sizeof(serial_line_), "TEL:%s", json ? json : "{}");
+    std::snprintf(serial_line_, sizeof(serial_line_), "TEL:%s", (json != nullptr) ? json : "{}");
     serial_sink_(serial_line_, serial_sink_context_);
 }
 
@@ -299,7 +283,7 @@ void TelemetryService::snapshotToFrame(PublishFrame& out) {
 }
 
 void TelemetryService::emitSerialCompact(const PublishFrame& frame) {
-    if (!serial_sink_) {
+    if (serial_sink_ == nullptr) {
         return;
     }
 
@@ -307,70 +291,48 @@ void TelemetryService::emitSerialCompact(const PublishFrame& frame) {
     const auto& dome = frame.input_states[static_cast<size_t>(InputRole::DOME)];
     char line[512];
     if (config_.include_perf) {
-        std::snprintf(
-            line, sizeof(line),
-            "TEL:t=%llu lc=%llu loop_max=%llu loop_avg=%llu mode=%u estop=%u/%u "
-            "drv=%u d_btn=0x%04x d_edge=0x%04x d_dpad=0x%02x d_ax=(%ld,%ld,%ld,%ld) "
-            "dome=%u m_btn=0x%04x m_edge=0x%04x m_dpad=0x%02x m_ax=(%ld,%ld,%ld,%ld)",
-            static_cast<unsigned long long>(frame.snapshot.timestamp_us),
-            static_cast<unsigned long long>(frame.snapshot.loop_count),
-            static_cast<unsigned long long>(frame.snapshot.max_loop_time_us),
-            static_cast<unsigned long long>(frame.snapshot.avg_loop_time_us),
-            static_cast<unsigned>(frame.snapshot.degradation_mode),
-            frame.snapshot.executor_estop ? 1U : 0U,
-            frame.snapshot.safety_estop ? 1U : 0U,
-            drive.connected ? 1U : 0U,
-            static_cast<unsigned>(drive.buttons),
-            static_cast<unsigned>(drive.button_edge_mask),
-            static_cast<unsigned>(drive.dpad),
-            static_cast<long>(drive.axis_x),
-            static_cast<long>(drive.axis_y),
-            static_cast<long>(drive.axis_rx),
-            static_cast<long>(drive.axis_ry),
-            dome.connected ? 1U : 0U,
-            static_cast<unsigned>(dome.buttons),
-            static_cast<unsigned>(dome.button_edge_mask),
-            static_cast<unsigned>(dome.dpad),
-            static_cast<long>(dome.axis_x),
-            static_cast<long>(dome.axis_y),
-            static_cast<long>(dome.axis_rx),
-            static_cast<long>(dome.axis_ry));
+        std::snprintf(line, sizeof(line),
+                      "TEL:t=%llu lc=%llu loop_max=%llu loop_avg=%llu mode=%u estop=%u/%u "
+                      "drv=%u d_btn=0x%04x d_edge=0x%04x d_dpad=0x%02x d_ax=(%ld,%ld,%ld,%ld) "
+                      "dome=%u m_btn=0x%04x m_edge=0x%04x m_dpad=0x%02x m_ax=(%ld,%ld,%ld,%ld)",
+                      static_cast<unsigned long long>(frame.snapshot.timestamp_us),
+                      static_cast<unsigned long long>(frame.snapshot.loop_count),
+                      static_cast<unsigned long long>(frame.snapshot.max_loop_time_us),
+                      static_cast<unsigned long long>(frame.snapshot.avg_loop_time_us),
+                      static_cast<unsigned>(frame.snapshot.degradation_mode), frame.snapshot.executor_estop ? 1U : 0U,
+                      frame.snapshot.safety_estop ? 1U : 0U, drive.connected ? 1U : 0U,
+                      static_cast<unsigned>(drive.buttons), static_cast<unsigned>(drive.button_edge_mask),
+                      static_cast<unsigned>(drive.dpad), static_cast<long>(drive.axis_x),
+                      static_cast<long>(drive.axis_y), static_cast<long>(drive.axis_rx),
+                      static_cast<long>(drive.axis_ry), dome.connected ? 1U : 0U, static_cast<unsigned>(dome.buttons),
+                      static_cast<unsigned>(dome.button_edge_mask), static_cast<unsigned>(dome.dpad),
+                      static_cast<long>(dome.axis_x), static_cast<long>(dome.axis_y), static_cast<long>(dome.axis_rx),
+                      static_cast<long>(dome.axis_ry));
     } else {
-        std::snprintf(
-            line, sizeof(line),
-            "TEL:t=%llu mode=%u estop=%u/%u "
-            "drv=%u d_btn=0x%04x d_edge=0x%04x d_dpad=0x%02x d_ax=(%ld,%ld,%ld,%ld) "
-            "dome=%u m_btn=0x%04x m_edge=0x%04x m_dpad=0x%02x m_ax=(%ld,%ld,%ld,%ld)",
-            static_cast<unsigned long long>(frame.snapshot.timestamp_us),
-            static_cast<unsigned>(frame.snapshot.degradation_mode),
-            frame.snapshot.executor_estop ? 1U : 0U,
-            frame.snapshot.safety_estop ? 1U : 0U,
-            drive.connected ? 1U : 0U,
-            static_cast<unsigned>(drive.buttons),
-            static_cast<unsigned>(drive.button_edge_mask),
-            static_cast<unsigned>(drive.dpad),
-            static_cast<long>(drive.axis_x),
-            static_cast<long>(drive.axis_y),
-            static_cast<long>(drive.axis_rx),
-            static_cast<long>(drive.axis_ry),
-            dome.connected ? 1U : 0U,
-            static_cast<unsigned>(dome.buttons),
-            static_cast<unsigned>(dome.button_edge_mask),
-            static_cast<unsigned>(dome.dpad),
-            static_cast<long>(dome.axis_x),
-            static_cast<long>(dome.axis_y),
-            static_cast<long>(dome.axis_rx),
-            static_cast<long>(dome.axis_ry));
+        std::snprintf(line, sizeof(line),
+                      "TEL:t=%llu mode=%u estop=%u/%u "
+                      "drv=%u d_btn=0x%04x d_edge=0x%04x d_dpad=0x%02x d_ax=(%ld,%ld,%ld,%ld) "
+                      "dome=%u m_btn=0x%04x m_edge=0x%04x m_dpad=0x%02x m_ax=(%ld,%ld,%ld,%ld)",
+                      static_cast<unsigned long long>(frame.snapshot.timestamp_us),
+                      static_cast<unsigned>(frame.snapshot.degradation_mode), frame.snapshot.executor_estop ? 1U : 0U,
+                      frame.snapshot.safety_estop ? 1U : 0U, drive.connected ? 1U : 0U,
+                      static_cast<unsigned>(drive.buttons), static_cast<unsigned>(drive.button_edge_mask),
+                      static_cast<unsigned>(drive.dpad), static_cast<long>(drive.axis_x),
+                      static_cast<long>(drive.axis_y), static_cast<long>(drive.axis_rx),
+                      static_cast<long>(drive.axis_ry), dome.connected ? 1U : 0U, static_cast<unsigned>(dome.buttons),
+                      static_cast<unsigned>(dome.button_edge_mask), static_cast<unsigned>(dome.dpad),
+                      static_cast<long>(dome.axis_x), static_cast<long>(dome.axis_y), static_cast<long>(dome.axis_rx),
+                      static_cast<long>(dome.axis_ry));
     }
     serial_sink_(line, serial_sink_context_);
 }
 
-void TelemetryService::formatJsonFromFrame(const PublishFrame& frame, char* out_json, size_t out_len) {
+void TelemetryService::formatJsonFromFrame(const PublishFrame& frame, char* out_json, size_t out_len) const {
     auto appendf = [&](size_t& used, const char* fmt, ...) {
         if (!out_json || out_len == 0 || used >= out_len) {
             return;
         }
-        va_list args;
+        va_list args = nullptr;
         va_start(args, fmt);
         int n = std::vsnprintf(out_json + used, out_len - used, fmt, args);
         va_end(args);
@@ -386,11 +348,9 @@ void TelemetryService::formatJsonFromFrame(const PublishFrame& frame, char* out_
     };
 
     size_t used = 0;
-    appendf(used,
-            "{\"timestamp_us\":%llu,\"executor_estop\":%s,\"safety_estop\":%s,\"degradation_mode\":%u",
+    appendf(used, "{\"timestamp_us\":%llu,\"executor_estop\":%s,\"safety_estop\":%s,\"degradation_mode\":%u",
             static_cast<unsigned long long>(frame.snapshot.timestamp_us),
-            frame.snapshot.executor_estop ? "true" : "false",
-            frame.snapshot.safety_estop ? "true" : "false",
+            frame.snapshot.executor_estop ? "true" : "false", frame.snapshot.safety_estop ? "true" : "false",
             static_cast<unsigned>(frame.snapshot.degradation_mode));
 
     if (config_.include_perf) {
@@ -400,11 +360,10 @@ void TelemetryService::formatJsonFromFrame(const PublishFrame& frame, char* out_
                 static_cast<unsigned long long>(frame.snapshot.loop_count),
                 static_cast<unsigned long long>(frame.snapshot.max_loop_time_us),
                 static_cast<unsigned long long>(frame.snapshot.avg_loop_time_us),
-                static_cast<unsigned>(frame.snapshot.active_nodes),
-                static_cast<unsigned>(frame.snapshot.total_nodes));
+                static_cast<unsigned>(frame.snapshot.active_nodes), static_cast<unsigned>(frame.snapshot.total_nodes));
     }
 
-    const char* role_keys[] = {"drive", "dome", "animation", "camera"};
+    const char* const role_keys[] = {"drive", "dome", "animation", "camera"};
     appendf(used, ",\"inputs\":{");
     for (size_t i = 0; i < static_cast<size_t>(InputRole::COUNT); ++i) {
         const auto& st = frame.input_states[i];
@@ -412,22 +371,12 @@ void TelemetryService::formatJsonFromFrame(const PublishFrame& frame, char* out_
                 "%s\"%s\":{\"valid\":%s,\"connected\":%s,\"battery\":%u,"
                 "\"dpad\":%u,\"axes\":[%ld,%ld,%ld,%ld],\"buttons\":%u,\"misc\":%u,"
                 "\"reports\":%u,\"changes\":%u,\"btn_edges\":%u,\"btn_edge_mask\":%u,\"last_change_us\":%llu}",
-                (i == 0) ? "" : ",",
-                role_keys[i],
-                st.valid ? "true" : "false",
-                st.connected ? "true" : "false",
-                static_cast<unsigned>(st.battery),
-                static_cast<unsigned>(st.dpad),
-                static_cast<long>(st.axis_x),
-                static_cast<long>(st.axis_y),
-                static_cast<long>(st.axis_rx),
-                static_cast<long>(st.axis_ry),
-                static_cast<unsigned>(st.buttons),
-                static_cast<unsigned>(st.misc_buttons),
-                static_cast<unsigned>(st.report_count),
-                static_cast<unsigned>(st.change_count),
-                static_cast<unsigned>(st.button_edge_count),
-                static_cast<unsigned>(st.button_edge_mask),
+                (i == 0) ? "" : ",", role_keys[i], st.valid ? "true" : "false", st.connected ? "true" : "false",
+                static_cast<unsigned>(st.battery), static_cast<unsigned>(st.dpad), static_cast<long>(st.axis_x),
+                static_cast<long>(st.axis_y), static_cast<long>(st.axis_rx), static_cast<long>(st.axis_ry),
+                static_cast<unsigned>(st.buttons), static_cast<unsigned>(st.misc_buttons),
+                static_cast<unsigned>(st.report_count), static_cast<unsigned>(st.change_count),
+                static_cast<unsigned>(st.button_edge_count), static_cast<unsigned>(st.button_edge_mask),
                 static_cast<unsigned long long>(st.last_change_us));
     }
     appendf(used, "}");
@@ -437,31 +386,27 @@ void TelemetryService::formatJsonFromFrame(const PublishFrame& frame, char* out_
     bool first = true;
     for (size_t i = 0; i < limits::MAX_MOTORS; ++i) {
         const auto& st = frame.motor_states[i];
-        if (!st.valid) continue;
-        appendf(used, "%s{\"id\":%u,\"type\":%u,\"value\":%.4f}",
-                first ? "" : ",",
-                static_cast<unsigned>(i),
-                static_cast<unsigned>(st.command_type),
-                static_cast<double>(st.value));
+        if (!st.valid) {
+            continue;
+        }
+        appendf(used, "%s{\"id\":%u,\"type\":%u,\"value\":%.4f}", first ? "" : ",", static_cast<unsigned>(i),
+                static_cast<unsigned>(st.command_type), static_cast<double>(st.value));
         first = false;
     }
     appendf(used, "],");
 
-    const char* servo_group_keys[] = {"any", "body", "dome"};
+    const char* const servo_group_keys[] = {"any", "body", "dome"};
     appendf(used, "\"servos\":[");
     first = true;
     for (size_t group_idx = 0; group_idx < static_cast<size_t>(ServoSourceGroup::COUNT); ++group_idx) {
         for (size_t i = 0; i < limits::MAX_MOTORS; ++i) {
             const auto& st = frame.servo_states[group_idx][i];
-            if (!st.valid) continue;
-            appendf(used,
-                    "%s{\"id\":%u,\"type\":%u,\"value\":%.4f,\"dur_ms\":%u,\"group\":\"%s\",\"group_id\":%u}",
-                    first ? "" : ",",
-                    static_cast<unsigned>(i),
-                    static_cast<unsigned>(st.command_type),
-                    static_cast<double>(st.value),
-                    static_cast<unsigned>(st.duration_ms),
-                    servo_group_keys[group_idx],
+            if (!st.valid) {
+                continue;
+            }
+            appendf(used, "%s{\"id\":%u,\"type\":%u,\"value\":%.4f,\"dur_ms\":%u,\"group\":\"%s\",\"group_id\":%u}",
+                    first ? "" : ",", static_cast<unsigned>(i), static_cast<unsigned>(st.command_type),
+                    static_cast<double>(st.value), static_cast<unsigned>(st.duration_ms), servo_group_keys[group_idx],
                     static_cast<unsigned>(group_idx));
             first = false;
         }
@@ -473,24 +418,15 @@ void TelemetryService::formatJsonFromFrame(const PublishFrame& frame, char* out_
             "\"color\":{\"r\":%u,\"g\":%u,\"b\":%u,\"w\":%u},\"brightness\":%u,\"pattern\":%u},"
             "\"audio\":{\"valid\":%s,\"type\":%u,\"track\":%u,\"volume\":%u,\"loop\":%s},"
             "\"status\":{\"valid\":%s,\"state\":%u,\"error\":%u}}",
-            frame.led_state.valid ? "true" : "false",
-            static_cast<unsigned>(frame.led_state.led_id),
-            static_cast<unsigned>(frame.led_state.command_type),
-            frame.led_state.is_on ? "true" : "false",
-            static_cast<unsigned>(frame.led_state.red),
-            static_cast<unsigned>(frame.led_state.green),
-            static_cast<unsigned>(frame.led_state.blue),
-            static_cast<unsigned>(frame.led_state.white),
-            static_cast<unsigned>(frame.led_state.brightness),
-            static_cast<unsigned>(frame.led_state.pattern_id),
-            frame.audio_state.valid ? "true" : "false",
-            static_cast<unsigned>(frame.audio_state.command_type),
-            static_cast<unsigned>(frame.audio_state.track_id),
-            static_cast<unsigned>(frame.audio_state.volume),
-            frame.audio_state.loop ? "true" : "false",
-            frame.status_state.valid ? "true" : "false",
-            static_cast<unsigned>(frame.status_state.status),
-            static_cast<unsigned>(frame.status_state.error_code));
+            frame.led_state.valid ? "true" : "false", static_cast<unsigned>(frame.led_state.led_id),
+            static_cast<unsigned>(frame.led_state.command_type), frame.led_state.is_on ? "true" : "false",
+            static_cast<unsigned>(frame.led_state.red), static_cast<unsigned>(frame.led_state.green),
+            static_cast<unsigned>(frame.led_state.blue), static_cast<unsigned>(frame.led_state.white),
+            static_cast<unsigned>(frame.led_state.brightness), static_cast<unsigned>(frame.led_state.pattern_id),
+            frame.audio_state.valid ? "true" : "false", static_cast<unsigned>(frame.audio_state.command_type),
+            static_cast<unsigned>(frame.audio_state.track_id), static_cast<unsigned>(frame.audio_state.volume),
+            frame.audio_state.loop ? "true" : "false", frame.status_state.valid ? "true" : "false",
+            static_cast<unsigned>(frame.status_state.status), static_cast<unsigned>(frame.status_state.error_code));
 
     appendf(used, "}");
 }
@@ -564,27 +500,14 @@ bool TelemetryService::startAsyncTask() {
     }
 
     BaseType_t res = pdFAIL;
-    const uint32_t stack_bytes = config_.async_task_stack_words > 0
-                                     ? config_.async_task_stack_words
-                                     : 4096;
+    const uint32_t stack_bytes = config_.async_task_stack_words > 0 ? config_.async_task_stack_words : 4096;
 
     if (config_.async_task_core >= 0) {
-        res = xTaskCreatePinnedToCore(
-            &TelemetryService::telemetryTaskEntry,
-            "telemetry_pub",
-            stack_bytes,
-            this,
-            config_.async_task_priority,
-            &async_task_handle_,
-            config_.async_task_core);
+        res = xTaskCreatePinnedToCore(&TelemetryService::telemetryTaskEntry, "telemetry_pub", stack_bytes, this,
+                                      config_.async_task_priority, &async_task_handle_, config_.async_task_core);
     } else {
-        res = xTaskCreate(
-            &TelemetryService::telemetryTaskEntry,
-            "telemetry_pub",
-            stack_bytes,
-            this,
-            config_.async_task_priority,
-            &async_task_handle_);
+        res = xTaskCreate(&TelemetryService::telemetryTaskEntry, "telemetry_pub", stack_bytes, this,
+                          config_.async_task_priority, &async_task_handle_);
     }
 
     if (res != pdPASS) {
@@ -642,7 +565,8 @@ static void appendParamAsJson(const core::Parameter& p, void* ctx_ptr) {
     }
 
     int n = std::snprintf(ctx->out + ctx->used, ctx->capacity - ctx->used, fmt, p.name, value_buf);
-    if (n <= 0) return;
+    if (n <= 0)
+        return;
     size_t added = static_cast<size_t>(n);
     if (ctx->used + added >= ctx->capacity) {
         ctx->used = ctx->capacity;
@@ -651,7 +575,7 @@ static void appendParamAsJson(const core::Parameter& p, void* ctx_ptr) {
     ctx->used += added;
     ctx->first = false;
 }
-} // namespace
+}  // namespace
 
 bool TelemetryService::startHttpServer() {
     if (http_server_) {
@@ -669,28 +593,20 @@ bool TelemetryService::startHttpServer() {
     }
 
     if (config_.http_enabled) {
-        httpd_uri_t get_uri = {
-            .uri       = "/api/telemetry",
-            .method    = HTTP_GET,
-            .handler   = &TelemetryService::handleTelemetryGet,
-            .user_ctx  = this
-        };
+        httpd_uri_t get_uri = {.uri = "/api/telemetry",
+                               .method = HTTP_GET,
+                               .handler = &TelemetryService::handleTelemetryGet,
+                               .user_ctx = this};
         httpd_register_uri_handler(http_server_, &get_uri);
 
         httpd_uri_t params_get = {
-            .uri      = "/api/params",
-            .method   = HTTP_GET,
-            .handler  = &TelemetryService::handleParamsGet,
-            .user_ctx = this
-        };
+            .uri = "/api/params", .method = HTTP_GET, .handler = &TelemetryService::handleParamsGet, .user_ctx = this};
         httpd_register_uri_handler(http_server_, &params_get);
 
-        httpd_uri_t params_post = {
-            .uri      = "/api/params",
-            .method   = HTTP_POST,
-            .handler  = &TelemetryService::handleParamsPost,
-            .user_ctx = this
-        };
+        httpd_uri_t params_post = {.uri = "/api/params",
+                                   .method = HTTP_POST,
+                                   .handler = &TelemetryService::handleParamsPost,
+                                   .user_ctx = this};
         httpd_register_uri_handler(http_server_, &params_post);
     }
 
@@ -796,12 +712,7 @@ esp_err_t TelemetryService::handleParamsGet(httpd_req_t* req) {
     char body[2048] = "{";
     size_t used = 1;
 
-    ParamJsonCtx ctx{
-        .out = body,
-        .capacity = sizeof(body),
-        .used = used,
-        .first = true
-    };
+    ParamJsonCtx ctx{.out = body, .capacity = sizeof(body), .used = used, .first = true};
 
     core::ParameterServer::getInstance().forEach(&appendParamAsJson, &ctx);
     used = ctx.used;
@@ -867,5 +778,4 @@ esp_err_t TelemetryService::handleParamsPost(httpd_req_t* req) {
 }
 #endif
 
-} // namespace telemetry
-} // namespace chopper
+}  // namespace chopper::telemetry

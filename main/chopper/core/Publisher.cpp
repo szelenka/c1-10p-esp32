@@ -2,18 +2,12 @@
 #include "chopper/core/MessageBroker.h"
 #include "esp_log.h"
 
-static const char* TAG = "Publisher";
+static const char* const TAG = "Publisher";
 
-namespace chopper {
-namespace core {
+namespace chopper::core {
 
 Publisher::Publisher(const char* topic, TypeId type_id, const QoSProfile& qos)
-    : topic_(topic)
-    , type_id_(type_id)
-    , qos_(qos)
-    , message_count_(0)
-    , subscriber_count_(0)
-{
+    : topic_(topic), type_id_(type_id), qos_(qos) {
     memset(subscribers_, 0, sizeof(subscribers_));
 }
 
@@ -26,18 +20,19 @@ size_t Publisher::getSubscriberCount() const {
 }
 
 bool Publisher::addSubscription(Subscription* sub) {
-    if (!sub) return false;
+    if (sub == nullptr) {
+        return false;
+    }
 
     if (subscriber_count_ >= limits::MAX_SUBSCRIBERS_PER_TOPIC) {
-        ESP_LOGE(TAG, "Cannot add subscriber to '%s': max %zu reached",
-                 topic_, limits::MAX_SUBSCRIBERS_PER_TOPIC);
+        ESP_LOGE(TAG, "Cannot add subscriber to '%s': max %zu reached", topic_, limits::MAX_SUBSCRIBERS_PER_TOPIC);
         return false;
     }
 
     // Check for duplicate
     for (size_t i = 0; i < subscriber_count_; i++) {
         if (subscribers_[i] == sub) {
-            return true; // Already registered
+            return true;  // Already registered
         }
     }
 
@@ -62,12 +57,11 @@ void Publisher::removeSubscription(Subscription* sub) {
 void Publisher::deliver(const Message& message) {
     for (size_t i = 0; i < subscriber_count_; i++) {
         Subscription* sub = subscribers_[i];
-        if (sub && sub->matchesType(message.getTypeId())) {
+        if ((sub != nullptr) && sub->matchesType(message.getTypeId())) {
             sub->deliver(message);
         }
     }
     message_count_++;
 }
 
-} // namespace core
-} // namespace chopper
+}  // namespace chopper::core

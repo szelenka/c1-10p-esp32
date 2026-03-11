@@ -10,8 +10,7 @@
 #include "freertos/task.h"
 #include "esp_timer.h"
 
-namespace chopper {
-namespace core {
+namespace chopper::core {
 
 /**
  * @brief Real-time executor for managing node execution.
@@ -25,15 +24,16 @@ namespace core {
 class Executor {
 public:
     struct Config {
-        uint32_t loop_frequency_hz = 100;      ///< Main loop frequency (100 Hz default, matches FreeRTOS tick)
-        uint32_t max_loop_time_us = 9000;      ///< Maximum allowed loop time (90% of 10ms period)
-        bool loop_timeout_triggers_estop = true; ///< If false, loop overruns warn but do not E-stop
-        uint32_t watchdog_timeout_ms = 2000;   ///< Watchdog timeout
+        uint32_t loop_frequency_hz = 100;         ///< Main loop frequency (100 Hz default, matches FreeRTOS tick)
+        uint32_t max_loop_time_us = 9000;         ///< Maximum allowed loop time (90% of 10ms period)
+        bool loop_timeout_triggers_estop = true;  ///< If false, loop overruns warn but do not E-stop
+        uint32_t watchdog_timeout_ms = 2000;      ///< Watchdog timeout
         uint32_t emergency_stop_timeout_ms = 100;
-        bool node_timeout_triggers_estop = true; ///< If false, timeouted node is emergency-stopped but executor keeps running
+        bool node_timeout_triggers_estop =
+            true;  ///< If false, timeouted node is emergency-stopped but executor keeps running
         bool enable_statistics = true;
         size_t max_nodes = limits::MAX_NODES;
-        int8_t executor_task_core = -1;        ///< -1: scheduler default, otherwise core id
+        int8_t executor_task_core = -1;  ///< -1: scheduler default, otherwise core id
     };
 
     struct Statistics {
@@ -48,17 +48,17 @@ public:
     };
 
     /// Emergency stop callback: reason (const char*), context (void*)
-    using EmergencyStopCallback = void(*)(const char* reason, void* context);
+    using EmergencyStopCallback = void (*)(const char* reason, void* context);
 
     Executor();
     explicit Executor(const Config& config);
     ~Executor();
 
     /// @note Must be called before start().
-    bool addNode(NodePtr node);
+    bool addNode(const NodePtr& node);
 
     /// @note Must be called before start().
-    bool removeNode(NodePtr node);
+    bool removeNode(const NodePtr& node);
 
     bool initializeNodes();
     bool activateNodes();
@@ -94,7 +94,7 @@ private:
     void updateStatistics(uint64_t execution_time_us);
 
     Config config_;
-    std::vector<NodePtr> nodes_;
+    std::vector<NodePtr> nodes_;  // NOLINT(heap) init-time only, not on hot path
     MessageBroker& message_broker_;
 
     TaskHandle_t task_handle_;
@@ -112,9 +112,9 @@ private:
     Statistics stats_;
     uint64_t loop_time_accumulator_;
 
+public:
     Executor(const Executor&) = delete;
     Executor& operator=(const Executor&) = delete;
 };
 
-} // namespace core
-} // namespace chopper
+}  // namespace chopper::core

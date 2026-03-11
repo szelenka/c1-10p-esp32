@@ -40,26 +40,26 @@ typedef struct sw_serial {
     uint32_t buffSize, bitTime, rx_start_time, rx_end_time;
     bool invert, overflow;
     volatile uint32_t inPos, outPos;
-    uint8_t *buffer;
+    uint8_t* buffer;
 } SwSerial;
 
 // Forward declarations of internal helpers
-static void IRAM_ATTR sw_rx_handler(void *arg);
+static void IRAM_ATTR sw_rx_handler(void* arg);
 static inline void sw_wait(uint32_t start, uint32_t ticks);
 
-static inline SwSerial *sw_new(gpio_num_t tx, gpio_num_t rx,
-                               bool inverse, int buffSize) {
-    SwSerial *self = (SwSerial *)malloc(sizeof(SwSerial));
-    if (!self) return NULL;
+static inline SwSerial* sw_new(gpio_num_t tx, gpio_num_t rx, bool inverse, int buffSize) {
+    SwSerial* self = (SwSerial*)malloc(sizeof(SwSerial));
+    if (!self)
+        return NULL;
 
-    self->txPin    = tx;
-    self->rxPin    = rx;
-    self->invert   = inverse;
+    self->txPin = tx;
+    self->rxPin = rx;
+    self->invert = inverse;
     self->overflow = false;
-    self->inPos    = 0;
-    self->outPos   = 0;
+    self->inPos = 0;
+    self->outPos = 0;
     self->buffSize = (uint32_t)buffSize;
-    self->buffer   = (uint8_t *)malloc(buffSize);
+    self->buffer = (uint8_t*)malloc(buffSize);
     if (!self->buffer) {
         free(self);
         return NULL;
@@ -79,19 +79,19 @@ static inline SwSerial *sw_new(gpio_num_t tx, gpio_num_t rx,
     return self;
 }
 
-static inline void sw_del(SwSerial *self) {
+static inline void sw_del(SwSerial* self) {
     if (self) {
         free(self->buffer);
         free(self);
     }
 }
 
-static inline esp_err_t sw_enableRx(SwSerial *self, bool state) {
+static inline esp_err_t sw_enableRx(SwSerial* self, bool state) {
     if (state) {
-        gpio_set_intr_type(self->rxPin,
-            self->invert ? GPIO_INTR_POSEDGE : GPIO_INTR_NEGEDGE);
+        gpio_set_intr_type(self->rxPin, self->invert ? GPIO_INTR_POSEDGE : GPIO_INTR_NEGEDGE);
         esp_err_t err = gpio_install_isr_service(0);
-        if (err != ESP_OK && err != ESP_ERR_INVALID_STATE) return err;
+        if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
+            return err;
         return gpio_isr_handler_add(self->rxPin, sw_rx_handler, self);
     } else {
         gpio_isr_handler_remove(self->rxPin);
@@ -100,20 +100,21 @@ static inline esp_err_t sw_enableRx(SwSerial *self, bool state) {
     }
 }
 
-static inline esp_err_t sw_open(SwSerial *self, uint32_t baudRate) {
+static inline esp_err_t sw_open(SwSerial* self, uint32_t baudRate) {
     self->bitTime = esp_clk_cpu_freq() / baudRate;
     self->rx_start_time = self->bitTime + self->bitTime / 2;
-    self->rx_end_time   = self->bitTime * 9;
+    self->rx_end_time = self->bitTime * 9;
 
     return sw_enableRx(self, true);
 }
 
-static inline esp_err_t sw_stop(SwSerial *self) {
+static inline esp_err_t sw_stop(SwSerial* self) {
     return sw_enableRx(self, false);
 }
 
-static inline int sw_write(SwSerial *self, uint8_t byte) {
-    if (self->invert) byte = ~byte;
+static inline int sw_write(SwSerial* self, uint8_t byte) {
+    if (self->invert)
+        byte = ~byte;
 
     portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
     portENTER_CRITICAL(&mux);
@@ -140,31 +141,34 @@ static inline int sw_write(SwSerial *self, uint8_t byte) {
     return 1;
 }
 
-static inline int sw_read(SwSerial *self) {
-    if (self->inPos == self->outPos) return SW_EOF;
+static inline int sw_read(SwSerial* self) {
+    if (self->inPos == self->outPos)
+        return SW_EOF;
     uint8_t byte = self->buffer[self->outPos];
     self->outPos = (self->outPos + 1) % self->buffSize;
     return byte;
 }
 
-static inline int sw_any(SwSerial *self) {
+static inline int sw_any(SwSerial* self) {
     int avail = (int)(self->inPos - self->outPos);
-    if (avail < 0) avail += (int)self->buffSize;
+    if (avail < 0)
+        avail += (int)self->buffSize;
     return avail;
 }
 
-static inline void sw_flush(SwSerial *self) {
-    self->inPos   = 0;
-    self->outPos  = 0;
+static inline void sw_flush(SwSerial* self) {
+    self->inPos = 0;
+    self->outPos = 0;
     self->overflow = false;
 }
 
-static inline bool sw_overflow(SwSerial *self) {
+static inline bool sw_overflow(SwSerial* self) {
     return self->overflow;
 }
 
-static inline int sw_peek(SwSerial *self) {
-    if (self->inPos == self->outPos) return SW_EOF;
+static inline int sw_peek(SwSerial* self) {
+    if (self->inPos == self->outPos)
+        return SW_EOF;
     return self->buffer[self->outPos];
 }
 
@@ -176,8 +180,8 @@ static inline void sw_wait(uint32_t start, uint32_t ticks) {
     }
 }
 
-static void IRAM_ATTR sw_rx_handler(void *arg) {
-    SwSerial *self = (SwSerial *)arg;
+static void IRAM_ATTR sw_rx_handler(void* arg) {
+    SwSerial* self = (SwSerial*)arg;
 
     uint32_t start = esp_cpu_get_cycle_count();
 
@@ -193,7 +197,8 @@ static void IRAM_ATTR sw_rx_handler(void *arg) {
         sw_wait(start, self->rx_start_time + self->bitTime * (i + 1));
     }
 
-    if (self->invert) byte = ~byte;
+    if (self->invert)
+        byte = ~byte;
 
     // Store in circular buffer
     uint32_t next = (self->inPos + 1) % self->buffSize;
@@ -209,4 +214,4 @@ static void IRAM_ATTR sw_rx_handler(void *arg) {
 }
 #endif
 
-#endif // ESP_PLATFORM
+#endif  // ESP_PLATFORM

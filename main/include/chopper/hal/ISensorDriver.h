@@ -25,5 +25,5 @@ public:
     virtual void setCalibration(int32_t min, int32_t max) = 0;
 };
 
-} // namespace hal
-} // namespace chopper
+}  // namespace hal
+}  // namespace chopper

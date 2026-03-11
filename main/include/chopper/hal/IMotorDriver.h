@@ -2,8 +2,7 @@
 
 #include "chopper/hal/IDriver.h"
 
-namespace chopper {
-namespace hal {
+namespace chopper::hal {
 
 /**
  * Motor driver interface for DC motor control.
@@ -21,13 +20,13 @@ public:
     virtual void set(float speed) = 0;
 
     /// Get current speed setpoint.
-    virtual float get() const = 0;
+    [[nodiscard]] virtual float get() const = 0;
 
     /// Invert the motor direction.
     virtual void setInverted(bool inverted) = 0;
 
     /// Check if motor direction is inverted.
-    virtual bool isInverted() const = 0;
+    [[nodiscard]] virtual bool isInverted() const = 0;
 
     /// Coast / Hi-Z — motor free-spins.
     virtual void disable() = 0;
@@ -36,5 +35,4 @@ public:
     virtual void stop() = 0;
 };
 
-} // namespace hal
-} // namespace chopper
+}  // namespace chopper::hal

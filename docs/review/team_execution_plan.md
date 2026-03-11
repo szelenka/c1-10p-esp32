@@ -195,7 +195,7 @@ Constraint: No `git commit`, `push`, `pull`, or history rewrite actions.
 - Owner squad: Squad D (+ Product engineer from Squad B)
 - Goal: Keep requirement/test traceability current with minimal manual drift.
 - Primary files (anticipated):
-  - helper script under `scripts/` or `tools/`
+  - helper script under `.scripts/` or `tools/`
   - `docs/review/requirements_traceability_matrix.md`
 - Plan:
   1. Define machine-readable matrix format (table + status tags).

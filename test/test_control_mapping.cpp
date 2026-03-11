@@ -5,87 +5,116 @@
 //       test/test_control_mapping.cpp \
 //       -o test/test_control_mapping -pthread
 
-#include <cstdio>
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
+#include "doctest.h"
 
 #include "chopper/messages/CommonMessages.h"
 #include "chopper/input/DriveIntentMapping.h"
 
-static int test_count = 0;
-static int pass_count = 0;
-
-#define TEST(name) \
-    do { test_count++; std::printf("TEST: %s ... ", #name); } while (0)
-#define PASS() \
-    do { pass_count++; std::printf("PASS\n"); } while (0)
-#define ASSERT(cond) \
-    do { if (!(cond)) { std::printf("FAIL at %s:%d: %s\n", __FILE__, __LINE__, #cond); return; } } while (0)
-
 using chopper::input::ControlField;
 using chopper::input::DriveIntentMap;
+using chopper::input::DomeIntentMap;
 using chopper::input::UserIntent;
 
-void test_default_drive_mapping() {
-    TEST(default_drive_mapping);
+TEST_CASE("default_drive_mapping") {
     const DriveIntentMap map = chopper::input::defaultDriveIntentMap();
-    ASSERT(map.periscope_up == ControlField::BUTTON_X);
-    ASSERT(map.periscope_down == ControlField::BUTTON_X);
-    ASSERT(map.periscope_spin_left == ControlField::BUTTON_A);
-    ASSERT(map.periscope_spin_right == ControlField::BUTTON_Y);
-    ASSERT(map.dome_doors_toggle == ControlField::MISC_SELECT);
-    ASSERT(map.body_utility_toggle == ControlField::BUTTON_B);
-    ASSERT(map.carpet_mode_toggle == ControlField::BUTTON_THUMB_L);
-    PASS();
+    CHECK(map.periscope_up == ControlField::BUTTON_X);
+    CHECK(map.periscope_down == ControlField::BUTTON_X);
+    CHECK(map.periscope_spin_left == ControlField::BUTTON_A);
+    CHECK(map.periscope_spin_right == ControlField::BUTTON_Y);
+    CHECK(map.dome_doors_toggle == ControlField::MISC_SELECT);
+    CHECK(map.body_utility_toggle == ControlField::BUTTON_B);
+    CHECK(map.carpet_mode_toggle == ControlField::BUTTON_THUMB_L);
 }
 
-void test_apply_intent_press_and_release() {
-    TEST(apply_intent_press_and_release);
+TEST_CASE("apply_intent_press_and_release") {
     const DriveIntentMap map = chopper::input::defaultDriveIntentMap();
     chopper::messages::ControllerInput input;
 
     chopper::input::applyIntentPress(input, UserIntent::PERISCOPE_UP, map);
-    ASSERT(input.button_x);
-    ASSERT(!input.button_a);
+    CHECK(input.button_x);
+    CHECK_FALSE(input.button_a);
 
     chopper::input::applyIntentRelease(input, UserIntent::PERISCOPE_UP, map);
-    ASSERT(!input.button_x);
-    PASS();
+    CHECK_FALSE(input.button_x);
 }
 
-void test_override_mapping() {
-    TEST(override_mapping);
+TEST_CASE("override_mapping") {
     DriveIntentMap map = chopper::input::defaultDriveIntentMap();
     map.periscope_up = ControlField::BUTTON_A;
 
     chopper::messages::ControllerInput input;
     chopper::input::applyIntentPress(input, UserIntent::PERISCOPE_UP, map);
-    ASSERT(input.button_a);
-    ASSERT(!input.button_x);
-    PASS();
+    CHECK(input.button_a);
+    CHECK_FALSE(input.button_x);
 }
 
-void test_set_drive_intents_from_raw() {
-    TEST(set_drive_intents_from_raw);
+TEST_CASE("set_drive_intents_from_raw") {
     const DriveIntentMap map = chopper::input::defaultDriveIntentMap();
     chopper::messages::ControllerInput input;
     input.button_x = true;
     input.button_a = true;
 
     chopper::input::setDriveIntentsFromRaw(input, map);
-    ASSERT(input.has_intents);
-    ASSERT(input.intent_periscope_up);
-    ASSERT(input.intent_periscope_down);
-    ASSERT(input.intent_periscope_spin_left);
-    ASSERT(!input.intent_periscope_spin_right);
-    PASS();
+    CHECK(input.has_intents);
+    CHECK(input.intent_periscope_up);
+    CHECK(input.intent_periscope_down);
+    CHECK(input.intent_periscope_spin_left);
+    CHECK_FALSE(input.intent_periscope_spin_right);
 }
 
-int main() {
-    std::printf("=== Control Mapping Tests ===\n");
-    test_default_drive_mapping();
-    test_apply_intent_press_and_release();
-    test_override_mapping();
-    test_set_drive_intents_from_raw();
+// ── Dome intent mapping ──
 
-    std::printf("\nPassed %d/%d tests\n", pass_count, test_count);
-    return (pass_count == test_count) ? 0 : 1;
+TEST_CASE("default_dome_mapping") {
+    const DomeIntentMap map = chopper::input::defaultDomeIntentMap();
+    CHECK(map.neck_toggle == ControlField::BUTTON_THUMB_L);
+    CHECK(map.neck_height_up == ControlField::BUTTON_R1);
+    CHECK(map.neck_height_down == ControlField::BUTTON_L1);
+    CHECK(map.sound_a == ControlField::BUTTON_A);
+    CHECK(map.sound_b == ControlField::BUTTON_B);
+    CHECK(map.sound_random == ControlField::MISC_START);
+}
+
+TEST_CASE("set_dome_intents_from_raw") {
+    const DomeIntentMap map = chopper::input::defaultDomeIntentMap();
+    chopper::messages::ControllerInput input;
+    input.button_a = true;
+    input.button_r1 = true;
+
+    chopper::input::setDomeIntentsFromRaw(input, map);
+    CHECK(input.has_intents);
+    CHECK(input.intent_sound_a);
+    CHECK_FALSE(input.intent_sound_b);
+    CHECK_FALSE(input.intent_sound_random);
+    CHECK_FALSE(input.intent_neck_toggle);
+    CHECK(input.intent_neck_height_up);
+    CHECK_FALSE(input.intent_neck_height_down);
+}
+
+TEST_CASE("dome_override_mapping") {
+    DomeIntentMap map = chopper::input::defaultDomeIntentMap();
+    map.sound_a = ControlField::BUTTON_Y;
+
+    chopper::messages::ControllerInput input;
+    input.button_y = true;
+
+    chopper::input::setDomeIntentsFromRaw(input, map);
+    CHECK(input.intent_sound_a);
+    CHECK_FALSE(input.intent_sound_b);
+}
+
+TEST_CASE("new_control_fields_round_trip") {
+    chopper::messages::ControllerInput input;
+
+    chopper::input::applyControlPress(input, ControlField::BUTTON_L1);
+    CHECK(chopper::input::isControlPressed(input, ControlField::BUTTON_L1));
+
+    chopper::input::applyControlPress(input, ControlField::BUTTON_R1);
+    CHECK(chopper::input::isControlPressed(input, ControlField::BUTTON_R1));
+
+    chopper::input::applyControlPress(input, ControlField::MISC_START);
+    CHECK(chopper::input::isControlPressed(input, ControlField::MISC_START));
+
+    chopper::input::applyControlRelease(input, ControlField::BUTTON_L1);
+    CHECK_FALSE(chopper::input::isControlPressed(input, ControlField::BUTTON_L1));
 }

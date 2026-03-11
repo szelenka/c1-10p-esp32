@@ -38,7 +38,6 @@ static SemaphoreHandle_t controller_mutex_ = NULL;
 static chopper_gamepad_data_t controllers_[CHOPPER_BT_MAX_DEVICES];
 static int connected_count_ = 0;
 
-
 static chopper_instance_t* get_instance(uni_hid_device_t* d) {
     return (chopper_instance_t*)&d->platform_data[0];
 }
@@ -100,16 +99,14 @@ static void chopper_on_init_complete(void) {
     uni_bt_allow_incoming_connections(true);
 }
 
-static uni_error_t chopper_on_device_discovered(bd_addr_t addr, const char* name,
-                                                uint16_t cod, uint8_t rssi) {
+static uni_error_t chopper_on_device_discovered(bd_addr_t addr, const char* name, uint16_t cod, uint8_t rssi) {
     // Filter out keyboards — Chopper only uses gamepads
     if (((cod & UNI_BT_COD_MINOR_MASK) & UNI_BT_COD_MINOR_KEYBOARD) == UNI_BT_COD_MINOR_KEYBOARD) {
         logi("Chopper: ignoring keyboard device\n");
         return UNI_ERROR_IGNORE_DEVICE;
     }
 
-    logi("Chopper: device discovered, name='%s', cod=0x%04x, rssi=%d\n",
-         name ? name : "(null)", cod, rssi);
+    logi("Chopper: device discovered, name='%s', cod=0x%04x, rssi=%d\n", name ? name : "(null)", cod, rssi);
 
     // Serialize handshakes to reduce inquiry churn during L2CAP setup.
     uni_bt_stop_scanning_unsafe();
@@ -126,8 +123,8 @@ static void chopper_on_device_connected(uni_hid_device_t* d) {
     // Access btaddr directly from the connection struct (avoids extern "C" issue
     // with uni_bt_conn.h which lacks C++ linkage guards)
     const uint8_t* addr = d->conn.btaddr;
-    logi("Chopper: device connected, MAC=%02X:%02X:%02X:%02X:%02X:%02X\n",
-         addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+    logi("Chopper: device connected, MAC=%02X:%02X:%02X:%02X:%02X:%02X\n", addr[0], addr[1], addr[2], addr[3], addr[4],
+         addr[5]);
 
     // Keep scan paused while setup for this controller finishes.
     uni_bt_stop_scanning_unsafe();
@@ -147,13 +144,12 @@ static void chopper_on_device_disconnected(uni_hid_device_t* d) {
         controllers_[ins->slot_idx].controller_type = 0;
         controllers_[ins->slot_idx].last_report_time_us = 0;
         connected_count_--;
-        if (connected_count_ < 0) connected_count_ = 0;
+        if (connected_count_ < 0)
+            connected_count_ = 0;
         xSemaphoreGive(controller_mutex_);
 
-        logi("Chopper: device disconnected, hid_idx=%d slot=%d mac=%02X:%02X:%02X:%02X:%02X:%02X count=%d\n",
-             hid_idx, ins->slot_idx,
-             addr[0], addr[1], addr[2], addr[3], addr[4], addr[5],
-             connected_count_);
+        logi("Chopper: device disconnected, hid_idx=%d slot=%d mac=%02X:%02X:%02X:%02X:%02X:%02X count=%d\n", hid_idx,
+             ins->slot_idx, addr[0], addr[1], addr[2], addr[3], addr[4], addr[5], connected_count_);
     }
 
     ins->slot_idx = -1;
@@ -210,20 +206,18 @@ static void chopper_on_controller_data(uni_hid_device_t* d, uni_controller_t* ct
     int8_t slot = ins->slot_idx;
     const bool slot_in_range = (slot >= 0 && slot < CHOPPER_BT_MAX_DEVICES);
     const bool slot_matches_mac =
-        slot_in_range &&
-        controllers_[slot].connected &&
+        slot_in_range && controllers_[slot].connected &&
         memcmp(controllers_[slot].btaddr, d->conn.btaddr, sizeof(controllers_[slot].btaddr)) == 0;
 
     if (!slot_matches_mac) {
         int8_t resolved_slot = find_connected_slot_by_mac_locked(d->conn.btaddr);
         if (resolved_slot >= 0) {
-            logd("Chopper: slot mismatch repaired: hid_idx=%d old_slot=%d new_slot=%d",
-                 hid_idx, slot, resolved_slot);
+            logd("Chopper: slot mismatch repaired: hid_idx=%d old_slot=%d new_slot=%d", hid_idx, slot, resolved_slot);
             ins->slot_idx = resolved_slot;
             slot = resolved_slot;
         } else {
-            loge("Chopper: dropping report, unresolved slot: hid_idx=%d slot=%d connected_count=%d",
-                 hid_idx, slot, connected_count_);
+            loge("Chopper: dropping report, unresolved slot: hid_idx=%d slot=%d connected_count=%d", hid_idx, slot,
+                 connected_count_);
             xSemaphoreGive(controller_mutex_);
             return;
         }
@@ -318,4 +312,4 @@ int chopper_bt_connected_count(void) {
     return count;
 }
 
-#endif // ESP_PLATFORM
+#endif  // ESP_PLATFORM

@@ -5,8 +5,7 @@
 #include "chopper/config/HardwareConfig.h"
 #include "chopper/messages/CommonMessages.h"
 
-namespace chopper {
-namespace nodes {
+namespace chopper::nodes {
 
 /**
  * Controls the body utility arm via the B button.
@@ -18,20 +17,18 @@ namespace nodes {
  */
 class BodyUtilityNode : public core::PublishingNode {
 public:
-    BodyUtilityNode()
-        : PublishingNode("body_util")
-    {}
+    BodyUtilityNode() : PublishingNode("body_util") {}
 
     bool initialize() override {
         servo_pub_ = createPublisher<messages::ServoCommand>("servo/body/cmd");
-        input_sub_ = createSubscription<messages::ControllerInput>(
-            "controller/drive", &BodyUtilityNode::onControllerInput, this);
+        input_sub_ = createSubscription<messages::ControllerInput>("controller/drive",
+                                                                   &BodyUtilityNode::onControllerInput, this);
 
         auto& ps = core::ParameterServer::getInstance();
-        ps.declare("servo.util_arm.neutral", static_cast<int32_t>(1500),
-                   static_cast<int32_t>(500), static_cast<int32_t>(2500));
-        ps.declare("servo.util_arm.max", static_cast<int32_t>(2500),
-                   static_cast<int32_t>(500), static_cast<int32_t>(2500));
+        ps.declare("servo.util_arm.neutral", static_cast<int32_t>(1500), static_cast<int32_t>(500),
+                   static_cast<int32_t>(2500));
+        ps.declare("servo.util_arm.max", static_cast<int32_t>(2500), static_cast<int32_t>(500),
+                   static_cast<int32_t>(2500));
 
         refreshCachedParams();
         bool listeners_ok = true;
@@ -54,9 +51,11 @@ public:
 
 private:
     void onControllerInput(const messages::ControllerInput& input) {
-        if (!servo_pub_) return;
+        if (!servo_pub_) {
+            return;
+        }
 
-        bool pressed = input.button_b;
+        const bool pressed = input.has_intents ? input.intent_body_utility_toggle : input.button_b;
         if (pressed != last_b_) {
             messages::ServoCommand cmd;
             cmd.servo_id = config::servo_channel::BODY_UTILITY_ARM;
@@ -73,7 +72,7 @@ private:
     }
 
     static void onParameterChanged(const char*, void* context) {
-        if (!context) {
+        if (context == nullptr) {
             return;
         }
         auto* self = static_cast<BodyUtilityNode*>(context);
@@ -94,5 +93,4 @@ private:
     int32_t max_pos_ = 2500;
 };
 
-} // namespace nodes
-} // namespace chopper
+}  // namespace chopper::nodes

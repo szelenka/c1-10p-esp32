@@ -4,8 +4,7 @@
 #include "chopper/messages/CommonMessages.h"
 #include <cstdint>
 
-namespace chopper {
-namespace bluetooth {
+namespace chopper::bluetooth {
 
 /**
  * Merges input from multiple controllers that affect the same subsystem.
@@ -24,37 +23,41 @@ public:
 
     /// A mixing rule between two controller roles.
     struct MixRule {
-        ControllerRole role_a;      ///< First role (higher priority in PRIORITY mode)
-        ControllerRole role_b;      ///< Second role
+        ControllerRole role_a;  ///< First role (higher priority in PRIORITY mode)
+        ControllerRole role_b;  ///< Second role
         MixMode mode;
-        uint32_t axis_mask;         ///< Bitmask of axes to apply mixing
-        uint32_t button_mask;       ///< Bitmask of buttons to OR together
+        uint32_t axis_mask;    ///< Bitmask of axes to apply mixing
+        uint32_t button_mask;  ///< Bitmask of buttons to OR together
     };
 
     /// Axis mask bits for selecting which axes to mix.
-    static constexpr uint32_t kAxisX   = 1 << 0;
-    static constexpr uint32_t kAxisY   = 1 << 1;
-    static constexpr uint32_t kAxisRX  = 1 << 2;
-    static constexpr uint32_t kAxisRY  = 1 << 3;
+    static constexpr uint32_t kAxisX = 1 << 0;
+    static constexpr uint32_t kAxisY = 1 << 1;
+    static constexpr uint32_t kAxisRX = 1 << 2;
+    static constexpr uint32_t kAxisRY = 1 << 3;
     static constexpr uint32_t kAllAxes = kAxisX | kAxisY | kAxisRX | kAxisRY;
 
     static constexpr uint8_t kMaxRules = 8;
 
-    InputMixer() : m_ruleCount(0) {}
+    InputMixer() = default;
 
     /// Register a mixing rule. Returns false if full.
     bool addRule(const MixRule& rule) {
-        if (m_ruleCount >= kMaxRules) return false;
+        if (m_ruleCount >= kMaxRules) {
+            return false;
+        }
         m_rules[m_ruleCount++] = rule;
         return true;
     }
 
     /// Get the number of registered rules.
-    uint8_t getRuleCount() const { return m_ruleCount; }
+    [[nodiscard]] uint8_t getRuleCount() const { return m_ruleCount; }
 
     /// Get a rule by index. Returns nullptr if out of range.
-    const MixRule* getRule(uint8_t index) const {
-        if (index >= m_ruleCount) return nullptr;
+    [[nodiscard]] const MixRule* getRule(uint8_t index) const {
+        if (index >= m_ruleCount) {
+            return nullptr;
+        }
         return &m_rules[index];
     }
 
@@ -63,29 +66,22 @@ public:
      * Only the axes/buttons specified in the rule are mixed;
      * all other fields are taken from input_a.
      */
-    static messages::ControllerInput mix(
-        const messages::ControllerInput& input_a,
-        const messages::ControllerInput& input_b,
-        const MixRule& rule)
-    {
+    static messages::ControllerInput mix(const messages::ControllerInput& input_a,
+                                         const messages::ControllerInput& input_b, const MixRule& rule) {
         messages::ControllerInput result = input_a;
 
         // Mix normalized axes
-        if (rule.axis_mask & kAxisX) {
-            result.axis_x_normalized = mixFloat(
-                input_a.axis_x_normalized, input_b.axis_x_normalized, rule.mode);
+        if ((rule.axis_mask & kAxisX) != 0u) {
+            result.axis_x_normalized = mixFloat(input_a.axis_x_normalized, input_b.axis_x_normalized, rule.mode);
         }
-        if (rule.axis_mask & kAxisY) {
-            result.axis_y_normalized = mixFloat(
-                input_a.axis_y_normalized, input_b.axis_y_normalized, rule.mode);
+        if ((rule.axis_mask & kAxisY) != 0u) {
+            result.axis_y_normalized = mixFloat(input_a.axis_y_normalized, input_b.axis_y_normalized, rule.mode);
         }
-        if (rule.axis_mask & kAxisRX) {
-            result.axis_rx_normalized = mixFloat(
-                input_a.axis_rx_normalized, input_b.axis_rx_normalized, rule.mode);
+        if ((rule.axis_mask & kAxisRX) != 0u) {
+            result.axis_rx_normalized = mixFloat(input_a.axis_rx_normalized, input_b.axis_rx_normalized, rule.mode);
         }
-        if (rule.axis_mask & kAxisRY) {
-            result.axis_ry_normalized = mixFloat(
-                input_a.axis_ry_normalized, input_b.axis_ry_normalized, rule.mode);
+        if ((rule.axis_mask & kAxisRY) != 0u) {
+            result.axis_ry_normalized = mixFloat(input_a.axis_ry_normalized, input_b.axis_ry_normalized, rule.mode);
         }
 
         // Mix buttons with OR logic for the specified button mask
@@ -108,8 +104,12 @@ private:
 
             case MixMode::ADDITIVE: {
                 float sum = a + b;
-                if (sum > 1.0f) sum = 1.0f;
-                if (sum < -1.0f) sum = -1.0f;
+                if (sum > 1.0f) {
+                    sum = 1.0f;
+                }
+                if (sum < -1.0f) {
+                    sum = -1.0f;
+                }
                 return sum;
             }
 
@@ -125,9 +125,8 @@ private:
         return a;
     }
 
-    MixRule m_rules[kMaxRules];
-    uint8_t m_ruleCount;
+    MixRule m_rules[kMaxRules]{};
+    uint8_t m_ruleCount = 0;
 };
 
-} // namespace bluetooth
-} // namespace chopper
+}  // namespace chopper::bluetooth

@@ -4,7 +4,7 @@ Date: 2026-02-28
 
 ## Tooling
 - Primary tool: `cppcheck`
-- Invocation target: `make analysis-cppcheck`
+- Invocation target: `make analyze-cppcheck`
 
 ## Scope
 - `main/chopper`

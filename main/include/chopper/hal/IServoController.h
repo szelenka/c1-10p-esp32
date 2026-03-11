@@ -2,8 +2,7 @@
 
 #include "chopper/hal/IDriver.h"
 
-namespace chopper {
-namespace hal {
+namespace chopper::hal {
 
 /**
  * Servo controller interface for multi-channel PWM servo control.
@@ -22,7 +21,7 @@ public:
     virtual void setAngle(uint8_t channel, float angle) = 0;
 
     /// Get current position of a channel in pulse-width microseconds.
-    virtual uint16_t getPosition(uint8_t channel) const = 0;
+    [[nodiscard]] virtual uint16_t getPosition(uint8_t channel) const = 0;
 
     /// Enable PWM output on a channel.
     virtual void enable(uint8_t channel) = 0;
@@ -40,8 +39,7 @@ public:
     virtual void setAcceleration(uint8_t channel, uint16_t accel) = 0;
 
     /// Get the number of servo channels this controller supports.
-    virtual uint8_t getChannelCount() const = 0;
+    [[nodiscard]] virtual uint8_t getChannelCount() const = 0;
 };
 
-} // namespace hal
-} // namespace chopper
+}  // namespace chopper::hal

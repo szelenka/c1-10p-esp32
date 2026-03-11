@@ -6,8 +6,7 @@
 #include "esp_log.h"
 #include <cstring>
 
-namespace chopper {
-namespace hal {
+namespace chopper::hal {
 
 /**
  * Singleton manager that owns all IDriver instances and orchestrates
@@ -44,7 +43,7 @@ public:
     void shutdownAll();
 
     /// Reset a specific driver by name.
-    bool resetDriver(const char* name);
+    bool resetDriver(const char* name) const;
 
     /// Get driver status by name. Returns kUninitialized if not found.
     DriverStatus getDriverStatus(const char* name) const;
@@ -53,11 +52,10 @@ public:
     IDriver* findDriver(const char* name) const;
 
     /// Get the number of registered drivers.
-    uint8_t getDriverCount() const { return m_driverCount; }
+    [[nodiscard]] uint8_t getDriverCount() const { return m_driverCount; }
 
     /// Route a diagnostic command to a named driver.
-    bool routeDiagnostic(const char* driverName, const char* command,
-                         char* response, size_t maxLen);
+    bool routeDiagnostic(const char* driverName, const char* command, char* response, size_t maxLen) const;
 
     /// Print diagnostic information for all drivers.
     void printDiagnostics() const;
@@ -65,13 +63,13 @@ public:
     /// Per-driver timing statistics.
     struct DriverEntry {
         IDriver* driver;
-        uint8_t priority;          ///< Lower = higher priority (initialized first)
-        uint64_t lastUpdateUs;     ///< Duration of the most recent update() call
-        uint64_t worstCaseUs;      ///< Worst observed update() duration
+        uint8_t priority;       ///< Lower = higher priority (initialized first)
+        uint64_t lastUpdateUs;  ///< Duration of the most recent update() call
+        uint64_t worstCaseUs;   ///< Worst observed update() duration
     };
 
     /// Get a driver entry by index (for diagnostics).
-    const DriverEntry* getEntry(uint8_t index) const;
+    [[nodiscard]] const DriverEntry* getEntry(uint8_t index) const;
 
 private:
     DriverManager();
@@ -79,13 +77,13 @@ private:
     /// Sort drivers by priority (insertion sort, called once after all registrations).
     void sortByPriority();
 
-    DriverEntry m_drivers[kMaxDrivers];
-    uint8_t m_driverCount;
-    bool m_sorted;
+    DriverEntry m_drivers[kMaxDrivers] = {};
+    uint8_t m_driverCount = 0;
+    bool m_sorted = false;
 
+public:
     DriverManager(const DriverManager&) = delete;
     DriverManager& operator=(const DriverManager&) = delete;
 };
 
-} // namespace hal
-} // namespace chopper
+}  // namespace chopper::hal

@@ -4,8 +4,7 @@
 #include "chopper/hal/ISerialPort.h"
 #include <cstring>
 
-namespace chopper {
-namespace hal {
+namespace chopper::hal {
 
 /**
  * HAL servo controller for Pololu Mini Maestro boards.
@@ -25,11 +24,11 @@ public:
     static constexpr uint8_t kMaxChannels = 24;
 
     // Pololu compact protocol command bytes
-    static constexpr uint8_t CMD_SET_TARGET       = 0x84;
-    static constexpr uint8_t CMD_SET_SPEED         = 0x87;
-    static constexpr uint8_t CMD_SET_ACCELERATION  = 0x89;
-    static constexpr uint8_t CMD_SET_MULTI_TARGET  = 0x9F;
-    static constexpr uint8_t CMD_GET_POSITION      = 0x90;
+    static constexpr uint8_t CMD_SET_TARGET = 0x84;
+    static constexpr uint8_t CMD_SET_SPEED = 0x87;
+    static constexpr uint8_t CMD_SET_ACCELERATION = 0x89;
+    static constexpr uint8_t CMD_SET_MULTI_TARGET = 0x9F;
+    static constexpr uint8_t CMD_GET_POSITION = 0x90;
 
     /**
      * @param serial       Serial port for Maestro communication.
@@ -37,13 +36,11 @@ public:
      * @param name         Driver name for diagnostics.
      * @param deviceNumber Pololu device number (default 12 for Mini Maestro).
      */
-    MaestroServoDriver(ISerialPort& serial, uint8_t channelCount,
-                       const char* name, uint8_t deviceNumber = 12)
+    MaestroServoDriver(ISerialPort& serial, uint8_t channelCount, const char* name, uint8_t deviceNumber = 12)
         : m_serial(&serial)
         , m_channelCount(channelCount > kMaxChannels ? kMaxChannels : channelCount)
         , m_name(name)
-        , m_deviceNumber(deviceNumber)
-    {
+        , m_deviceNumber(deviceNumber) {
         memset(m_positions, 0, sizeof(m_positions));
         memset(m_targets, 0, sizeof(m_targets));
         memset(m_previousTargets, 0, sizeof(m_previousTargets));
@@ -80,9 +77,9 @@ public:
         }
     }
 
-    DriverStatus getStatus() const override { return m_status; }
-    ErrorInfo getErrorState() const override { return m_lastError; }
-    const char* getName() const override { return m_name; }
+    [[nodiscard]] DriverStatus getStatus() const override { return m_status; }
+    [[nodiscard]] ErrorInfo getErrorState() const override { return m_lastError; }
+    [[nodiscard]] const char* getName() const override { return m_name; }
 
     DriverStatus reset() override {
         disableAll();
@@ -99,28 +96,38 @@ public:
     // -- IServoController interface --
 
     void setPosition(uint8_t channel, uint16_t pulse_us) override {
-        if (channel >= m_channelCount) return;
+        if (channel >= m_channelCount) {
+            return;
+        }
         m_positions[channel] = pulse_us;
     }
 
     void setAngle(uint8_t channel, float angle) override {
-        if (channel >= m_channelCount) return;
-        uint16_t pulse = static_cast<uint16_t>(500.0f + (angle / 180.0f) * 2000.0f);
+        if (channel >= m_channelCount) {
+            return;
+        }
+        auto pulse = static_cast<uint16_t>(500.0f + (angle / 180.0f) * 2000.0f);
         m_positions[channel] = pulse;
     }
 
-    uint16_t getPosition(uint8_t channel) const override {
-        if (channel >= m_channelCount) return 0;
+    [[nodiscard]] uint16_t getPosition(uint8_t channel) const override {
+        if (channel >= m_channelCount) {
+            return 0;
+        }
         return m_positions[channel];
     }
 
     void enable(uint8_t channel) override {
-        if (channel >= m_channelCount) return;
+        if (channel >= m_channelCount) {
+            return;
+        }
         m_enabled[channel] = true;
     }
 
     void disable(uint8_t channel) override {
-        if (channel >= m_channelCount) return;
+        if (channel >= m_channelCount) {
+            return;
+        }
         m_enabled[channel] = false;
         m_positions[channel] = 0;
         // Send immediate disable (target=0 stops PWM pulses)
@@ -135,23 +142,28 @@ public:
     }
 
     void setSpeed(uint8_t channel, uint16_t speed) override {
-        if (channel >= m_channelCount) return;
+        if (channel >= m_channelCount) {
+            return;
+        }
         maestroSetSpeed(channel, speed);
     }
 
     void setAcceleration(uint8_t channel, uint16_t accel) override {
-        if (channel >= m_channelCount) return;
+        if (channel >= m_channelCount) {
+            return;
+        }
         maestroSetAcceleration(channel, accel);
     }
 
-    uint8_t getChannelCount() const override { return m_channelCount; }
+    [[nodiscard]] uint8_t getChannelCount() const override { return m_channelCount; }
 
     bool handleDiagnostic(const char* command, char* response, size_t maxLen) override {
-        if (!command || !response || maxLen == 0) return false;
+        if ((command == nullptr) || (response == nullptr) || maxLen == 0) {
+            return false;
+        }
 
         if (strcmp(command, "status") == 0) {
-            snprintf(response, maxLen, "%s, %d channels",
-                     driverStatusToString(m_status), m_channelCount);
+            snprintf(response, maxLen, "%s, %d channels", driverStatusToString(m_status), m_channelCount);
             return true;
         }
         if (strcmp(command, "home") == 0) {
@@ -164,9 +176,11 @@ public:
 
     // -- Test / inspection accessors --
 
-    uint8_t getDeviceNumber() const { return m_deviceNumber; }
-    bool isEnabled(uint8_t channel) const {
-        if (channel >= m_channelCount) return false;
+    [[nodiscard]] uint8_t getDeviceNumber() const { return m_deviceNumber; }
+    [[nodiscard]] bool isEnabled(uint8_t channel) const {
+        if (channel >= m_channelCount) {
+            return false;
+        }
         return m_enabled[channel];
     }
 
@@ -215,8 +229,7 @@ private:
      * Set Multiple Targets (compact protocol command 0x9F).
      * Sends: 0x9F, count, firstChannel, then count × (target_low, target_high) pairs.
      */
-    void maestroSetMultiTarget(uint8_t count, uint8_t firstChannel,
-                                const uint16_t* targets) {
+    void maestroSetMultiTarget(uint8_t count, uint8_t firstChannel, const uint16_t* targets) {
         // Header: command, count, firstChannel
         uint8_t header[3];
         header[0] = CMD_SET_MULTI_TARGET;
@@ -240,11 +253,10 @@ private:
     DriverStatus m_status = DriverStatus::kUninitialized;
     ErrorInfo m_lastError;
 
-    uint16_t m_positions[kMaxChannels];
-    uint16_t m_targets[kMaxChannels];
-    uint16_t m_previousTargets[kMaxChannels];
-    bool m_enabled[kMaxChannels];
+    uint16_t m_positions[kMaxChannels]{};
+    uint16_t m_targets[kMaxChannels]{};
+    uint16_t m_previousTargets[kMaxChannels]{};
+    bool m_enabled[kMaxChannels]{};
 };
 
-} // namespace hal
-} // namespace chopper
+}  // namespace chopper::hal

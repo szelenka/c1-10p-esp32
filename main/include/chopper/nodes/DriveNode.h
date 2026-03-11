@@ -9,8 +9,7 @@
 #include "chopper/messages/CommonMessages.h"
 #include <cmath>
 
-namespace chopper {
-namespace nodes {
+namespace chopper::nodes {
 
 /**
  * Converts drive-controller joystick input into left/right MotorCommands.
@@ -26,21 +25,17 @@ namespace nodes {
  */
 class DriveNode : public core::PublishingNode {
 public:
-    DriveNode()
-        : PublishingNode("drive")
-        , slew_x_(3.0f)
-        , slew_z_(3.0f)
-    {}
+    DriveNode() : PublishingNode("drive"), slew_x_(3.0f), slew_z_(3.0f) {}
 
     bool initialize() override {
         motor_pub_ = createPublisher<messages::MotorCommand>("drive/cmd");
         audio_pub_ = createPublisher<messages::AudioCommand>("audio/cmd");
-        input_sub_ = createSubscription<messages::ControllerInput>(
-            "controller/drive", &DriveNode::onControllerInput, this);
+        input_sub_ =
+            createSubscription<messages::ControllerInput>("controller/drive", &DriveNode::onControllerInput, this);
 
         auto& ps = core::ParameterServer::getInstance();
-        ps.declare("drive.system", static_cast<int32_t>(config::drive_mode::ARCADE),
-                   static_cast<int32_t>(0), static_cast<int32_t>(3));
+        ps.declare("drive.system", static_cast<int32_t>(config::drive_mode::ARCADE), static_cast<int32_t>(0),
+                   static_cast<int32_t>(3));
         ps.declare("drive.deadband", 0.05f, 0.0f, 0.5f);
         ps.declare("drive.max_speed", 0.75f, 0.0f, 1.0f);
         ps.declare("drive.speed_boost", 0.25f, 0.0f, 1.0f);
@@ -76,18 +71,18 @@ public:
         }
     }
 
-    bool isCarpetMode() const { return carpet_mode_; }
+    [[nodiscard]] bool isCarpetMode() const { return carpet_mode_; }
 
 private:
     void onControllerInput(const messages::ControllerInput& input) {
-        if (!motor_pub_) return;
+        if (!motor_pub_) {
+            return;
+        }
 
         // Carpet mode toggle: thumbL double-click
         handleCarpetToggle(input);
 
-        float effective_max = carpet_mode_
-            ? std::clamp(max_speed_ + speed_boost_, 0.0f, 1.0f)
-            : max_speed_;
+        float effective_max = carpet_mode_ ? std::clamp(max_speed_ + speed_boost_, 0.0f, 1.0f) : max_speed_;
 
         if (std::fabs(drive_slew_rate_ - slew_rate_current_) > 0.001f) {
             slew_rate_current_ = drive_slew_rate_;
@@ -105,7 +100,7 @@ private:
             axis_y = input.axis_y_normalized;
         }
 
-        uint64_t now_ms = static_cast<uint64_t>(esp_timer_get_time() / 1000ULL);
+        auto now_ms = static_cast<uint64_t>(esp_timer_get_time() / 1000ULL);
         float x_limited = slew_x_.Calculate(axis_x, now_ms);
         float z_limited = slew_z_.Calculate(axis_y, now_ms);
         float x = math::ApplyDeadband(x_limited, deadband_);
@@ -147,18 +142,17 @@ private:
     }
 
     void handleCarpetToggle(const messages::ControllerInput& input) {
-        bool pressed = input.button_thumb_l;
+        const bool pressed = input.has_intents ? input.intent_carpet_mode_toggle : input.button_thumb_l;
         if (pressed && !last_thumb_l_) {
             // Rising edge — check for double-click
-            uint64_t now = static_cast<uint64_t>(esp_timer_get_time() / 1000);
+            auto now = static_cast<uint64_t>(esp_timer_get_time() / 1000);
             if (now - last_thumb_l_time_ < kDoubleClickMs) {
                 carpet_mode_ = !carpet_mode_;
                 if (audio_pub_) {
                     messages::AudioCommand acmd;
                     acmd.command_type = messages::AudioCommand::CommandType::PLAY_TRACK;
-                    acmd.track_id = carpet_mode_
-                        ? static_cast<uint16_t>(config::sound_track::TADA)
-                        : static_cast<uint16_t>(config::sound_track::WAH3);
+                    acmd.track_id = carpet_mode_ ? static_cast<uint16_t>(config::sound_track::TADA)
+                                                 : static_cast<uint16_t>(config::sound_track::WAH3);
                     audio_pub_->publish(acmd);
                 }
             }
@@ -168,7 +162,7 @@ private:
     }
 
     static void onParameterChanged(const char*, void* context) {
-        if (!context) {
+        if (context == nullptr) {
             return;
         }
         auto* self = static_cast<DriveNode*>(context);
@@ -203,5 +197,4 @@ private:
     math::SlewRateLimiter slew_z_;
 };
 
-} // namespace nodes
-} // namespace chopper
+}  // namespace chopper::nodes

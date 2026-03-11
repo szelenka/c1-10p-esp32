@@ -4,8 +4,7 @@
 #include "chopper/safety/SafetyManager.h"
 #include "chopper/messages/CommonMessages.h"
 
-namespace chopper {
-namespace nodes {
+namespace chopper::nodes {
 
 /**
  * Node that wraps the SafetyManager into the executor cycle.
@@ -19,18 +18,21 @@ public:
     SafetyNode(safety::SafetyManager* manager)
         : PublishingNode("safety")
         , manager_(manager)
-        , last_mode_(manager ? manager->getDegradationManager().getCurrentMode()
-                             : safety::DegradationMode::SAFE_STOP)
-    {}
+        , last_mode_((manager != nullptr) ? manager->getDegradationManager().getCurrentMode()
+                                          : safety::DegradationMode::SAFE_STOP) {}
 
     bool initialize() override {
-        if (!manager_) return false;
+        if (manager_ == nullptr) {
+            return false;
+        }
         status_pub_ = createPublisher<messages::SystemStatus>("system/status");
         return status_pub_ != nullptr;
     }
 
     void process(uint64_t now) override {
-        if (!manager_) return;
+        if (manager_ == nullptr) {
+            return;
+        }
 
         manager_->update(now);
 
@@ -43,14 +45,14 @@ public:
     }
 
     void emergencyStop() override {
-        if (manager_) {
+        if (manager_ != nullptr) {
             manager_->emergencyStop("Node emergency stop", 0);
         }
     }
 
-    double getUpdateFrequency() const override { return 50.0; }
+    [[nodiscard]] double getUpdateFrequency() const override { return 50.0; }
 
-    safety::SafetyManager* getManager() const { return manager_; }
+    [[nodiscard]] safety::SafetyManager* getManager() const { return manager_; }
 
 private:
     void publishStatus(safety::DegradationMode mode) {
@@ -70,8 +72,7 @@ private:
                 status.system_status = messages::SystemStatus::Status::EMERGENCY_STOP;
                 break;
         }
-        strncpy(status.message, safety::degradationModeToString(mode),
-                sizeof(status.message) - 1);
+        strncpy(status.message, safety::degradationModeToString(mode), sizeof(status.message) - 1);
         status_pub_->publish(status);
     }
 
@@ -80,5 +81,4 @@ private:
     core::TypedPublisherPtr<messages::SystemStatus> status_pub_;
 };
 
-} // namespace nodes
-} // namespace chopper
+}  // namespace chopper::nodes

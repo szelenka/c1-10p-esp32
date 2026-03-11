@@ -8,8 +8,7 @@
 #include "chopper/safety/EmergencyStopChain.h"
 #include "esp_log.h"
 
-namespace chopper {
-namespace safety {
+namespace chopper::safety {
 
 /**
  * @brief Central safety coordinator.
@@ -84,8 +83,7 @@ private:
     MotorSafetyMonitor motor_safety_;
     DegradationManager degradation_;
     EmergencyStopChain estop_chain_;
-    bool emergency_active_;
+    bool emergency_active_ = false;
 };
 
-} // namespace safety
-} // namespace chopper
+}  // namespace chopper::safety

@@ -9,19 +9,20 @@
 #include "esp_timer.h"
 
 #include <algorithm>
+#include <cmath>
+#include <cstdlib>
 
-namespace chopper {
-namespace nodes {
+namespace chopper::nodes {
 
 /**
  * Node that manages dome spin and publishes dome position data.
  *
- * Subscribes to ControllerInput on two topics (drive + dome) for
- * the R2-trigger dome spin control, and publishes MotorCommand
- * for the dome spin motor plus SensorData for the dome angle.
+ * Manual mode: joystick X-axis from the dome controller drives the motor.
+ * Auto mode (kRandom): after an idle timeout, picks random targets within
+ * a configurable arc and moves toward them, with probabilistic direction
+ * changes and return-to-home behavior (Roam-a-Dome style).
  *
- * The dome spin logic: if both or neither R2 buttons are pressed → stop.
- * If only the drive R2 → spin positive. Only dome R2 → spin negative.
+ * Double-click right thumb stick to toggle random mode on/off.
  */
 class DomeNode : public core::PublishingNode {
 public:
@@ -32,24 +33,20 @@ public:
      * @param motor_id       Motor ID for the dome spin motor.
      * @param inverted       Invert dome spin direction.
      */
-    explicit DomeNode(dome::DomePosition* dome_position = nullptr,
-             float max_speed = 0.5f,
-             float slew_rate = 1.0f,
-             uint8_t motor_id = 0,
-             bool inverted = false)
+    explicit DomeNode(dome::DomePosition* dome_position = nullptr, float max_speed = 0.5f, float slew_rate = 1.0f,
+                      uint8_t motor_id = 0, bool inverted = false)
         : PublishingNode("dome")
         , dome_position_(dome_position)
         , max_speed_(max_speed)
         , motor_id_(motor_id)
         , inverted_(inverted)
-        , slew_(slew_rate)
-    {}
+        , slew_(slew_rate) {}
 
     bool initialize() override {
         motor_pub_ = createPublisher<messages::MotorCommand>("dome/motor/cmd");
         sensor_pub_ = createPublisher<messages::SensorData>("dome/position");
-        input_sub_ = createSubscription<messages::ControllerInput>(
-            "controller/dome", &DomeNode::onControllerInput, this);
+        input_sub_ =
+            createSubscription<messages::ControllerInput>("controller/dome", &DomeNode::onControllerInput, this);
 
         auto& ps = core::ParameterServer::getInstance();
         ps.declare("dome.max_speed", max_speed_, 0.0f, 1.0f);
@@ -69,7 +66,7 @@ public:
 
     void process(uint64_t now) override {
         // Publish dome position if available
-        if (dome_position_ && dome_position_->ready()) {
+        if ((dome_position_ != nullptr) && dome_position_->ready()) {
             messages::SensorData sd;
             sd.sensor_id = 0;
             sd.sensor_type = messages::SensorData::SensorType::POSITION;
@@ -77,10 +74,12 @@ public:
             sd.is_valid = true;
             sensor_pub_->publish(sd);
         }
+
+        // Run auto-dome logic when idle
+        processAutoDome(now);
     }
 
     void emergencyStop() override {
-        // Stop the dome motor
         if (motor_pub_) {
             messages::MotorCommand cmd;
             cmd.motor_id = motor_id_;
@@ -90,7 +89,7 @@ public:
         }
     }
 
-    double getUpdateFrequency() const override { return 20.0; }
+    [[nodiscard]] double getUpdateFrequency() const override { return 20.0; }
 
     /**
      * Set dome spin from two triggers (drive R2 + dome R2).
@@ -104,7 +103,6 @@ public:
         } else if (!drive_r2 && dome_r2) {
             target = inverted_ ? max_speed_ : -max_speed_;
         }
-        // else both or neither → 0
 
         float speed = slew_.Calculate(target, now_ms);
 
@@ -117,28 +115,271 @@ public:
         }
     }
 
-    dome::DomePosition* getDomePosition() const { return dome_position_; }
+    [[nodiscard]] dome::DomePosition* getDomePosition() const { return dome_position_; }
+    [[nodiscard]] bool isRandomModeEnabled() const { return random_mode_enabled_; }
+    [[nodiscard]] bool isIdle() const { return idle_; }
+    [[nodiscard]] bool hasDomeMovedManually() const { return dome_has_moved_manually_; }
+
+    /// Allow tests to inject time
+    void setTime(uint64_t ms) { last_time_ms_ = ms; }
+
+    /// Allow tests to force manual-move gate open
+    void setDomeMovedManually(bool moved) { dome_has_moved_manually_ = moved; }
 
 private:
+    // ── Manual input handling ───────────────────────────────────────────
+
     void onControllerInput(const messages::ControllerInput& input) {
         if (!motor_pub_) {
             return;
         }
 
-        // Dome spin is controlled by DOME stick X.
+        auto now_ms = static_cast<uint64_t>(esp_timer_get_time() / 1000ULL);
+        last_time_ms_ = now_ms;
+
+        // Random mode toggle: double-click right thumb stick
+        handleRandomToggle(input, now_ms);
+
+        // Dome spin from joystick X
         float target = math::ApplyDeadband(input.axis_x_normalized, deadband_);
         target = std::clamp(target, -1.0f, 1.0f) * std::clamp(max_speed_, 0.0f, 1.0f);
         if (inverted_) {
             target = -target;
         }
 
-        uint64_t now_ms = static_cast<uint64_t>(esp_timer_get_time() / 1000ULL);
         if (std::fabs(spin_slew_rate_ - slew_rate_current_) > 0.001f) {
             slew_rate_current_ = spin_slew_rate_;
             slew_.Reset(slew_rate_current_, -slew_rate_current_, slew_.LastValue());
         }
         float speed = slew_.Calculate(target, now_ms);
 
+        bool has_manual_input = std::fabs(target) > 0.001f;
+        if (has_manual_input) {
+            last_manual_input_ms_ = now_ms;
+            dome_has_moved_manually_ = true;
+            if (idle_) {
+                // Leaving idle — cancel any auto target
+                idle_ = false;
+                auto_target_valid_ = false;
+                if (dome_position_ != nullptr) {
+                    dome_position_->resetDefaultMode(now_ms);
+                }
+            }
+        }
+
+        // Only publish manual commands when there's actual input
+        // (auto-dome publishes its own commands in process())
+        if (has_manual_input || !idle_) {
+            messages::MotorCommand cmd;
+            cmd.motor_id = motor_id_;
+            cmd.command_type = messages::MotorCommand::CommandType::SET_SPEED;
+            cmd.value = speed;
+            motor_pub_->publish(cmd);
+        }
+    }
+
+    void handleRandomToggle(const messages::ControllerInput& input, uint64_t now_ms) {
+        const bool pressed = input.has_intents ? input.intent_dome_random_toggle : input.button_thumb_r;
+        if (pressed && !last_thumb_r_) {
+            // Rising edge — check for double-click
+            if (now_ms - last_thumb_r_time_ < kDoubleClickMs) {
+                random_mode_enabled_ = !random_mode_enabled_;
+                if (dome_position_ != nullptr) {
+                    if (random_mode_enabled_) {
+                        dome_position_->setDomeDefaultMode(dome::DomePosition::kRandom, now_ms);
+                    } else {
+                        dome_position_->setDomeDefaultMode(dome::DomePosition::kOff, now_ms);
+                        auto_target_valid_ = false;
+                    }
+                }
+            }
+            last_thumb_r_time_ = now_ms;
+        }
+        last_thumb_r_ = pressed;
+    }
+
+    // ── Auto-dome logic (runs in process()) ─────────────────────────────
+
+    void processAutoDome(uint64_t now) {
+        if (dome_position_ == nullptr || !dome_position_->ready()) {
+            return;
+        }
+        if (!random_mode_enabled_) {
+            return;
+        }
+
+        // Auto-safety: require at least one manual move before auto starts
+        bool auto_safety = true;
+        auto& ps = core::ParameterServer::getInstance();
+        (void)ps.get("dome.auto_safety", auto_safety);
+        if (auto_safety && !dome_has_moved_manually_) {
+            return;
+        }
+
+        // Check idle transition
+        auto mode = dome_position_->getDomeMode();
+        if (mode == dome::DomePosition::kOff) {
+            return;
+        }
+
+        uint32_t min_delay_ms = dome_position_->getDomeMinDelay() * 1000U;
+
+        // Still has recent manual input — not idle yet
+        if (last_manual_input_ms_ != 0 && (now - last_manual_input_ms_) < min_delay_ms) {
+            return;
+        }
+
+        // Transition to idle
+        if (!idle_) {
+            idle_ = true;
+            auto_movement_started_ = false;
+        }
+
+        if (mode == dome::DomePosition::kRandom) {
+            processRandomMode(now);
+        } else if (mode == dome::DomePosition::kHome) {
+            processHomeMode(now);
+        }
+    }
+
+    void processRandomMode(uint64_t now) {
+        unsigned pos = dome_position_->getDomePosition();
+        unsigned home = dome_position_->getDomeHome();
+        unsigned fudge = dome_position_->getDomeFudge();
+        float speed = dome_position_->getDomeAutoSpeed();
+        uint32_t min_delay_ms = dome_position_->getDomeAutoMinDelay() * 1000U;
+        uint32_t max_delay_ms = dome_position_->getDomeAutoMaxDelay() * 1000U;
+
+        // First entry into random — schedule first move
+        if (!auto_target_valid_ && next_auto_move_ms_ == 0) {
+            next_auto_move_ms_ = now + domeRandom(min_delay_ms, max_delay_ms);
+            auto_go_home_ = false;
+            auto_left_ = (domeRandom(0, 2) == 0);
+            return;
+        }
+
+        // Waiting for next move
+        if (!auto_target_valid_) {
+            if (now < next_auto_move_ms_) {
+                dome_position_->resetWatchdog(now);
+                return;
+            }
+            pickRandomTarget(now, home, min_delay_ms, max_delay_ms);
+            if (!auto_target_valid_) {
+                return;  // "do nothing" was chosen
+            }
+            dome_position_->resetWatchdog(now);
+            auto_movement_started_ = true;
+        }
+
+        // Moving toward target
+        if (auto_target_valid_) {
+            // Watchdog: if dome hasn't moved, error out
+            if (auto_movement_started_ && dome_position_->isTimeout(now)) {
+                dome_position_->setDomeMode(dome::DomePosition::kOff, now);
+                auto_target_valid_ = false;
+                auto_movement_started_ = false;
+                return;
+            }
+
+            float motor_out = 0.0f;
+            if (moveDomeToTarget(pos, auto_target_pos_, fudge, speed, motor_out)) {
+                // Arrived — schedule next move
+                next_auto_move_ms_ = now + domeRandom(min_delay_ms, max_delay_ms);
+                auto_target_valid_ = false;
+                auto_movement_started_ = false;
+            } else {
+                publishMotorSpeed(motor_out);
+            }
+        }
+    }
+
+    void pickRandomTarget(uint64_t now, unsigned home, uint32_t min_delay_ms, uint32_t max_delay_ms) {
+        unsigned auto_left = dome_position_->getDomeAutoLeft();
+        unsigned auto_right = dome_position_->getDomeAutoRight();
+
+        if (auto_go_home_) {
+            auto_target_pos_ = home;
+            auto_target_valid_ = true;
+            auto_go_home_ = false;
+            auto_left_ = (domeRandom(0, 2) == 0);
+            return;
+        }
+
+        // 10% chance: do nothing, wait again
+        if (domeRandom(0, 100) < 10) {
+            next_auto_move_ms_ = now + domeRandom(min_delay_ms, max_delay_ms);
+            return;
+        }
+
+        int32_t random_move_min = 5;
+        auto& ps = core::ParameterServer::getInstance();
+        (void)ps.get("dome.random_move_min", random_move_min);
+        unsigned min_degrees = static_cast<unsigned>(std::max(random_move_min, static_cast<int32_t>(0)));
+
+        if (auto_left_) {
+            unsigned distance = (auto_left > 0) ? domeRandom(min_degrees, auto_left) : min_degrees;
+            auto_target_pos_ = dome::DomePosition::normalize(static_cast<long>(home) - static_cast<long>(distance));
+        } else {
+            unsigned distance = (auto_right > 0) ? domeRandom(min_degrees, auto_right) : min_degrees;
+            auto_target_pos_ = dome::DomePosition::normalize(static_cast<long>(home) + static_cast<long>(distance));
+        }
+        auto_target_valid_ = true;
+
+        // 10% chance to go home next time
+        auto_go_home_ = (domeRandom(0, 100) < 10);
+        // 10% chance to switch direction
+        if (domeRandom(0, 100) < 10) {
+            auto_left_ = !auto_left_;
+        }
+    }
+
+    void processHomeMode(uint64_t now) {
+        unsigned pos = dome_position_->getDomePosition();
+        unsigned home = dome_position_->getDomeHome();
+        unsigned fudge = dome_position_->getDomeFudge();
+        float speed = dome_position_->getDomeSpeedHome();
+
+        float motor_out = 0.0f;
+        if (moveDomeToTarget(pos, home, fudge, speed, motor_out)) {
+            // At home — revert to default mode
+            dome_position_->resetDefaultMode(now);
+        } else {
+            publishMotorSpeed(motor_out);
+        }
+    }
+
+    // ── Helpers ─────────────────────────────────────────────────────────
+
+    /**
+     * Compute motor output to move dome toward a target position.
+     * Decelerates as it approaches.
+     * @return true if target is reached.
+     */
+    bool moveDomeToTarget(unsigned pos, unsigned target, unsigned fudge, float speed, float& motor_out) {
+        if (dome_position_->isAtPosition(static_cast<long>(target))) {
+            motor_out = 0.0f;
+            return true;
+        }
+        int dist = dome::DomePosition::shortestDistance(static_cast<int>(pos), static_cast<int>(target));
+        float abs_dist = static_cast<float>(std::abs(dist));
+
+        float decel = 50.0f;
+        auto& ps = core::ParameterServer::getInstance();
+        (void)ps.get("dome.decel_scale", decel);
+
+        if (abs_dist <= decel) {
+            speed *= (abs_dist / decel);
+        }
+        speed = std::max(speed, dome_position_->getDomeMinSpeed());
+        motor_out = (dist > 0) ? -speed : speed;
+        return false;
+    }
+
+    void publishMotorSpeed(float speed) {
+        if (!motor_pub_) {
+            return;
+        }
         messages::MotorCommand cmd;
         cmd.motor_id = motor_id_;
         cmd.command_type = messages::MotorCommand::CommandType::SET_SPEED;
@@ -146,8 +387,24 @@ private:
         motor_pub_->publish(cmd);
     }
 
+    /**
+     * Generate a random number in [min_val, max_val).
+     * Uses esp_random() on device, rand() in host tests.
+     */
+    static uint32_t domeRandom(uint32_t min_val, uint32_t max_val) {
+        if (max_val <= min_val) {
+            return min_val;
+        }
+        uint32_t range = max_val - min_val;
+#ifdef ESP_PLATFORM
+        return min_val + (esp_random() % range);
+#else
+        return min_val + (static_cast<uint32_t>(std::rand()) % range);
+#endif
+    }
+
     static void onParameterChanged(const char*, void* context) {
-        if (!context) {
+        if (context == nullptr) {
             return;
         }
         auto* self = static_cast<DomeNode*>(context);
@@ -160,7 +417,15 @@ private:
         (void)ps.get("dome.deadband", deadband_);
         (void)ps.get("dome.motor_inverted", inverted_);
         (void)ps.get("dome.spin_slew_rate", spin_slew_rate_);
+
+        // Sync home position from parameter to DomePosition
+        int32_t home_pos = 0;
+        if (ps.get("dome.home_position", home_pos) && dome_position_ != nullptr) {
+            dome_position_->setDomeHomePosition(home_pos);
+        }
     }
+
+    static constexpr uint64_t kDoubleClickMs = 500;
 
     dome::DomePosition* dome_position_;
     float max_speed_;
@@ -174,7 +439,25 @@ private:
     core::TypedPublisherPtr<messages::MotorCommand> motor_pub_;
     core::TypedPublisherPtr<messages::SensorData> sensor_pub_;
     core::TypedSubscriptionPtr<messages::ControllerInput> input_sub_;
+
+    // Auto-dome state
+    uint64_t last_time_ms_ = 0;
+    uint64_t last_manual_input_ms_ = 0;
+    bool idle_ = true;
+    bool dome_has_moved_manually_ = false;
+    bool random_mode_enabled_ = false;
+
+    // Random movement state
+    unsigned auto_target_pos_ = 0;
+    bool auto_target_valid_ = false;
+    bool auto_go_home_ = false;
+    bool auto_left_ = false;
+    uint64_t next_auto_move_ms_ = 0;
+    bool auto_movement_started_ = false;
+
+    // Double-click detection for random toggle
+    bool last_thumb_r_ = false;
+    uint64_t last_thumb_r_time_ = 0;
 };
 
-} // namespace nodes
-} // namespace chopper
+}  // namespace chopper::nodes

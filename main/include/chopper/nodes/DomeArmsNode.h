@@ -5,8 +5,7 @@
 #include "chopper/config/HardwareConfig.h"
 #include "chopper/messages/CommonMessages.h"
 
-namespace chopper {
-namespace nodes {
+namespace chopper::nodes {
 
 /**
  * Toggles dome doors open/closed on miscSelect button press.
@@ -19,24 +18,22 @@ namespace nodes {
  */
 class DomeArmsNode : public core::PublishingNode {
 public:
-    DomeArmsNode()
-        : PublishingNode("dome_arms")
-    {}
+    DomeArmsNode() : PublishingNode("dome_arms") {}
 
     bool initialize() override {
         servo_pub_ = createPublisher<messages::ServoCommand>("servo/dome/cmd");
-        input_sub_ = createSubscription<messages::ControllerInput>(
-            "controller/drive", &DomeArmsNode::onControllerInput, this);
+        input_sub_ =
+            createSubscription<messages::ControllerInput>("controller/drive", &DomeArmsNode::onControllerInput, this);
 
         auto& ps = core::ParameterServer::getInstance();
-        ps.declare("servo.ddoor_r.min", static_cast<int32_t>(500),
-                   static_cast<int32_t>(500), static_cast<int32_t>(2500));
-        ps.declare("servo.ddoor_r.max", static_cast<int32_t>(2500),
-                   static_cast<int32_t>(500), static_cast<int32_t>(2500));
-        ps.declare("servo.ddoor_l.neutral", static_cast<int32_t>(1500),
-                   static_cast<int32_t>(500), static_cast<int32_t>(2500));
-        ps.declare("servo.ddoor_l.max", static_cast<int32_t>(2500),
-                   static_cast<int32_t>(500), static_cast<int32_t>(2500));
+        ps.declare("servo.ddoor_r.min", static_cast<int32_t>(500), static_cast<int32_t>(500),
+                   static_cast<int32_t>(2500));
+        ps.declare("servo.ddoor_r.max", static_cast<int32_t>(2500), static_cast<int32_t>(500),
+                   static_cast<int32_t>(2500));
+        ps.declare("servo.ddoor_l.neutral", static_cast<int32_t>(1500), static_cast<int32_t>(500),
+                   static_cast<int32_t>(2500));
+        ps.declare("servo.ddoor_l.max", static_cast<int32_t>(2500), static_cast<int32_t>(500),
+                   static_cast<int32_t>(2500));
 
         refreshCachedParams();
         bool listeners_ok = true;
@@ -61,14 +58,16 @@ public:
         }
     }
 
-    bool isRightDoorOpen() const { return right_door_open_; }
-    bool isLeftDoorOpen() const { return left_door_open_; }
+    [[nodiscard]] bool isRightDoorOpen() const { return right_door_open_; }
+    [[nodiscard]] bool isLeftDoorOpen() const { return left_door_open_; }
 
 private:
     void onControllerInput(const messages::ControllerInput& input) {
-        if (!servo_pub_) return;
+        if (!servo_pub_) {
+            return;
+        }
 
-        bool pressed = input.misc_select;
+        const bool pressed = input.has_intents ? input.intent_dome_doors_toggle : input.misc_select;
         if (pressed && !last_misc_select_) {
             toggleDoors();
         }
@@ -108,7 +107,7 @@ private:
     }
 
     static void onParameterChanged(const char*, void* context) {
-        if (!context) {
+        if (context == nullptr) {
             return;
         }
         auto* self = static_cast<DomeArmsNode*>(context);
@@ -135,5 +134,4 @@ private:
     int32_t ldoor_max_ = 2500;
 };
 
-} // namespace nodes
-} // namespace chopper
+}  // namespace chopper::nodes

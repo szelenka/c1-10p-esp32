@@ -3,8 +3,7 @@
 #include <cstdint>
 #include <cstddef>
 
-namespace chopper {
-namespace core {
+namespace chopper::core {
 
 /**
  * @brief Type tag for compile-time type identification without RTTI.
@@ -12,19 +11,21 @@ namespace core {
  * Each unique T gets a distinct static variable. The address of that
  * variable serves as a collision-free type ID (pointer comparison).
  */
-template<typename T>
+template <typename T>
 struct TypeTag {
     static const char tag;
 };
-template<typename T>
+template <typename T>
 const char TypeTag<T>::tag = 0;
 
 /// Type identifier — pointer to a unique static per-type.
 using TypeId = const void*;
 
 /// Get the type ID for a given type T.
-template<typename T>
-constexpr TypeId getTypeId() { return &TypeTag<T>::tag; }
+template <typename T>
+constexpr TypeId getTypeId() {
+    return &TypeTag<T>::tag;
+}
 
 /**
  * @brief Base class for all messages in the system.
@@ -34,23 +35,23 @@ constexpr TypeId getTypeId() { return &TypeTag<T>::tag; }
  */
 class Message {
 public:
-    Message() : timestamp_us_(0) {}
+    Message() = default;
     virtual ~Message() = default;
 
-    uint64_t getTimestamp() const { return timestamp_us_; }
+    [[nodiscard]] uint64_t getTimestamp() const { return timestamp_us_; }
     void setTimestamp(uint64_t timestamp_us) { timestamp_us_ = timestamp_us; }
 
     /// Runtime type ID for this message (collision-free pointer comparison).
-    virtual TypeId getTypeId() const = 0;
+    [[nodiscard]] virtual TypeId getTypeId() const = 0;
 
     /// Human-readable type name for debug logging.
-    virtual const char* getTypeName() const = 0;
+    [[nodiscard]] virtual const char* getTypeName() const = 0;
 
     /// Size of the concrete message struct in bytes.
-    virtual size_t getSize() const = 0;
+    [[nodiscard]] virtual size_t getSize() const = 0;
 
 private:
-    uint64_t timestamp_us_;
+    uint64_t timestamp_us_ = 0;
 };
 
 /**
@@ -59,36 +60,35 @@ private:
  * Provides automatic implementations of getTypeId(), getTypeName(), and getSize().
  * @tparam T The concrete message type (CRTP pattern).
  */
-template<typename T>
+template <typename T>
 class TypedMessage : public Message {
-public:
-    TypeId getTypeId() const override {
-        return core::getTypeId<T>();
-    }
+    TypedMessage() = default;
 
-    const char* getTypeName() const override {
+public:
+    [[nodiscard]] TypeId getTypeId() const override { return core::getTypeId<T>(); }
+
+    [[nodiscard]] const char* getTypeName() const override {
         // Returns the mangled name — sufficient for debug logging.
         // Not used for type matching (TypeId pointer comparison is used instead).
         return __PRETTY_FUNCTION__;
     }
 
-    size_t getSize() const override {
-        return sizeof(T);
-    }
+    [[nodiscard]] size_t getSize() const override { return sizeof(T); }
+    friend T;
 };
 
 /**
  * @brief Message quality of service settings.
  */
 struct QoSProfile {
-    enum class Reliability {
-        BEST_EFFORT,    ///< May lose messages (faster)
-        RELIABLE        ///< Guarantee delivery (may block)
+    enum class Reliability : uint8_t {
+        BEST_EFFORT,  ///< May lose messages (faster)
+        RELIABLE      ///< Guarantee delivery (may block)
     };
 
-    enum class History {
-        KEEP_LAST,      ///< Keep only the last N messages
-        KEEP_ALL        ///< Keep all (until memory limit)
+    enum class History : uint8_t {
+        KEEP_LAST,  ///< Keep only the last N messages
+        KEEP_ALL    ///< Keep all (until memory limit)
     };
 
     Reliability reliability = Reliability::RELIABLE;
@@ -111,5 +111,4 @@ struct QoSProfile {
     }
 };
 
-} // namespace core
-} // namespace chopper
+}  // namespace chopper::core

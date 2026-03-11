@@ -15,11 +15,7 @@ class MockAudioDriver : public IAudioDriver {
 public:
     static constexpr uint32_t kLogSize = 64;
 
-    explicit MockAudioDriver(const char* name)
-        : m_name(name)
-    {
-        memset(m_triggerLog, 0, sizeof(m_triggerLog));
-    }
+    explicit MockAudioDriver(const char* name) : m_name(name) { memset(m_triggerLog, 0, sizeof(m_triggerLog)); }
 
     // -- IDriver interface --
 
@@ -29,9 +25,7 @@ public:
         return m_status;
     }
 
-    void update() override {
-        m_updateCount++;
-    }
+    void update() override { m_updateCount++; }
 
     DriverStatus getStatus() const override { return m_status; }
     ErrorInfo getErrorState() const override { return m_lastError; }
@@ -63,25 +57,19 @@ public:
         trigger(42);  // deterministic for testing
     }
 
-    void setVolume(uint8_t volume) override {
-        m_volume = volume;
-    }
+    void setVolume(uint8_t volume) override { m_volume = volume; }
 
     uint8_t getVolume() const override { return m_volume; }
     bool isPlaying() const override { return m_playing; }
 
-    void stop() override {
-        m_playing = false;
-    }
+    void stop() override { m_playing = false; }
 
     // -- Test instrumentation --
 
     uint8_t getLastTrack() const { return m_lastTrack; }
     uint32_t getTriggerCount() const { return m_triggerIdx; }
 
-    uint8_t getTriggerAt(uint32_t index) const {
-        return m_triggerLog[index % kLogSize];
-    }
+    uint8_t getTriggerAt(uint32_t index) const { return m_triggerLog[index % kLogSize]; }
 
     uint32_t getInitCount() const { return m_initCount; }
     uint32_t getUpdateCount() const { return m_updateCount; }
@@ -103,5 +91,5 @@ private:
     uint32_t m_updateCount = 0;
 };
 
-} // namespace hal
-} // namespace chopper
+}  // namespace hal
+}  // namespace chopper

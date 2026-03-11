@@ -23,7 +23,7 @@ Validate runtime behavior on real ESP32 hardware while external devices (Saberto
 - HTTP (`/api/telemetry`) and WebSocket (`/ws/telemetry`) use JSON payloads when telemetry service is enabled.
 3. Flash and validate serial markers:
 ```bash
-./scripts/run_on_device_validation.sh --env esp32dev-validation --telemetry-mode full
+./.scripts/run_on_device_validation.sh --env esp32dev-validation --telemetry-mode full
 ```
 4. Launch UI/API consumer:
 - Browser/API client: `http://<device-ip>/api/telemetry` and `http://<device-ip>/api/params`
@@ -31,27 +31,27 @@ Validate runtime behavior on real ESP32 hardware while external devices (Saberto
 
 ## Prerequisites
 1. ESP32 board connected over USB.
-2. PlatformIO available in shell (`.venv/bin/pio --version`) or via helper script (`scripts/pio_local.sh`).
+2. PlatformIO available in shell (`.venv/bin/pio --version`) or via helper script (`.scripts/pio_local.sh`).
 3. `curl` available.
 4. Optional WS client: `websocat` or `wscat`.
 
 ## Step 0: Tooling Check
 ```bash
-./scripts/pio_local.sh --version
+./.scripts/pio_local.sh --version
 python3 --version
 curl --version
 ```
 
-If PlatformIO is missing, install into the local venv and use `scripts/pio_local.sh`.
+If PlatformIO is missing, install into the local venv and use `.scripts/pio_local.sh`.
 
 ## One-Command Automation (Recommended)
 ```bash
-./scripts/run_on_device_validation.sh --env esp32dev-validation --port /dev/cu.usbserial-XXXX --telemetry-mode full
+./.scripts/run_on_device_validation.sh --env esp32dev-validation --port /dev/cu.usbserial-XXXX --telemetry-mode full
 ```
 
 Optional HTTP/API checks once device IP is known:
 ```bash
-./scripts/run_on_device_validation.sh --env esp32dev-validation --port /dev/cu.usbserial-XXXX --host 192.168.1.50 --telemetry-mode full
+./.scripts/run_on_device_validation.sh --env esp32dev-validation --port /dev/cu.usbserial-XXXX --host 192.168.1.50 --telemetry-mode full
 ```
 
 ## Step 1: Pick Target Environment
@@ -70,7 +70,7 @@ export CHOPPER_ENV=esp32dev
 ## Step 2: Discover Serial Port
 Preferred (cross-platform):
 ```bash
-./scripts/run_on_device_validation.sh --list-ports
+./.scripts/run_on_device_validation.sh --list-ports
 ```
 
 macOS example:
@@ -89,13 +89,13 @@ export CHOPPER_PORT=/dev/cu.usbserial-XXXX
 
 ## Step 3: Build + Flash
 ```bash
-./scripts/pio_local.sh run -e "$CHOPPER_ENV"
-./scripts/pio_local.sh run -e "$CHOPPER_ENV" -t upload --upload-port "$CHOPPER_PORT"
+./.scripts/pio_local.sh run -e "$CHOPPER_ENV"
+./.scripts/pio_local.sh run -e "$CHOPPER_ENV" -t upload --upload-port "$CHOPPER_PORT"
 ```
 
 ## Step 4: Monitor Serial Telemetry
 ```bash
-./scripts/pio_local.sh device monitor --port "$CHOPPER_PORT" --baud 115200
+./.scripts/pio_local.sh device monitor --port "$CHOPPER_PORT" --baud 115200
 ```
 Expected:
 - Full mode: periodic `TEL:{...}` JSON lines.

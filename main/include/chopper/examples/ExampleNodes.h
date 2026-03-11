@@ -4,8 +4,7 @@
 #include "chopper/core/IControllerSource.h"
 #include "chopper/messages/CommonMessages.h"
 
-namespace chopper {
-namespace examples {
+namespace chopper::examples {
 
 /**
  * @brief Generic controller input node.
@@ -21,11 +20,11 @@ public:
     bool initialize() override;
     void process(uint64_t now) override;
     void emergencyStop() override;
-    double getUpdateFrequency() const override { return 50.0; }
+    [[nodiscard]] double getUpdateFrequency() const override { return 50.0; }
 
     void setControllerSource(core::ControllerSourcePtr controller_source);
-    core::ControllerSourcePtr getControllerSource() const { return controller_source_; }
-    core::IControllerSource::ConnectionState getConnectionState() const;
+    [[nodiscard]] core::ControllerSourcePtr getControllerSource() const { return controller_source_; }
+    [[nodiscard]] core::IControllerSource::ConnectionState getConnectionState() const;
 
 private:
     bool hasSignificantChange(const messages::ControllerInput& input);
@@ -33,7 +32,7 @@ private:
     core::TypedPublisherPtr<messages::ControllerInput> controller_pub_;
     core::ControllerSourcePtr controller_source_;
     messages::ControllerInput last_input_;
-    uint64_t last_publish_time_;
+    uint64_t last_publish_time_ = 0;
     static constexpr float ANALOG_THRESHOLD = 0.02f;
     static constexpr uint64_t MIN_PUBLISH_INTERVAL_US = 20000;
 };
@@ -73,7 +72,7 @@ public:
     bool initialize() override;
     void process(uint64_t now) override;
     void emergencyStop() override;
-    double getUpdateFrequency() const override { return 10.0; }
+    [[nodiscard]] double getUpdateFrequency() const override { return 10.0; }
 
     void setDomePosition(class DomePosition* dome_sensor);
 
@@ -105,5 +104,4 @@ private:
     bool inverted_steering_;
 };
 
-} // namespace examples
-} // namespace chopper
+}  // namespace chopper::examples

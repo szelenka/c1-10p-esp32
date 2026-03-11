@@ -2,24 +2,20 @@
 #include "esp_log.h"
 #include "esp_timer.h"
 #include <cmath>
+#include <utility>
 
-static const char* TAG = "ControllerInputNode";
+static const char* const TAG = "ControllerInputNode";
 
-namespace chopper {
-namespace examples {
+namespace chopper::examples {
 
 ControllerInputNode::ControllerInputNode(const char* name)
     : PublishingNode(name)
     , controller_source_(nullptr)
-    , last_publish_time_(0)
-{
-}
+
+{}
 
 bool ControllerInputNode::initialize() {
-    controller_pub_ = createPublisher<messages::ControllerInput>(
-        "controller_input",
-        core::QoSProfile::sensorData()
-    );
+    controller_pub_ = createPublisher<messages::ControllerInput>("controller_input", core::QoSProfile::sensorData());
 
     if (!controller_pub_) {
         logError("Failed to create controller input publisher");
@@ -78,7 +74,7 @@ void ControllerInputNode::emergencyStop() {
 }
 
 void ControllerInputNode::setControllerSource(core::ControllerSourcePtr controller_source) {
-    controller_source_ = controller_source;
+    controller_source_ = std::move(controller_source);
 
     if (controller_source_) {
         if (!controller_source_->initialize()) {
@@ -98,8 +94,7 @@ core::IControllerSource::ConnectionState ControllerInputNode::getConnectionState
 }
 
 bool ControllerInputNode::hasSignificantChange(const messages::ControllerInput& input) {
-    if (input.is_connected != last_input_.is_connected ||
-        input.has_data != last_input_.has_data) {
+    if (input.is_connected != last_input_.is_connected || input.has_data != last_input_.has_data) {
         return true;
     }
 
@@ -107,8 +102,7 @@ bool ControllerInputNode::hasSignificantChange(const messages::ControllerInput& 
         return false;
     }
 
-    if (input.buttons != last_input_.buttons ||
-        input.misc_buttons != last_input_.misc_buttons ||
+    if (input.buttons != last_input_.buttons || input.misc_buttons != last_input_.misc_buttons ||
         input.dpad != last_input_.dpad) {
         return true;
     }
@@ -122,13 +116,8 @@ bool ControllerInputNode::hasSignificantChange(const messages::ControllerInput& 
 
     const int32_t brake_threshold = 20;
     const int32_t throttle_threshold = 20;
-    if (std::abs(input.brake - last_input_.brake) > brake_threshold ||
-        std::abs(input.throttle - last_input_.throttle) > throttle_threshold) {
-        return true;
-    }
-
-    return false;
+    return std::abs(input.brake - last_input_.brake) > brake_threshold ||
+           std::abs(input.throttle - last_input_.throttle) > throttle_threshold;
 }
 
-} // namespace examples
-} // namespace chopper
+}  // namespace chopper::examples

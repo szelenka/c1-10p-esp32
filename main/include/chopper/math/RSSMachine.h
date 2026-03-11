@@ -31,21 +31,16 @@ public:
      * @param limit_normal_vector      Clamp for tilt components (default 0.25)
      * @param bend_out                 true if joint bends outward
      */
-    RSSMachine(
-        float base_altitude, float end_effector_altitude,
-        float bottom_link_length, float top_link_length, float min_height,
-        float limit_normal_vector = 0.25f, bool bend_out = false
-    )
+    RSSMachine(float base_altitude, float end_effector_altitude, float bottom_link_length, float top_link_length,
+               float min_height, float limit_normal_vector = 0.25f, bool bend_out = false)
         : d(base_altitude * std::sqrt(3.0f) / 3.0f)
         , e(end_effector_altitude * std::sqrt(3.0f) / 3.0f)
         , f(bottom_link_length)
         , g(top_link_length)
         , _platformMinHeight(min_height)
         , _limitNormalVector(limit_normal_vector)
-        , _jointIsBentOut(bend_out)
-    {
-        _platformMaxHeight = std::sqrt(
-            std::pow(g + f, 2) - std::pow(d - e, 2));
+        , _jointIsBentOut(bend_out) {
+        _platformMaxHeight = std::sqrt(std::pow(g + f, 2) - std::pow(d - e, 2));
         _platformMaxHeightAngle = calculateStraightAngle();
         _platformMinHeightAngle = calculateMinHeightAngle();
     }
@@ -76,12 +71,9 @@ public:
      * Calculate servo angle at minimum height.
      */
     float calculateMinHeightAngle() {
-        float ref_hypot = std::sqrt(
-            std::pow(d - e, 2) + std::pow(_platformMinHeight, 2));
+        float ref_hypot = std::sqrt(std::pow(d - e, 2) + std::pow(_platformMinHeight, 2));
 
-        float theta2 = std::acos(
-            (std::pow(ref_hypot, 2) + std::pow(f, 2) - std::pow(g, 2))
-            / (2 * ref_hypot * f));
+        float theta2 = std::acos((std::pow(ref_hypot, 2) + std::pow(f, 2) - std::pow(g, 2)) / (2 * ref_hypot * f));
 
         float theta1 = 0.0f;
         float angle = 0.0f;
@@ -115,11 +107,8 @@ public:
         nx /= nmag;
         ny /= nmag;
         float nz = 1.0f / nmag;
-        return {
-            std::clamp(nx, -_limitNormalVector, _limitNormalVector),
-            std::clamp(ny, -_limitNormalVector, _limitNormalVector),
-            nz
-        };
+        return {std::clamp(nx, -_limitNormalVector, _limitNormalVector),
+                std::clamp(ny, -_limitNormalVector, _limitNormalVector), nz};
     }
 
     /**
@@ -144,52 +133,36 @@ public:
             if (i == 0) {
                 // Leg A
                 x = 0.0f;
-                y = d + (e / 2) * (
-                    1 - (nx * nx + 3 * nz * nz + 3 * nz)
-                        / (nz + 1 - nx * nx)
-                    + (std::pow(nx, 4) - 3 * nx * nx * ny * ny)
-                        / ((nz + 1) * (nz + 1 - nx * nx))
-                );
+                y = d + (e / 2) * (1 - (nx * nx + 3 * nz * nz + 3 * nz) / (nz + 1 - nx * nx) +
+                                   (std::pow(nx, 4) - 3 * nx * nx * ny * ny) / ((nz + 1) * (nz + 1 - nx * nx)));
                 z = hz + e * ny;
                 mag = std::sqrt(y * y + z * z);
                 theta1 = std::acos(y / mag);
-                theta2 = std::acos(
-                    (mag * mag + f * f - g * g) / (2 * mag * f));
+                theta2 = std::acos((mag * mag + f * f - g * g) / (2 * mag * f));
             } else if (i == 1) {
                 // Leg B
-                x = (std::sqrt(3.0f) / 2) * (
-                    e * (1 - (nx * nx + std::sqrt(3.0f) * nx * ny) / (nz + 1))
-                    - d
-                );
+                x = (std::sqrt(3.0f) / 2) * (e * (1 - (nx * nx + std::sqrt(3.0f) * nx * ny) / (nz + 1)) - d);
                 y = x / std::sqrt(3.0f);
                 z = hz - (e / 2) * (std::sqrt(3.0f) * nx + ny);
                 mag = std::sqrt(x * x + y * y + z * z);
-                theta1 = std::acos(
-                    (std::sqrt(3.0f) * x + y) / (-2 * mag));
-                theta2 = std::acos(
-                    (mag * mag + f * f - g * g) / (2 * mag * f));
+                theta1 = std::acos((std::sqrt(3.0f) * x + y) / (-2 * mag));
+                theta2 = std::acos((mag * mag + f * f - g * g) / (2 * mag * f));
             } else {
                 // Leg C
-                x = (std::sqrt(3.0f) / 2) * (
-                    d - e * (1 - (nx * nx - std::sqrt(3.0f) * nx * ny) / (nz + 1))
-                );
+                x = (std::sqrt(3.0f) / 2) * (d - e * (1 - (nx * nx - std::sqrt(3.0f) * nx * ny) / (nz + 1)));
                 y = -x / std::sqrt(3.0f);
                 z = hz + (e / 2) * (std::sqrt(3.0f) * nx - ny);
                 mag = std::sqrt(x * x + y * y + z * z);
-                theta1 = std::acos(
-                    (std::sqrt(3.0f) * x - y) / (2 * mag));
-                theta2 = std::acos(
-                    (mag * mag + f * f - g * g) / (2 * mag * f));
+                theta1 = std::acos((std::sqrt(3.0f) * x - y) / (2 * mag));
+                theta2 = std::acos((mag * mag + f * f - g * g) / (2 * mag * f));
             }
 
             if (_jointIsBentOut) {
-                leg_angles[i] = std::min(
-                    _platformMinHeightAngle,
-                    std::max(_platformMaxHeightAngle, (theta1 + theta2) * _rad2deg));
+                leg_angles[i] =
+                    std::min(_platformMinHeightAngle, std::max(_platformMaxHeightAngle, (theta1 + theta2) * _rad2deg));
             } else {
-                leg_angles[i] = std::min(
-                    _platformMaxHeightAngle,
-                    std::max(_platformMinHeightAngle, (theta1 - theta2) * _rad2deg));
+                leg_angles[i] =
+                    std::min(_platformMaxHeightAngle, std::max(_platformMinHeightAngle, (theta1 - theta2) * _rad2deg));
             }
         }
         return leg_angles;
@@ -209,5 +182,5 @@ private:
     bool _jointIsBentOut;
 };
 
-} // namespace math
-} // namespace chopper
+}  // namespace math
+}  // namespace chopper

@@ -4,8 +4,7 @@
 #include <cstddef>
 #include "esp_log.h"
 
-namespace chopper {
-namespace safety {
+namespace chopper::safety {
 
 /**
  * @brief Unified 6-step emergency stop chain.
@@ -35,7 +34,7 @@ public:
      * @param source_id  Identifier of the triggering component.
      * @param context    User-provided context pointer.
      */
-    using StepCallback = void(*)(const char* reason, uint8_t source_id, void* context);
+    using StepCallback = void (*)(const char* reason, uint8_t source_id, void* context);
 
     EmergencyStopChain();
 
@@ -47,8 +46,7 @@ public:
      * @param context     User context passed to callback.
      * @return true if registration succeeded.
      */
-    bool registerStep(size_t step_index, const char* name,
-                      StepCallback callback, void* context);
+    bool registerStep(size_t step_index, const char* name, StepCallback callback, void* context);
 
     /**
      * @brief Execute the full e-stop chain.
@@ -61,24 +59,23 @@ public:
     void execute(const char* reason, uint8_t source_id);
 
     /// Check if the chain has been triggered.
-    bool isTriggered() const { return triggered_; }
+    [[nodiscard]] bool isTriggered() const { return triggered_; }
 
     /// Reset the chain (allows re-triggering after recovery).
     void reset();
 
     /// Get the name of a registered step.
-    const char* getStepName(size_t step_index) const;
+    [[nodiscard]] const char* getStepName(size_t step_index) const;
 
 private:
     struct Step {
-        const char*  name = nullptr;
+        const char* name = nullptr;
         StepCallback callback = nullptr;
-        void*        context = nullptr;
+        void* context = nullptr;
     };
 
     Step steps_[MAX_STEPS] = {};
-    bool triggered_;
+    bool triggered_ = false;
 };
 
-} // namespace safety
-} // namespace chopper
+}  // namespace chopper::safety

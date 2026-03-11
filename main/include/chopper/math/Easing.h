@@ -57,9 +57,7 @@ public:
 
     static float QuadraticEaseIn(float p) { return p * p; }
     static float QuadraticEaseOut(float p) { return -(p * (p - 2)); }
-    static float QuadraticEaseInOut(float p) {
-        return (p < 0.5f) ? 2 * p * p : (-2 * p * p) + (4 * p) - 1;
-    }
+    static float QuadraticEaseInOut(float p) { return (p < 0.5f) ? 2 * p * p : (-2 * p * p) + (4 * p) - 1; }
 
     static float CubicEaseIn(float p) { return p * p * p; }
     static float CubicEaseOut(float p) {
@@ -67,7 +65,8 @@ public:
         return f * f * f + 1;
     }
     static float CubicEaseInOut(float p) {
-        if (p < 0.5f) return 4 * p * p * p;
+        if (p < 0.5f)
+            return 4 * p * p * p;
         float f = (2 * p) - 2;
         return 0.5f * f * f * f + 1;
     }
@@ -78,7 +77,8 @@ public:
         return f * f * f * (1 - p) + 1;
     }
     static float QuarticEaseInOut(float p) {
-        if (p < 0.5f) return 8 * p * p * p * p;
+        if (p < 0.5f)
+            return 8 * p * p * p * p;
         float f = p - 1;
         return -8 * f * f * f * f + 1;
     }
@@ -89,64 +89,48 @@ public:
         return f * f * f * f * f + 1;
     }
     static float QuinticEaseInOut(float p) {
-        if (p < 0.5f) return 16 * p * p * p * p * p;
+        if (p < 0.5f)
+            return 16 * p * p * p * p * p;
         float f = (2 * p) - 2;
         return 0.5f * f * f * f * f * f + 1;
     }
 
-    static float SineEaseIn(float p) {
-        return std::sin((p - 1) * static_cast<float>(M_PI_2)) + 1;
-    }
-    static float SineEaseOut(float p) {
-        return std::sin(p * static_cast<float>(M_PI_2));
-    }
-    static float SineEaseInOut(float p) {
-        return 0.5f * (1 - std::cos(p * static_cast<float>(M_PI)));
-    }
+    static float SineEaseIn(float p) { return std::sin((p - 1) * static_cast<float>(M_PI_2)) + 1; }
+    static float SineEaseOut(float p) { return std::sin(p * static_cast<float>(M_PI_2)); }
+    static float SineEaseInOut(float p) { return 0.5f * (1 - std::cos(p * static_cast<float>(M_PI))); }
 
-    static float CircularEaseIn(float p) {
-        return 1 - std::sqrt(1 - (p * p));
-    }
-    static float CircularEaseOut(float p) {
-        return std::sqrt((2 - p) * p);
-    }
+    static float CircularEaseIn(float p) { return 1 - std::sqrt(1 - (p * p)); }
+    static float CircularEaseOut(float p) { return std::sqrt((2 - p) * p); }
     static float CircularEaseInOut(float p) {
         if (p < 0.5f)
             return 0.5f * (1 - std::sqrt(1 - 4 * (p * p)));
         return 0.5f * (std::sqrt(-((2 * p) - 3) * ((2 * p) - 1)) + 1);
     }
 
-    static float ExponentialEaseIn(float p) {
-        return (p == 0.0f) ? p : std::pow(2.0f, 10 * (p - 1));
-    }
-    static float ExponentialEaseOut(float p) {
-        return (p == 1.0f) ? p : 1 - std::pow(2.0f, -10 * p);
-    }
+    static float ExponentialEaseIn(float p) { return (p == 0.0f) ? p : std::pow(2.0f, 10 * (p - 1)); }
+    static float ExponentialEaseOut(float p) { return (p == 1.0f) ? p : 1 - std::pow(2.0f, -10 * p); }
     static float ExponentialEaseInOut(float p) {
-        if (p == 0.0f || p == 1.0f) return p;
-        if (p < 0.5f) return 0.5f * std::pow(2.0f, (20 * p) - 10);
+        if (p == 0.0f || p == 1.0f)
+            return p;
+        if (p < 0.5f)
+            return 0.5f * std::pow(2.0f, (20 * p) - 10);
         return -0.5f * std::pow(2.0f, (-20 * p) + 10) + 1;
     }
 
     static float ElasticEaseIn(float p) {
-        return std::sin(13 * static_cast<float>(M_PI_2) * p) *
-               std::pow(2.0f, 10 * (p - 1));
+        return std::sin(13 * static_cast<float>(M_PI_2) * p) * std::pow(2.0f, 10 * (p - 1));
     }
     static float ElasticEaseOut(float p) {
-        return std::sin(-13 * static_cast<float>(M_PI_2) * (p + 1)) *
-               std::pow(2.0f, -10 * p) + 1;
+        return std::sin(-13 * static_cast<float>(M_PI_2) * (p + 1)) * std::pow(2.0f, -10 * p) + 1;
     }
     static float ElasticEaseInOut(float p) {
         if (p < 0.5f)
-            return 0.5f * std::sin(13 * static_cast<float>(M_PI_2) * (2 * p)) *
-                   std::pow(2.0f, 10 * ((2 * p) - 1));
-        return 0.5f * (std::sin(-13 * static_cast<float>(M_PI_2) * ((2 * p - 1) + 1)) *
-               std::pow(2.0f, -10 * (2 * p - 1)) + 2);
+            return 0.5f * std::sin(13 * static_cast<float>(M_PI_2) * (2 * p)) * std::pow(2.0f, 10 * ((2 * p) - 1));
+        return 0.5f *
+               (std::sin(-13 * static_cast<float>(M_PI_2) * ((2 * p - 1) + 1)) * std::pow(2.0f, -10 * (2 * p - 1)) + 2);
     }
 
-    static float BackEaseIn(float p) {
-        return p * p * p - p * std::sin(p * static_cast<float>(M_PI));
-    }
+    static float BackEaseIn(float p) { return p * p * p - p * std::sin(p * static_cast<float>(M_PI)); }
     static float BackEaseOut(float p) {
         float f = 1 - p;
         return 1 - (f * f * f - f * std::sin(f * static_cast<float>(M_PI)));
@@ -169,52 +153,84 @@ public:
             return (4356.0f / 361.0f * p * p) - (35442.0f / 1805.0f * p) + 16061.0f / 1805.0f;
         return (54.0f / 5.0f * p * p) - (513.0f / 25.0f * p) + 268.0f / 25.0f;
     }
-    static float BounceEaseIn(float p) {
-        return 1 - BounceEaseOut(1 - p);
-    }
+    static float BounceEaseIn(float p) { return 1 - BounceEaseOut(1 - p); }
     static float BounceEaseInOut(float p) {
-        if (p < 0.5f) return 0.5f * BounceEaseIn(p * 2);
+        if (p < 0.5f)
+            return 0.5f * BounceEaseIn(p * 2);
         return 0.5f * BounceEaseOut(p * 2 - 1) + 0.5f;
     }
 
     static Method getEasingMethod(uint8_t i) {
         switch (i) {
-            case kLinearInterpolation:    return LinearInterpolation;
-            case kContinuous:             return Continuous;
-            case kQuadraticEaseIn:        return QuadraticEaseIn;
-            case kQuadraticEaseOut:       return QuadraticEaseOut;
-            case kQuadraticEaseInOut:     return QuadraticEaseInOut;
-            case kCubicEaseIn:            return CubicEaseIn;
-            case kCubicEaseOut:           return CubicEaseOut;
-            case kCubicEaseInOut:         return CubicEaseInOut;
-            case kQuarticEaseIn:          return QuarticEaseIn;
-            case kQuarticEaseOut:         return QuarticEaseOut;
-            case kQuarticEaseInOut:       return QuarticEaseInOut;
-            case kQuinticEaseIn:          return QuinticEaseIn;
-            case kQuinticEaseOut:         return QuinticEaseOut;
-            case kQuinticEaseInOut:       return QuinticEaseInOut;
-            case kSineEaseIn:            return SineEaseIn;
-            case kSineEaseOut:           return SineEaseOut;
-            case kSineEaseInOut:         return SineEaseInOut;
-            case kCircularEaseIn:        return CircularEaseIn;
-            case kCircularEaseOut:       return CircularEaseOut;
-            case kCircularEaseInOut:     return CircularEaseInOut;
-            case kExponentialEaseIn:     return ExponentialEaseIn;
-            case kExponentialEaseOut:    return ExponentialEaseOut;
-            case kExponentialEaseInOut:  return ExponentialEaseInOut;
-            case kElasticEaseIn:         return ElasticEaseIn;
-            case kElasticEaseOut:        return ElasticEaseOut;
-            case kElasticEaseInOut:      return ElasticEaseInOut;
-            case kBackEaseIn:            return BackEaseIn;
-            case kBackEaseOut:           return BackEaseOut;
-            case kBackEaseInOut:         return BackEaseInOut;
-            case kBounceEaseIn:          return BounceEaseIn;
-            case kBounceEaseOut:         return BounceEaseOut;
-            case kBounceEaseInOut:       return BounceEaseInOut;
-            default:                     return nullptr;
+            case kLinearInterpolation:
+                return LinearInterpolation;
+            case kContinuous:
+                return Continuous;
+            case kQuadraticEaseIn:
+                return QuadraticEaseIn;
+            case kQuadraticEaseOut:
+                return QuadraticEaseOut;
+            case kQuadraticEaseInOut:
+                return QuadraticEaseInOut;
+            case kCubicEaseIn:
+                return CubicEaseIn;
+            case kCubicEaseOut:
+                return CubicEaseOut;
+            case kCubicEaseInOut:
+                return CubicEaseInOut;
+            case kQuarticEaseIn:
+                return QuarticEaseIn;
+            case kQuarticEaseOut:
+                return QuarticEaseOut;
+            case kQuarticEaseInOut:
+                return QuarticEaseInOut;
+            case kQuinticEaseIn:
+                return QuinticEaseIn;
+            case kQuinticEaseOut:
+                return QuinticEaseOut;
+            case kQuinticEaseInOut:
+                return QuinticEaseInOut;
+            case kSineEaseIn:
+                return SineEaseIn;
+            case kSineEaseOut:
+                return SineEaseOut;
+            case kSineEaseInOut:
+                return SineEaseInOut;
+            case kCircularEaseIn:
+                return CircularEaseIn;
+            case kCircularEaseOut:
+                return CircularEaseOut;
+            case kCircularEaseInOut:
+                return CircularEaseInOut;
+            case kExponentialEaseIn:
+                return ExponentialEaseIn;
+            case kExponentialEaseOut:
+                return ExponentialEaseOut;
+            case kExponentialEaseInOut:
+                return ExponentialEaseInOut;
+            case kElasticEaseIn:
+                return ElasticEaseIn;
+            case kElasticEaseOut:
+                return ElasticEaseOut;
+            case kElasticEaseInOut:
+                return ElasticEaseInOut;
+            case kBackEaseIn:
+                return BackEaseIn;
+            case kBackEaseOut:
+                return BackEaseOut;
+            case kBackEaseInOut:
+                return BackEaseInOut;
+            case kBounceEaseIn:
+                return BounceEaseIn;
+            case kBounceEaseOut:
+                return BounceEaseOut;
+            case kBounceEaseInOut:
+                return BounceEaseInOut;
+            default:
+                return nullptr;
         }
     }
 };
 
-} // namespace math
-} // namespace chopper
+}  // namespace math
+}  // namespace chopper

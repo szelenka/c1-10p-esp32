@@ -21,14 +21,9 @@ namespace nodes {
 
 class BluepadInputNode : public core::PublishingNode {
 public:
-    explicit BluepadInputNode(bluetooth::ControllerManager* controller_manager,
-                              bool trace_input = true,
+    explicit BluepadInputNode(bluetooth::ControllerManager* controller_manager, bool trace_input = true,
                               double hz = 50.0)
-        : PublishingNode("bluepad_input")
-        , controller_manager_(controller_manager)
-        , trace_input_(trace_input)
-        , hz_(hz)
-    {
+        : PublishingNode("bluepad_input"), controller_manager_(controller_manager), trace_input_(trace_input), hz_(hz) {
         for (int i = 0; i < CHOPPER_BT_MAX_DEVICES; ++i) {
             observed_connected_[i] = false;
             mapped_slot_[i] = -1;
@@ -72,8 +67,7 @@ public:
             }
 
             const bool has_fresh_report =
-                (data.last_report_time_us > 0) &&
-                (data.last_report_time_us != last_report_seen_us_[bt_slot]);
+                (data.last_report_time_us > 0) && (data.last_report_time_us != last_report_seen_us_[bt_slot]);
             const int8_t slot = mapped_slot_[bt_slot];
             if (has_fresh_report) {
                 last_report_seen_us_[bt_slot] = data.last_report_time_us;
@@ -121,30 +115,27 @@ private:
     static float normalizeAxis(int32_t v) {
         constexpr float kRange = 512.0f;
         float out = static_cast<float>(v) / kRange;
-        if (out > 1.0f) out = 1.0f;
-        if (out < -1.0f) out = -1.0f;
+        if (out > 1.0f)
+            out = 1.0f;
+        if (out < -1.0f)
+            out = -1.0f;
         return out;
     }
 
     static void formatMac(const uint8_t btaddr[6], char out[18]) {
-        std::snprintf(out, 18, "%02X:%02X:%02X:%02X:%02X:%02X",
-                      btaddr[0], btaddr[1], btaddr[2],
-                      btaddr[3], btaddr[4], btaddr[5]);
+        std::snprintf(out, 18, "%02X:%02X:%02X:%02X:%02X:%02X", btaddr[0], btaddr[1], btaddr[2], btaddr[3], btaddr[4],
+                      btaddr[5]);
     }
 
-    void handleConnectionTransitions(int bt_slot,
-                                     const chopper_gamepad_data_t& data,
-                                     uint64_t now_ms) {
+    void handleConnectionTransitions(int bt_slot, const chopper_gamepad_data_t& data, uint64_t now_ms) {
         if (data.connected && !observed_connected_[bt_slot]) {
             bluetooth::MacAddress mac{};
             std::memcpy(mac.addr, data.btaddr, sizeof(mac.addr));
-            mapped_slot_[bt_slot] =
-                controller_manager_->onConnect(mac, data.controller_type, 0, 0, now_ms);
+            mapped_slot_[bt_slot] = controller_manager_->onConnect(mac, data.controller_type, 0, 0, now_ms);
             observed_connected_[bt_slot] = true;
         } else if (!data.connected && observed_connected_[bt_slot]) {
             if (mapped_slot_[bt_slot] >= 0) {
-                controller_manager_->onDisconnect(
-                    static_cast<uint8_t>(mapped_slot_[bt_slot]), now_ms);
+                controller_manager_->onDisconnect(static_cast<uint8_t>(mapped_slot_[bt_slot]), now_ms);
             }
             observed_connected_[bt_slot] = false;
             mapped_slot_[bt_slot] = -1;
@@ -153,8 +144,7 @@ private:
         }
     }
 
-    messages::ControllerInput fromGamepad(int bt_slot,
-                                          const chopper_gamepad_data_t& data) {
+    messages::ControllerInput fromGamepad(int bt_slot, const chopper_gamepad_data_t& data) {
         messages::ControllerInput out{};
         out.dpad = data.gamepad.dpad;
         out.axis_x = data.gamepad.axis_x;
@@ -202,19 +192,12 @@ private:
         out.axis_x_slew = out.axis_x_normalized;
         out.axis_y_slew = out.axis_y_normalized;
 
-        if (trace_input_ &&
-            (last_buttons_[bt_slot] != out.buttons ||
-             last_misc_[bt_slot] != out.misc_buttons ||
-             last_dpad_[bt_slot] != out.dpad)) {
-            ESP_LOGI(TAG,
-                     "slot=%d mac=%s dpad=0x%02x buttons=0x%04x misc=0x%02x axes=(%ld,%ld,%ld,%ld)",
-                     bt_slot, out.mac_address, out.dpad,
-                     static_cast<unsigned>(out.buttons),
-                     static_cast<unsigned>(out.misc_buttons),
-                     static_cast<long>(out.axis_x),
-                     static_cast<long>(out.axis_y),
-                     static_cast<long>(out.axis_rx),
-                     static_cast<long>(out.axis_ry));
+        if (trace_input_ && (last_buttons_[bt_slot] != out.buttons || last_misc_[bt_slot] != out.misc_buttons ||
+                             last_dpad_[bt_slot] != out.dpad)) {
+            ESP_LOGI(TAG, "slot=%d mac=%s dpad=0x%02x buttons=0x%04x misc=0x%02x axes=(%ld,%ld,%ld,%ld)", bt_slot,
+                     out.mac_address, out.dpad, static_cast<unsigned>(out.buttons),
+                     static_cast<unsigned>(out.misc_buttons), static_cast<long>(out.axis_x),
+                     static_cast<long>(out.axis_y), static_cast<long>(out.axis_rx), static_cast<long>(out.axis_ry));
             last_buttons_[bt_slot] = out.buttons;
             last_misc_[bt_slot] = out.misc_buttons;
             last_dpad_[bt_slot] = out.dpad;
@@ -223,24 +206,29 @@ private:
         return out;
     }
 
-    void publishByRole(bluetooth::ControllerRole role,
-                       const messages::ControllerInput& input) {
+    void publishByRole(bluetooth::ControllerRole role, const messages::ControllerInput& input) {
         messages::ControllerInput mapped = input;
         if (role == bluetooth::ControllerRole::DRIVE) {
             input::setDriveIntentsFromRaw(mapped, drive_intent_map_);
+        } else if (role == bluetooth::ControllerRole::DOME) {
+            input::setDomeIntentsFromRaw(mapped, dome_intent_map_);
         }
         switch (role) {
             case bluetooth::ControllerRole::DRIVE:
-                if (drive_pub_) drive_pub_->publish(mapped);
+                if (drive_pub_)
+                    drive_pub_->publish(mapped);
                 break;
             case bluetooth::ControllerRole::DOME:
-                if (dome_pub_) dome_pub_->publish(mapped);
+                if (dome_pub_)
+                    dome_pub_->publish(mapped);
                 break;
             case bluetooth::ControllerRole::ANIMATION:
-                if (animation_pub_) animation_pub_->publish(mapped);
+                if (animation_pub_)
+                    animation_pub_->publish(mapped);
                 break;
             case bluetooth::ControllerRole::CAMERA:
-                if (camera_pub_) camera_pub_->publish(mapped);
+                if (camera_pub_)
+                    camera_pub_->publish(mapped);
                 break;
             case bluetooth::ControllerRole::UNASSIGNED:
                 break;
@@ -256,6 +244,7 @@ private:
     core::TypedPublisherPtr<messages::ControllerInput> animation_pub_;
     core::TypedPublisherPtr<messages::ControllerInput> camera_pub_;
     input::DriveIntentMap drive_intent_map_{input::defaultDriveIntentMap()};
+    input::DomeIntentMap dome_intent_map_{input::defaultDomeIntentMap()};
 
     bool observed_connected_[CHOPPER_BT_MAX_DEVICES];
     int8_t mapped_slot_[CHOPPER_BT_MAX_DEVICES];
@@ -267,7 +256,7 @@ private:
     bool have_last_input_[CHOPPER_BT_MAX_DEVICES];
 };
 
-} // namespace nodes
-} // namespace chopper
+}  // namespace nodes
+}  // namespace chopper
 
-#endif // ESP_PLATFORM
+#endif  // ESP_PLATFORM

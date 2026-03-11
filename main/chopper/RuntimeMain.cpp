@@ -25,18 +25,17 @@
 #include <cstdio>
 
 namespace {
-static const char* TAG = "RuntimeMain";
+static const char* const TAG = "RuntimeMain";
 static chopper::bluetooth::MacBasedPolicy g_role_policy;
 static bool g_policy_initialized = false;
 static bool g_runtime_started = false;
 
 bool parseMacAddress(const char* text, chopper::bluetooth::MacAddress& out) {
     unsigned int b[6] = {0};
-    if (!text) {
+    if (text == nullptr) {
         return false;
     }
-    const int n = std::sscanf(text, "%02x:%02x:%02x:%02x:%02x:%02x",
-                              &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]);
+    const int n = std::sscanf(text, "%02x:%02x:%02x:%02x:%02x:%02x", &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]);
     if (n != 6) {
         return false;
     }
@@ -73,25 +72,19 @@ void initRolePolicy() {
     g_policy_initialized = true;
 }
 
-void onUnexpectedControllerDisconnect(uint8_t slot_index,
-                                      chopper::bluetooth::ControllerRole role,
-                                      uint64_t stale_ms,
+void onUnexpectedControllerDisconnect(uint8_t slot_index, chopper::bluetooth::ControllerRole role, uint64_t stale_ms,
                                       void* context) {
     auto* app = static_cast<chopper::Application*>(context);
-    ESP_LOGE(TAG, "Unexpected controller loss: slot=%u role=%s stale=%llu ms",
-             static_cast<unsigned>(slot_index),
-             chopper::bluetooth::roleToString(role),
-             static_cast<unsigned long long>(stale_ms));
-    if (app) {
+    ESP_LOGE(TAG, "Unexpected controller loss: slot=%u role=%s stale=%llu ms", static_cast<unsigned>(slot_index),
+             chopper::bluetooth::roleToString(role), static_cast<unsigned long long>(stale_ms));
+    if (app != nullptr) {
         app->softStop("Unexpected controller disconnect");
     }
 }
 
-void onControllerConnected(uint8_t slot_index,
-                           chopper::bluetooth::ControllerRole role,
-                           void* context) {
+void onControllerConnected(uint8_t slot_index, chopper::bluetooth::ControllerRole role, void* context) {
     auto* app = static_cast<chopper::Application*>(context);
-    if (app) {
+    if (app != nullptr) {
         auto& cm = app->getControllerManager();
         const auto& slot = cm.getSlot(slot_index);
 
@@ -114,25 +107,22 @@ void onControllerConnected(uint8_t slot_index,
             }
         }
 
-        if (expected != chopper::bluetooth::ControllerRole::UNASSIGNED &&
-            role != expected) {
+        if (expected != chopper::bluetooth::ControllerRole::UNASSIGNED && role != expected) {
             if (cm.getRoleManager().assignRole(slot_index, expected)) {
                 role = expected;
-                ESP_LOGW(TAG, "Role corrected by MAC mapping: slot=%u role=%s",
-                             static_cast<unsigned>(slot_index),
-                             chopper::bluetooth::roleToString(role));
+                ESP_LOGW(TAG, "Role corrected by MAC mapping: slot=%u role=%s", static_cast<unsigned>(slot_index),
+                         chopper::bluetooth::roleToString(role));
             }
         }
     }
 
-    ESP_LOGI(TAG, "Controller connected: slot=%u role=%s -> clear soft stop",
-             static_cast<unsigned>(slot_index),
+    ESP_LOGI(TAG, "Controller connected: slot=%u role=%s -> clear soft stop", static_cast<unsigned>(slot_index),
              chopper::bluetooth::roleToString(role));
-    if (app) {
+    if (app != nullptr) {
         app->clearSoftStop("Controller connected");
     }
 }
-} // namespace
+}  // namespace
 
 extern "C" int chopper_runtime_start(void) {
     if (g_runtime_started) {
@@ -163,107 +153,62 @@ extern "C" int chopper_runtime_start(void) {
     // - All HAL objects are static to preserve lifetime across executor tasks.
     static constexpr gpio_num_t kSabertoothDummyRxPin = GPIO_NUM_35;
     static chopper::hal::SoftwareSerialPort sabertooth_serial(
-        static_cast<gpio_num_t>(chopper::config::pins::SABERTOOTH_TX),
-        kSabertoothDummyRxPin,
+        static_cast<gpio_num_t>(chopper::config::pins::SABERTOOTH_TX), kSabertoothDummyRxPin,
         chopper::config::baud::SABERTOOTH);
     static chopper::hal::SoftwareSerialPort maestro_body_serial(
         static_cast<gpio_num_t>(chopper::config::pins::MAESTRO_BODY_TX),
-        static_cast<gpio_num_t>(chopper::config::pins::MAESTRO_BODY_RX),
-        chopper::config::baud::MAESTRO);
+        static_cast<gpio_num_t>(chopper::config::pins::MAESTRO_BODY_RX), chopper::config::baud::MAESTRO);
     static chopper::hal::SoftwareSerialPort maestro_dome_serial(
         static_cast<gpio_num_t>(chopper::config::pins::MAESTRO_DOME_TX),
-        static_cast<gpio_num_t>(chopper::config::pins::MAESTRO_DOME_RX),
-        chopper::config::baud::MAESTRO);
-    static chopper::hal::SoftwareSerialPort mp3_serial(
-        static_cast<gpio_num_t>(chopper::config::pins::MP3TRIGGER_TX),
-        static_cast<gpio_num_t>(chopper::config::pins::MP3TRIGGER_RX),
-        chopper::config::baud::MP3TRIGGER);
+        static_cast<gpio_num_t>(chopper::config::pins::MAESTRO_DOME_RX), chopper::config::baud::MAESTRO);
+    static chopper::hal::SoftwareSerialPort mp3_serial(static_cast<gpio_num_t>(chopper::config::pins::MP3TRIGGER_TX),
+                                                       static_cast<gpio_num_t>(chopper::config::pins::MP3TRIGGER_RX),
+                                                       chopper::config::baud::MP3TRIGGER);
     static chopper::hal::HardwareSerialPort openmv_serial(
-        UART_NUM_2,
-        chopper::config::pins::OPENMV_TX,
-        chopper::config::pins::OPENMV_RX,
-        chopper::config::baud::OPENMV);
+        UART_NUM_2, chopper::config::pins::OPENMV_TX, chopper::config::pins::OPENMV_RX, chopper::config::baud::OPENMV);
 
     static chopper::hal::SabertoothMotorDriver drive_left(
-        sabertooth_serial,
-        chopper::config::device_id::SABERTOOTH_TANK_DRIVE,
-        1,
-        "sabertooth_left");
+        sabertooth_serial, chopper::config::device_id::SABERTOOTH_TANK_DRIVE, 1, "sabertooth_left");
     static chopper::hal::SabertoothMotorDriver drive_right(
-        sabertooth_serial,
-        chopper::config::device_id::SABERTOOTH_TANK_DRIVE,
-        2,
-        "sabertooth_right");
+        sabertooth_serial, chopper::config::device_id::SABERTOOTH_TANK_DRIVE, 2, "sabertooth_right");
     static chopper::hal::SabertoothMotorDriver dome_motor(
-        sabertooth_serial,
-        chopper::config::device_id::SABERTOOTH_DOME_DRIVE,
-        1,
-        "sabertooth_dome");
-    static chopper::hal::MaestroServoDriver maestro_body(
-        maestro_body_serial,
-        chopper::config::servo_channel::BODY_CHANNEL_COUNT,
-        "maestro_body",
-        chopper::config::device_id::MAESTRO_BODY);
-    static chopper::hal::MaestroServoDriver maestro_dome(
-        maestro_dome_serial,
-        chopper::config::servo_channel::DOME_CHANNEL_COUNT,
-        "maestro_dome",
-        chopper::config::device_id::MAESTRO_DOME);
+        sabertooth_serial, chopper::config::device_id::SABERTOOTH_DOME_DRIVE, 1, "sabertooth_dome");
+    static chopper::hal::MaestroServoDriver maestro_body(maestro_body_serial,
+                                                         chopper::config::servo_channel::BODY_CHANNEL_COUNT,
+                                                         "maestro_body", chopper::config::device_id::MAESTRO_BODY);
+    static chopper::hal::MaestroServoDriver maestro_dome(maestro_dome_serial,
+                                                         chopper::config::servo_channel::DOME_CHANNEL_COUNT,
+                                                         "maestro_dome", chopper::config::device_id::MAESTRO_DOME);
     static chopper::hal::MP3AudioDriver mp3(mp3_serial, "mp3");
 
     auto& uart_bus = chopper::hal::UartBusManager::getInstance();
-    if (!uart_bus.acquirePort({
-            0,
-            static_cast<int8_t>(kSabertoothDummyRxPin),
-            static_cast<int8_t>(chopper::config::pins::SABERTOOTH_TX),
-            chopper::config::baud::SABERTOOTH,
-            true,
-            true,
-            "sabertooth_bus"})) {
+    if (!uart_bus.acquirePort({0, static_cast<int8_t>(kSabertoothDummyRxPin),
+                               static_cast<int8_t>(chopper::config::pins::SABERTOOTH_TX),
+                               chopper::config::baud::SABERTOOTH, true, true, "sabertooth_bus"})) {
         ESP_LOGE(TAG, "Failed to acquire Sabertooth UART bus");
         return 1;
     }
-    if (!uart_bus.acquirePort({
-            1,
-            static_cast<int8_t>(chopper::config::pins::MAESTRO_BODY_RX),
-            static_cast<int8_t>(chopper::config::pins::MAESTRO_BODY_TX),
-            chopper::config::baud::MAESTRO,
-            true,
-            false,
-            "maestro_body_bus"})) {
+    if (!uart_bus.acquirePort({1, static_cast<int8_t>(chopper::config::pins::MAESTRO_BODY_RX),
+                               static_cast<int8_t>(chopper::config::pins::MAESTRO_BODY_TX),
+                               chopper::config::baud::MAESTRO, true, false, "maestro_body_bus"})) {
         ESP_LOGE(TAG, "Failed to acquire body Maestro UART bus");
         return 1;
     }
-    if (!uart_bus.acquirePort({
-            2,
-            static_cast<int8_t>(chopper::config::pins::MAESTRO_DOME_RX),
-            static_cast<int8_t>(chopper::config::pins::MAESTRO_DOME_TX),
-            chopper::config::baud::MAESTRO,
-            true,
-            false,
-            "maestro_dome_bus"})) {
+    if (!uart_bus.acquirePort({2, static_cast<int8_t>(chopper::config::pins::MAESTRO_DOME_RX),
+                               static_cast<int8_t>(chopper::config::pins::MAESTRO_DOME_TX),
+                               chopper::config::baud::MAESTRO, true, false, "maestro_dome_bus"})) {
         ESP_LOGE(TAG, "Failed to acquire dome Maestro UART bus");
         return 1;
     }
-    if (!uart_bus.acquirePort({
-            3,
-            static_cast<int8_t>(chopper::config::pins::MP3TRIGGER_RX),
-            static_cast<int8_t>(chopper::config::pins::MP3TRIGGER_TX),
-            chopper::config::baud::MP3TRIGGER,
-            true,
-            false,
-            "mp3_bus"})) {
+    if (!uart_bus.acquirePort({3, static_cast<int8_t>(chopper::config::pins::MP3TRIGGER_RX),
+                               static_cast<int8_t>(chopper::config::pins::MP3TRIGGER_TX),
+                               chopper::config::baud::MP3TRIGGER, true, false, "mp3_bus"})) {
         ESP_LOGE(TAG, "Failed to acquire MP3 UART bus");
         return 1;
     }
-    if (!uart_bus.acquirePort({
-            4,
-            static_cast<int8_t>(chopper::config::pins::OPENMV_RX),
-            static_cast<int8_t>(chopper::config::pins::OPENMV_TX),
-            chopper::config::baud::OPENMV,
-            false,
-            false,
-            "openmv_uart2"})) {
+    if (!uart_bus.acquirePort({4, static_cast<int8_t>(chopper::config::pins::OPENMV_RX),
+                               static_cast<int8_t>(chopper::config::pins::OPENMV_TX), chopper::config::baud::OPENMV,
+                               false, false, "openmv_uart2"})) {
         ESP_LOGE(TAG, "Failed to acquire OpenMV UART bus");
         return 1;
     }
@@ -298,23 +243,17 @@ extern "C" int chopper_runtime_start(void) {
     telemetry_cfg.websocket_enabled = false;
     app.configureTelemetry(telemetry_cfg);
 
-    ESP_LOGI(TAG,
-             "Executor cfg: hz=%u max_loop_us=%u core=%d loop_estop=%d node_estop=%d",
-             exec_cfg.loop_frequency_hz,
-             exec_cfg.max_loop_time_us,
-             exec_cfg.executor_task_core,
-             exec_cfg.loop_timeout_triggers_estop ? 1 : 0,
+    ESP_LOGI(TAG, "Executor cfg: hz=%u max_loop_us=%u core=%d loop_estop=%d node_estop=%d", exec_cfg.loop_frequency_hz,
+             exec_cfg.max_loop_time_us, exec_cfg.executor_task_core, exec_cfg.loop_timeout_triggers_estop ? 1 : 0,
              exec_cfg.node_timeout_triggers_estop ? 1 : 0);
     ESP_LOGI(TAG, "Telemetry enabled (serial JSON only; HTTP/WS disabled in runtime)");
 
     initRolePolicy();
     app.getControllerManager().getRoleManager().setPolicy(g_role_policy.getPolicy());
     app.getControllerManager().setConnectCallback(&onControllerConnected, &app);
-    app.getControllerManager().setUnexpectedDisconnectCallback(
-        &onUnexpectedControllerDisconnect, &app);
+    app.getControllerManager().setUnexpectedDisconnectCallback(&onUnexpectedControllerDisconnect, &app);
 
-    auto input_node =
-        std::make_shared<chopper::nodes::BluepadInputNode>(&app.getControllerManager(), false, 50.0);
+    auto input_node = std::make_shared<chopper::nodes::BluepadInputNode>(&app.getControllerManager(), false, 50.0);
     if (!app.addNode(input_node)) {
         ESP_LOGE(TAG, "Failed to add BluepadInputNode");
         return 1;
@@ -328,8 +267,7 @@ extern "C" int chopper_runtime_start(void) {
 
     // DOME controller drives a single dome motor on its own command topic.
     // Use motor_id=2 so it remains distinct from DRIVE motor IDs 0/1.
-    auto dome_node = std::make_shared<chopper::nodes::DomeNode>(
-        nullptr, 0.5f, 2.0f, 2, false);
+    auto dome_node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 2.0f, 2, false);
     if (!app.addNode(dome_node)) {
         ESP_LOGE(TAG, "Failed to add DomeNode");
         return 1;
@@ -391,12 +329,9 @@ extern "C" int chopper_runtime_start(void) {
     }
 
     auto& driver_manager = chopper::hal::DriverManager::getInstance();
-    if (!driver_manager.registerDriver(&drive_left, 30) ||
-        !driver_manager.registerDriver(&drive_right, 30) ||
-        !driver_manager.registerDriver(&dome_motor, 30) ||
-        !driver_manager.registerDriver(&maestro_body, 40) ||
-        !driver_manager.registerDriver(&maestro_dome, 41) ||
-        !driver_manager.registerDriver(&mp3, 50)) {
+    if (!driver_manager.registerDriver(&drive_left, 30) || !driver_manager.registerDriver(&drive_right, 30) ||
+        !driver_manager.registerDriver(&dome_motor, 30) || !driver_manager.registerDriver(&maestro_body, 40) ||
+        !driver_manager.registerDriver(&maestro_dome, 41) || !driver_manager.registerDriver(&mp3, 50)) {
         ESP_LOGE(TAG, "Failed to register one or more HAL drivers");
         return 1;
     }
@@ -415,7 +350,6 @@ extern "C" int chopper_runtime_start(void) {
     }
 
     g_runtime_started = true;
-    ESP_LOGI(TAG, "Runtime started: Bluepad on BT task, Application executor on core %d",
-             exec_cfg.executor_task_core);
+    ESP_LOGI(TAG, "Runtime started: Bluepad on BT task, Application executor on core %d", exec_cfg.executor_task_core);
     return 0;
 }

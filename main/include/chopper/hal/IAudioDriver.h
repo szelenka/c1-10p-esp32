@@ -2,8 +2,7 @@
 
 #include "chopper/hal/IDriver.h"
 
-namespace chopper {
-namespace hal {
+namespace chopper::hal {
 
 /**
  * Audio driver interface for sound playback.
@@ -22,14 +21,13 @@ public:
     virtual void setVolume(uint8_t volume) = 0;
 
     /// Get current volume level.
-    virtual uint8_t getVolume() const = 0;
+    [[nodiscard]] virtual uint8_t getVolume() const = 0;
 
     /// Check if audio is currently playing.
-    virtual bool isPlaying() const = 0;
+    [[nodiscard]] virtual bool isPlaying() const = 0;
 
     /// Stop current playback.
     virtual void stop() = 0;
 };
 
-} // namespace hal
-} // namespace chopper
+}  // namespace chopper::hal

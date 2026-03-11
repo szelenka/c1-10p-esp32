@@ -2,43 +2,46 @@
 #include "esp_log.h"
 #include <cstdio>
 #include <cstring>
+#include <utility>
 
-static const char* TAG = "Application";
+static const char* const TAG = "Application";
 
 namespace chopper {
 
-Application::Application(const core::Executor::Config& config)
-    : executor_(config)
-{
+Application::Application(const core::Executor::Config& config) : executor_(config) {
     // Wire the disconnect handler for Bluetooth controllers
     controllerManager_.setDisconnectBehavior(disconnectHandler_.getBehavior());
 }
 
-bool Application::addMotor(uint8_t motor_id, hal::IMotorDriver* driver,
-                           const char* topic) {
-    if (!driver || motorCount_ >= kMaxMotors) return false;
+bool Application::addMotor(uint8_t motor_id, hal::IMotorDriver* driver, const char* topic) {
+    if ((driver == nullptr) || motorCount_ >= kMaxMotors) {
+        return false;
+    }
     motors_[motorCount_] = {motor_id, driver, topic};
     motorCount_++;
     return true;
 }
 
-bool Application::addServoController(hal::IServoController* controller,
-                                     const char* topic) {
-    if (!controller || servoCount_ >= kMaxServos) return false;
+bool Application::addServoController(hal::IServoController* controller, const char* topic) {
+    if ((controller == nullptr) || servoCount_ >= kMaxServos) {
+        return false;
+    }
     servos_[servoCount_] = {controller, topic};
     servoCount_++;
     return true;
 }
 
 bool Application::addAudio(hal::IAudioDriver* driver, const char* topic) {
-    if (!driver || audioDriver_) return false;
+    if ((driver == nullptr) || (audioDriver_ != nullptr)) {
+        return false;
+    }
     audioDriver_ = driver;
     audioTopic_ = topic;
     return true;
 }
 
 bool Application::addNode(core::NodePtr node) {
-    return executor_.addNode(node);
+    return executor_.addNode(std::move(node));
 }
 
 bool Application::init() {
@@ -50,55 +53,45 @@ bool Application::init() {
     ESP_LOGI(TAG, "Initializing application...");
 
     // 1. Wire e-stop chain: Executor → SafetyManager
-    executor_.setEmergencyStopCallback(
-        &safety::SafetyManager::onExecutorEStop, &safetyManager_);
+    executor_.setEmergencyStopCallback(&safety::SafetyManager::onExecutorEStop, &safetyManager_);
 
     // 2. Register e-stop chain step for driver shutdown
     safetyManager_.getEmergencyStopChain().registerStep(
-        1, "DriverShutdown",
-        [](const char*, uint8_t, void*) {
-            hal::DriverManager::getInstance().shutdownAll();
-        },
+        1, "DriverShutdown", [](const char*, uint8_t, void*) { hal::DriverManager::getInstance().shutdownAll(); },
         nullptr);
 
     // 3. Create motor bridge nodes
     for (uint8_t i = 0; i < motorCount_; i++) {
-        snprintf(motorNodeNames_[i], sizeof(motorNodeNames_[i]),
-                 "motor_bridge_%d", motors_[i].motor_id);
+        snprintf(motorNodeNames_[i], sizeof(motorNodeNames_[i]), "motor_bridge_%d", motors_[i].motor_id);
 
-        auto node = std::make_shared<nodes::MotorBridgeNode>(
-            motorNodeNames_[i], motors_[i].topic,
-            motors_[i].driver, motors_[i].motor_id);
+        auto node = std::make_shared<nodes::MotorBridgeNode>(motorNodeNames_[i], motors_[i].topic, motors_[i].driver,
+                                                             motors_[i].motor_id);
 
         if (!executor_.addNode(node)) {
             ESP_LOGE(TAG, "Failed to add motor bridge node %d", i);
             return false;
         }
-        ESP_LOGI(TAG, "Added motor bridge: id=%d topic=%s",
-                 motors_[i].motor_id, motors_[i].topic);
+        ESP_LOGI(TAG, "Added motor bridge: id=%d topic=%s", motors_[i].motor_id, motors_[i].topic);
     }
 
     // 4. Create servo bridge nodes
     for (uint8_t i = 0; i < servoCount_; i++) {
-        snprintf(servoNodeNames_[i], sizeof(servoNodeNames_[i]),
-                 "servo_bridge_%d", i);
+        snprintf(servoNodeNames_[i], sizeof(servoNodeNames_[i]), "servo_bridge_%d", i);
 
-        auto node = std::make_shared<nodes::ServoBridgeNode>(
-            servoNodeNames_[i], servos_[i].topic,
-            servos_[i].controller);
+        auto node =
+            std::make_shared<nodes::ServoBridgeNode>(servoNodeNames_[i], servos_[i].topic, servos_[i].controller);
 
         if (!executor_.addNode(node)) {
             ESP_LOGE(TAG, "Failed to add servo bridge node %d", i);
             return false;
         }
-        ESP_LOGI(TAG, "Added servo bridge: topic=%s channels=%d",
-                 servos_[i].topic, servos_[i].controller->getChannelCount());
+        ESP_LOGI(TAG, "Added servo bridge: topic=%s channels=%d", servos_[i].topic,
+                 servos_[i].controller->getChannelCount());
     }
 
     // 5. Create audio bridge node
-    if (audioDriver_) {
-        auto node = std::make_shared<nodes::AudioBridgeNode>(
-            "audio_bridge", audioTopic_, audioDriver_);
+    if (audioDriver_ != nullptr) {
+        auto node = std::make_shared<nodes::AudioBridgeNode>("audio_bridge", audioTopic_, audioDriver_);
 
         if (!executor_.addNode(node)) {
             ESP_LOGE(TAG, "Failed to add audio bridge node");
@@ -117,14 +110,13 @@ bool Application::init() {
     // 6b. Add telemetry node and bring up telemetry service.
     if (telemetry_enabled_) {
         telemetry_service_.begin(telemetry_config_);
-        auto telemetryTapNode = std::make_shared<nodes::TelemetryIOTapNode>(
-            &telemetry_service_);
+        auto telemetryTapNode = std::make_shared<nodes::TelemetryIOTapNode>(&telemetry_service_);
         if (!executor_.addNode(telemetryTapNode)) {
             ESP_LOGE(TAG, "Failed to add telemetry I/O tap node");
             return false;
         }
-        auto telemetryNode = std::make_shared<nodes::TelemetryNode>(
-            &executor_, &safetyManager_, &telemetry_service_, telemetry_config_.node_update_hz);
+        auto telemetryNode = std::make_shared<nodes::TelemetryNode>(&executor_, &safetyManager_, &telemetry_service_,
+                                                                    telemetry_config_.node_update_hz);
         if (!executor_.addNode(telemetryNode)) {
             ESP_LOGE(TAG, "Failed to add telemetry node");
             return false;
@@ -148,13 +140,13 @@ bool Application::init() {
 
 void Application::applyStartupSafeState() {
     for (uint8_t i = 0; i < motorCount_; i++) {
-        if (motors_[i].driver) {
+        if (motors_[i].driver != nullptr) {
             motors_[i].driver->stop();
         }
     }
 
     for (uint8_t i = 0; i < servoCount_; i++) {
-        if (servos_[i].controller) {
+        if (servos_[i].controller != nullptr) {
             servos_[i].controller->disableAll();
         }
     }
@@ -211,4 +203,4 @@ void Application::clearSoftStop(const char* reason) {
     }
 }
 
-} // namespace chopper
+}  // namespace chopper

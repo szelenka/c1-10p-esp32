@@ -16,11 +16,7 @@ class MockMotorDriver : public IMotorDriver {
 public:
     static constexpr uint32_t kHistorySize = 64;
 
-    explicit MockMotorDriver(const char* name)
-        : m_name(name)
-    {
-        memset(m_setHistory, 0, sizeof(m_setHistory));
-    }
+    explicit MockMotorDriver(const char* name) : m_name(name) { memset(m_setHistory, 0, sizeof(m_setHistory)); }
 
     // -- IDriver interface --
 
@@ -30,9 +26,7 @@ public:
         return m_status;
     }
 
-    void update() override {
-        m_updateCount++;
-    }
+    void update() override { m_updateCount++; }
 
     DriverStatus getStatus() const override { return m_status; }
 
@@ -56,8 +50,10 @@ public:
     // -- IMotorDriver interface --
 
     void set(float speed) override {
-        if (speed > 1.0f) speed = 1.0f;
-        if (speed < -1.0f) speed = -1.0f;
+        if (speed > 1.0f)
+            speed = 1.0f;
+        if (speed < -1.0f)
+            speed = -1.0f;
         m_speed = speed;
         m_setHistory[m_historyIdx % kHistorySize] = speed;
         m_historyIdx++;
@@ -73,9 +69,7 @@ public:
         m_disabled = true;
     }
 
-    void stop() override {
-        m_speed = 0.0f;
-    }
+    void stop() override { m_speed = 0.0f; }
 
     // -- Test instrumentation --
 
@@ -89,9 +83,7 @@ public:
     void setStatus(DriverStatus status) { m_status = status; }
 
     /// Get the speed that was set at a given history index.
-    float getSpeedAt(uint32_t index) const {
-        return m_setHistory[index % kHistorySize];
-    }
+    float getSpeedAt(uint32_t index) const { return m_setHistory[index % kHistorySize]; }
 
     /// Get the total number of set() calls.
     uint32_t getSetCount() const { return m_historyIdx; }
@@ -116,5 +108,5 @@ private:
     uint32_t m_resetCount = 0;
 };
 
-} // namespace hal
-} // namespace chopper
+}  // namespace hal
+}  // namespace chopper

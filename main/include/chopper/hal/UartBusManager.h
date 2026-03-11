@@ -5,18 +5,17 @@
 #include <cstdint>
 #include <cstring>
 
-namespace chopper {
-namespace hal {
+namespace chopper::hal {
 
 /// Configuration for a single UART port.
 struct UartPortConfig {
-    uint8_t portId;              ///< Logical port ID (0..kMaxPorts-1)
-    int8_t rxPin;                ///< GPIO pin for RX (-1 if unused)
-    int8_t txPin;                ///< GPIO pin for TX (-1 if unused)
+    uint8_t portId;  ///< Logical port ID (0..kMaxPorts-1)
+    int8_t rxPin;    ///< GPIO pin for RX (-1 if unused)
+    int8_t txPin;    ///< GPIO pin for TX (-1 if unused)
     uint32_t baudRate;
-    bool isSoftwareSerial;       ///< true = EspSoftwareSerial, false = HardwareSerial
-    bool isHalfDuplex;           ///< true = TX-only or RX-only
-    const char* ownerName;       ///< Driver name for diagnostics
+    bool isSoftwareSerial;  ///< true = EspSoftwareSerial, false = HardwareSerial
+    bool isHalfDuplex;      ///< true = TX-only or RX-only
+    const char* ownerName;  ///< Driver name for diagnostics
 };
 
 /**
@@ -51,8 +50,7 @@ public:
             return false;
         }
         if (m_allocated[config.portId]) {
-            ESP_LOGE(kTag, "Port %d already allocated to '%s'",
-                     config.portId, m_ports[config.portId].ownerName);
+            ESP_LOGE(kTag, "Port %d already allocated to '%s'", config.portId, m_ports[config.portId].ownerName);
             return false;
         }
 
@@ -72,21 +70,24 @@ public:
         m_allocated[config.portId] = true;
         m_allocatedCount++;
 
-        ESP_LOGI(kTag, "Port %d acquired by '%s' (TX=%d, RX=%d, baud=%lu, %s)",
-                 config.portId, config.ownerName,
-                 config.txPin, config.rxPin,
-                 (unsigned long)config.baudRate,
-                 config.isSoftwareSerial ? "SW" : "HW");
+        ESP_LOGI(kTag, "Port %d acquired by '%s' (TX=%d, RX=%d, baud=%lu, %s)", config.portId, config.ownerName,
+                 config.txPin, config.rxPin, (unsigned long)config.baudRate, config.isSoftwareSerial ? "SW" : "HW");
         return true;
     }
 
     /// Release a port for reassignment.
     void releasePort(uint8_t portId) {
-        if (portId >= kMaxPorts || !m_allocated[portId]) return;
+        if (portId >= kMaxPorts || !m_allocated[portId]) {
+            return;
+        }
 
         const UartPortConfig& cfg = m_ports[portId];
-        if (cfg.txPin >= 0) releasePin(cfg.txPin);
-        if (cfg.rxPin >= 0) releasePin(cfg.rxPin);
+        if (cfg.txPin >= 0) {
+            releasePin(cfg.txPin);
+        }
+        if (cfg.rxPin >= 0) {
+            releasePin(cfg.rxPin);
+        }
 
         ESP_LOGI(kTag, "Port %d released from '%s'", portId, cfg.ownerName);
         m_allocated[portId] = false;
@@ -94,12 +95,11 @@ public:
     }
 
     /// Check for pin conflicts across all registered ports. Returns true if no conflicts.
-    bool validateAllocations() const {
+    [[nodiscard]] bool validateAllocations() const {
         // Already validated on acquire, but can be called for double-check
         for (uint8_t pin = 0; pin < kMaxGpioNum; pin++) {
             if (m_pinOwner[pin] != kNoOwner && !m_allocated[m_pinOwner[pin]]) {
-                ESP_LOGE(kTag, "Stale pin ownership: GPIO%d claimed by port %d (not allocated)",
-                         pin, m_pinOwner[pin]);
+                ESP_LOGE(kTag, "Stale pin ownership: GPIO%d claimed by port %d (not allocated)", pin, m_pinOwner[pin]);
                 return false;
             }
         }
@@ -107,27 +107,35 @@ public:
     }
 
     /// Get the config for a specific port. Returns nullptr if not allocated.
-    const UartPortConfig* getPortConfig(uint8_t portId) const {
-        if (portId >= kMaxPorts || !m_allocated[portId]) return nullptr;
+    [[nodiscard]] const UartPortConfig* getPortConfig(uint8_t portId) const {
+        if (portId >= kMaxPorts || !m_allocated[portId]) {
+            return nullptr;
+        }
         return &m_ports[portId];
     }
 
     /// Check if a GPIO pin is already claimed.
-    bool isPinClaimed(int8_t pin) const {
-        if (pin < 0 || pin >= kMaxGpioNum) return false;
+    [[nodiscard]] bool isPinClaimed(int8_t pin) const {
+        if (pin < 0 || pin >= kMaxGpioNum) {
+            return false;
+        }
         return m_pinOwner[pin] != kNoOwner;
     }
 
     /// Get the owner name for a claimed pin. Returns nullptr if unclaimed.
-    const char* getPinOwner(int8_t pin) const {
-        if (pin < 0 || pin >= kMaxGpioNum) return nullptr;
+    [[nodiscard]] const char* getPinOwner(int8_t pin) const {
+        if (pin < 0 || pin >= kMaxGpioNum) {
+            return nullptr;
+        }
         uint8_t portId = m_pinOwner[pin];
-        if (portId == kNoOwner || !m_allocated[portId]) return nullptr;
+        if (portId == kNoOwner || !m_allocated[portId]) {
+            return nullptr;
+        }
         return m_ports[portId].ownerName;
     }
 
     /// Get the number of allocated ports.
-    uint8_t getAllocatedCount() const { return m_allocatedCount; }
+    [[nodiscard]] uint8_t getAllocatedCount() const { return m_allocatedCount; }
 
     /// Print all port allocations for diagnostics.
     void printAllocations() const {
@@ -135,11 +143,8 @@ public:
         for (uint8_t i = 0; i < kMaxPorts; i++) {
             if (m_allocated[i]) {
                 const UartPortConfig& cfg = m_ports[i];
-                ESP_LOGI(kTag, "  [%d] %-16s  TX=%2d  RX=%2d  baud=%lu  %s %s",
-                         i, cfg.ownerName,
-                         cfg.txPin, cfg.rxPin,
-                         (unsigned long)cfg.baudRate,
-                         cfg.isSoftwareSerial ? "SW" : "HW",
+                ESP_LOGI(kTag, "  [%d] %-16s  TX=%2d  RX=%2d  baud=%lu  %s %s", i, cfg.ownerName, cfg.txPin, cfg.rxPin,
+                         (unsigned long)cfg.baudRate, cfg.isSoftwareSerial ? "SW" : "HW",
                          cfg.isHalfDuplex ? "half" : "full");
             }
         }
@@ -148,20 +153,22 @@ public:
 private:
     static constexpr const char* kTag = "UartBusMgr";
 
-    UartBusManager() : m_allocatedCount(0) {
+    UartBusManager() {
         memset(m_allocated, 0, sizeof(m_allocated));
         memset(m_pinOwner, kNoOwner, sizeof(m_pinOwner));
         memset(m_ports, 0, sizeof(m_ports));
     }
 
     bool claimPin(int8_t pin, uint8_t portId, const char* ownerName) {
-        if (pin < 0 || pin >= kMaxGpioNum) return true;  // unused pin is fine
+        if (pin < 0 || pin >= kMaxGpioNum) {
+            return true;  // unused pin is fine
+        }
         if (m_pinOwner[pin] != kNoOwner) {
             uint8_t conflictPort = m_pinOwner[pin];
-            ESP_LOGE(kTag, "Pin conflict: GPIO%d requested by '%s' (port %d) "
+            ESP_LOGE(kTag,
+                     "Pin conflict: GPIO%d requested by '%s' (port %d) "
                      "but already claimed by '%s' (port %d)",
-                     pin, ownerName, portId,
-                     m_ports[conflictPort].ownerName, conflictPort);
+                     pin, ownerName, portId, m_ports[conflictPort].ownerName, conflictPort);
             return false;
         }
         m_pinOwner[pin] = portId;
@@ -174,14 +181,13 @@ private:
         }
     }
 
-    UartPortConfig m_ports[kMaxPorts];
-    bool m_allocated[kMaxPorts];
-    uint8_t m_pinOwner[kMaxGpioNum];
-    uint8_t m_allocatedCount;
+    UartPortConfig m_ports[kMaxPorts]{};
+    bool m_allocated[kMaxPorts]{};
+    uint8_t m_pinOwner[kMaxGpioNum]{};
+    uint8_t m_allocatedCount = 0;
 
     UartBusManager(const UartBusManager&) = delete;
     UartBusManager& operator=(const UartBusManager&) = delete;
 };
 
-} // namespace hal
-} // namespace chopper
+}  // namespace chopper::hal

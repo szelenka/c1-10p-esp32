@@ -5,8 +5,7 @@
 #include "chopper/config/HardwareConfig.h"
 #include "chopper/messages/CommonMessages.h"
 
-namespace chopper {
-namespace nodes {
+namespace chopper::nodes {
 
 /**
  * Manages periscope lift and spin from the drive controller.
@@ -21,26 +20,24 @@ namespace nodes {
  */
 class PeriscopeNode : public core::PublishingNode {
 public:
-    PeriscopeNode()
-        : PublishingNode("periscope")
-    {}
+    PeriscopeNode() : PublishingNode("periscope") {}
 
     bool initialize() override {
         servo_pub_ = createPublisher<messages::ServoCommand>("servo/dome/cmd");
-        input_sub_ = createSubscription<messages::ControllerInput>(
-            "controller/drive", &PeriscopeNode::onControllerInput, this);
+        input_sub_ =
+            createSubscription<messages::ControllerInput>("controller/drive", &PeriscopeNode::onControllerInput, this);
 
         auto& ps = core::ParameterServer::getInstance();
-        ps.declare("servo.peri_lift.min", static_cast<int32_t>(500),
-                   static_cast<int32_t>(500), static_cast<int32_t>(2500));
-        ps.declare("servo.peri_lift.max", static_cast<int32_t>(2500),
-                   static_cast<int32_t>(500), static_cast<int32_t>(2500));
-        ps.declare("servo.peri_spin.min", static_cast<int32_t>(500),
-                   static_cast<int32_t>(500), static_cast<int32_t>(2500));
-        ps.declare("servo.peri_spin.max", static_cast<int32_t>(2500),
-                   static_cast<int32_t>(500), static_cast<int32_t>(2500));
-        ps.declare("servo.peri_spin.neutral", static_cast<int32_t>(1500),
-                   static_cast<int32_t>(500), static_cast<int32_t>(2500));
+        ps.declare("servo.peri_lift.min", static_cast<int32_t>(500), static_cast<int32_t>(500),
+                   static_cast<int32_t>(2500));
+        ps.declare("servo.peri_lift.max", static_cast<int32_t>(2500), static_cast<int32_t>(500),
+                   static_cast<int32_t>(2500));
+        ps.declare("servo.peri_spin.min", static_cast<int32_t>(500), static_cast<int32_t>(500),
+                   static_cast<int32_t>(2500));
+        ps.declare("servo.peri_spin.max", static_cast<int32_t>(2500), static_cast<int32_t>(500),
+                   static_cast<int32_t>(2500));
+        ps.declare("servo.peri_spin.neutral", static_cast<int32_t>(1500), static_cast<int32_t>(500),
+                   static_cast<int32_t>(2500));
 
         refreshCachedParams();
         bool listeners_ok = true;
@@ -66,14 +63,16 @@ public:
         }
     }
 
-    bool isPeriscopeDown() const { return periscope_down_; }
-    int8_t getPeriscopeLocation() const { return periscope_location_; }
+    [[nodiscard]] bool isPeriscopeDown() const { return periscope_down_; }
+    [[nodiscard]] int8_t getPeriscopeLocation() const { return periscope_location_; }
 
 private:
     void onControllerInput(const messages::ControllerInput& input) {
-        if (!servo_pub_) return;
+        if (!servo_pub_) {
+            return;
+        }
 
-        uint64_t now = static_cast<uint64_t>(esp_timer_get_time() / 1000);
+        auto now = static_cast<uint64_t>(esp_timer_get_time() / 1000);
 
         handleLift(input, now);
         handleSpin(input, now);
@@ -194,7 +193,7 @@ private:
     }
 
     static void onParameterChanged(const char*, void* context) {
-        if (!context) {
+        if (context == nullptr) {
             return;
         }
         auto* self = static_cast<PeriscopeNode*>(context);
@@ -232,5 +231,4 @@ private:
     int32_t spin_neutral_ = 1500;
 };
 
-} // namespace nodes
-} // namespace chopper
+}  // namespace chopper::nodes

@@ -4,8 +4,7 @@
 #include "chopper/hal/IAudioDriver.h"
 #include "chopper/messages/CommonMessages.h"
 
-namespace chopper {
-namespace nodes {
+namespace chopper::nodes {
 
 /**
  * Bridge node: subscribes to AudioCommand messages and forwards
@@ -13,33 +12,32 @@ namespace nodes {
  */
 class AudioBridgeNode : public core::PublishingNode {
 public:
-    AudioBridgeNode(const char* name, const char* topic,
-                    hal::IAudioDriver* driver)
-        : PublishingNode(name)
-        , topic_(topic)
-        , driver_(driver)
-    {}
+    AudioBridgeNode(const char* name, const char* topic, hal::IAudioDriver* driver)
+        : PublishingNode(name), topic_(topic), driver_(driver) {}
 
     bool initialize() override {
-        if (!driver_) return false;
-        sub_ = createSubscription<messages::AudioCommand>(
-            topic_, &AudioBridgeNode::onCommand, this);
+        if (driver_ == nullptr) {
+            return false;
+        }
+        sub_ = createSubscription<messages::AudioCommand>(topic_, &AudioBridgeNode::onCommand, this);
         return sub_ != nullptr;
     }
 
     void process(uint64_t) override {}
 
     void emergencyStop() override {
-        if (driver_) {
+        if (driver_ != nullptr) {
             driver_->stop();
         }
     }
 
-    hal::IAudioDriver* getDriver() const { return driver_; }
+    [[nodiscard]] hal::IAudioDriver* getDriver() const { return driver_; }
 
 private:
     void onCommand(const messages::AudioCommand& cmd) {
-        if (!driver_) return;
+        if (driver_ == nullptr) {
+            return;
+        }
 
         switch (cmd.command_type) {
             case messages::AudioCommand::CommandType::PLAY_TRACK:
@@ -61,5 +59,4 @@ private:
     core::TypedSubscriptionPtr<messages::AudioCommand> sub_;
 };
 
-} // namespace nodes
-} // namespace chopper
+}  // namespace chopper::nodes

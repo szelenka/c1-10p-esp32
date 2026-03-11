@@ -5,8 +5,7 @@
 #include "chopper/chopper_limits.h"
 #include <cstring>
 
-namespace chopper {
-namespace core {
+namespace chopper::core {
 
 /**
  * @brief Central message broker for topic-based pub/sub.
@@ -25,7 +24,7 @@ public:
      * @param topic Topic name (string literal or static storage)
      * @param qos Quality of service profile
      */
-    template<typename MessageT>
+    template <typename MessageT>
     TypedPublisherPtr<MessageT> createPublisher(const char* topic,
                                                 const QoSProfile& qos = QoSProfile::systemDefault()) {
         auto publisher = std::make_shared<TypedPublisher<MessageT>>(topic, qos);
@@ -36,9 +35,8 @@ public:
     /**
      * @brief Create a typed subscription with function pointer callback.
      */
-    template<typename MessageT>
-    TypedSubscriptionPtr<MessageT> createSubscription(const char* topic,
-                                                      MessageCallbackFn<MessageT> callback,
+    template <typename MessageT>
+    TypedSubscriptionPtr<MessageT> createSubscription(const char* topic, MessageCallbackFn<MessageT> callback,
                                                       void* context,
                                                       const QoSProfile& qos = QoSProfile::systemDefault()) {
         auto sub = std::make_shared<TypedSubscription<MessageT>>(topic, callback, context, qos);
@@ -59,7 +57,7 @@ public:
         size_t total_topics;
     };
 
-    Statistics getStatistics() const;
+    [[nodiscard]] Statistics getStatistics() const;
 
     /// Unregister a publisher (called from Publisher destructor).
     void unregisterPublisher(Publisher* publisher);
@@ -81,15 +79,15 @@ private:
     void matchSubscription(Subscription* subscription);
 
     // Flat arrays of raw pointers. Lifetime managed by nodes via shared_ptr.
-    Publisher* publishers_[limits::MAX_TOPICS * 2];   // Allow >1 publisher per topic
-    size_t publisher_count_;
+    Publisher* publishers_[limits::MAX_TOPICS * 2]{};  // Allow >1 publisher per topic
+    size_t publisher_count_ = 0;
 
-    Subscription* subscriptions_[limits::MAX_TOPICS * limits::MAX_SUBSCRIBERS_PER_TOPIC];
-    size_t subscription_count_;
+    Subscription* subscriptions_[limits::MAX_TOPICS * limits::MAX_SUBSCRIBERS_PER_TOPIC]{};
+    size_t subscription_count_ = 0;
 
+public:
     MessageBroker(const MessageBroker&) = delete;
     MessageBroker& operator=(const MessageBroker&) = delete;
 };
 
-} // namespace core
-} // namespace chopper
+}  // namespace chopper::core

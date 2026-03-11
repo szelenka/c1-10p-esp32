@@ -44,7 +44,7 @@ For flashing + serial port selection + telemetry/UI endpoint checks, use:
 
 Most common flow:
 ```bash
-./scripts/run_on_device_validation.sh --env esp32dev-validation --telemetry-mode full
+./.scripts/run_on_device_validation.sh --env esp32dev-validation --telemetry-mode full
 ```
 
 ## Bluetooth Mac Addresses

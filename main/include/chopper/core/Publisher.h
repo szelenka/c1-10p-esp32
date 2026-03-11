@@ -7,8 +7,7 @@
 #include <cstring>
 #include "esp_timer.h"
 
-namespace chopper {
-namespace core {
+namespace chopper::core {
 
 /**
  * @brief Publisher for sending messages to subscribers.
@@ -18,21 +17,20 @@ namespace core {
  */
 class Publisher {
 public:
-    Publisher(const char* topic, TypeId type_id,
-             const QoSProfile& qos = QoSProfile::systemDefault());
+    Publisher(const char* topic, TypeId type_id, const QoSProfile& qos = QoSProfile::systemDefault());
 
     virtual ~Publisher();
 
-    const char* getTopic() const { return topic_; }
-    TypeId getTypeId() const { return type_id_; }
-    const QoSProfile& getQoS() const { return qos_; }
+    [[nodiscard]] const char* getTopic() const { return topic_; }
+    [[nodiscard]] TypeId getTypeId() const { return type_id_; }
+    [[nodiscard]] const QoSProfile& getQoS() const { return qos_; }
 
     /**
      * @brief Get number of active subscribers.
      */
-    size_t getSubscriberCount() const;
+    [[nodiscard]] size_t getSubscriberCount() const;
 
-    bool hasSubscribers() const { return getSubscriberCount() > 0; }
+    [[nodiscard]] bool hasSubscribers() const { return getSubscriberCount() > 0; }
 
     /**
      * @brief Add a subscription to this publisher's delivery list.
@@ -58,12 +56,13 @@ private:
     const char* topic_;
     TypeId type_id_;
     QoSProfile qos_;
-    uint64_t message_count_;
+    uint64_t message_count_ = 0;
 
     // Fixed-size subscriber array — no heap allocation.
-    Subscription* subscribers_[limits::MAX_SUBSCRIBERS_PER_TOPIC];
-    size_t subscriber_count_;
+    Subscription* subscribers_[limits::MAX_SUBSCRIBERS_PER_TOPIC]{};
+    size_t subscriber_count_ = 0;
 
+public:
     Publisher(const Publisher&) = delete;
     Publisher& operator=(const Publisher&) = delete;
 };
@@ -74,11 +73,10 @@ using PublisherPtr = std::shared_ptr<Publisher>;
  * @brief Type-safe publisher. The publish() method delivers by const reference
  * with zero heap allocation.
  */
-template<typename MessageT>
+template <typename MessageT>
 class TypedPublisher : public Publisher {
 public:
-    TypedPublisher(const char* topic,
-                   const QoSProfile& qos = QoSProfile::systemDefault())
+    TypedPublisher(const char* topic, const QoSProfile& qos = QoSProfile::systemDefault())
         : Publisher(topic, core::getTypeId<MessageT>(), qos) {}
 
     /**
@@ -104,8 +102,7 @@ public:
     }
 };
 
-template<typename MessageT>
+template <typename MessageT>
 using TypedPublisherPtr = std::shared_ptr<TypedPublisher<MessageT>>;
 
-} // namespace core
-} // namespace chopper
+}  // namespace chopper::core

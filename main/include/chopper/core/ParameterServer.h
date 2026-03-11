@@ -6,8 +6,7 @@
 #include <climits>
 #include "chopper/chopper_limits.h"
 
-namespace chopper {
-namespace core {
+namespace chopper::core {
 
 /// Parameter value types.
 enum class ParamType : uint8_t {
@@ -18,29 +17,29 @@ enum class ParamType : uint8_t {
 
 /// A single parameter entry.
 struct Parameter {
-    char      name[limits::MAX_PARAM_NAME_LEN];
+    char name[limits::MAX_PARAM_NAME_LEN];
     ParamType type;
     union {
         int32_t i;
-        float   f;
-        bool    b;
+        float f;
+        bool b;
     } value;
     union {
         int32_t i;
-        float   f;
+        float f;
     } min_value;
     union {
         int32_t i;
-        float   f;
+        float f;
     } max_value;
-    bool     has_range;
-    bool     persistent;  ///< Save to NVS on change (future)
+    bool has_range;
+    bool persistent;  ///< Save to NVS on change (future)
     uint32_t change_count;
-    bool     active;
+    bool active;
 };
 
 /// Callback when a parameter value changes.
-using ParamChangeCallback = void(*)(const char* name, void* context);
+using ParamChangeCallback = void (*)(const char* name, void* context);
 
 /**
  * @brief Lightweight runtime parameter server.
@@ -55,16 +54,13 @@ public:
 
     // --- Declare parameters with default values ---
 
-    bool declare(const char* name, int32_t default_val,
-                 int32_t min_val = INT32_MIN, int32_t max_val = INT32_MAX,
+    bool declare(const char* name, int32_t default_val, int32_t min_val = INT32_MIN, int32_t max_val = INT32_MAX,
                  bool persistent = false);
 
-    bool declare(const char* name, float default_val,
-                 float min_val = -FLT_MAX, float max_val = FLT_MAX,
+    bool declare(const char* name, float default_val, float min_val = -FLT_MAX, float max_val = FLT_MAX,
                  bool persistent = false);
 
-    bool declare(const char* name, bool default_val,
-                 bool persistent = false);
+    bool declare(const char* name, bool default_val, bool persistent = false);
 
     // --- Get parameter values ---
 
@@ -93,9 +89,9 @@ public:
 
     // --- Introspection ---
 
-    void forEach(void(*visitor)(const Parameter&, void*), void* ctx) const;
+    void forEach(void (*visitor)(const Parameter&, void*), void* ctx) const;
 
-    size_t count() const { return count_; }
+    [[nodiscard]] size_t count() const { return count_; }
 
     /// Reset all parameters and listeners. Primarily for testing.
     void reset();
@@ -109,23 +105,23 @@ private:
     /// Notify all listeners registered for the parameter at the given index.
     void notifyListeners(size_t param_index);
 
-    Parameter params_[limits::MAX_PARAMETERS];
-    size_t    count_;
+    Parameter params_[limits::MAX_PARAMETERS]{};
+    size_t count_ = 0;
 
     struct ChangeListener {
-        size_t              param_index;
+        size_t param_index;
         ParamChangeCallback callback;
-        void*               context;
-        bool                active;
+        void* context;
+        bool active;
     };
 
     static constexpr size_t MAX_LISTENERS = 32;
-    ChangeListener listeners_[MAX_LISTENERS];
-    size_t         listener_count_;
+    ChangeListener listeners_[MAX_LISTENERS]{};
+    size_t listener_count_ = 0;
 
+public:
     ParameterServer(const ParameterServer&) = delete;
     ParameterServer& operator=(const ParameterServer&) = delete;
 };
 
-} // namespace core
-} // namespace chopper
+}  // namespace chopper::core

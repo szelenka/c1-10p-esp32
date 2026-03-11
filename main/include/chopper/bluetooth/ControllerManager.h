@@ -9,8 +9,7 @@
 #include "esp_log.h"
 #include <cstring>
 
-namespace chopper {
-namespace bluetooth {
+namespace chopper::bluetooth {
 
 /**
  * Disconnect handler interface.
@@ -23,10 +22,8 @@ struct DisconnectBehavior {
     /// @param role     The role that disconnected.
     /// @param lastInput The last input received before disconnect.
     /// @param output   Output fallback input message.
-    void (*getFallback)(ControllerRole role,
-                        const messages::ControllerInput& lastInput,
-                        messages::ControllerInput& output,
-                        void* context);
+    void (*getFallback)(ControllerRole role, const messages::ControllerInput& lastInput,
+                        messages::ControllerInput& output, void* context);
 
     /// How long to publish the fallback before going to zero (ms).
     uint32_t (*getFallbackDurationMs)(ControllerRole role, void* context);
@@ -44,19 +41,13 @@ struct DisconnectBehavior {
 class DefaultDisconnectHandler {
 public:
     DisconnectBehavior getBehavior() {
-        return DisconnectBehavior{
-            &DefaultDisconnectHandler::fallbackImpl,
-            &DefaultDisconnectHandler::durationImpl,
-            this
-        };
+        return DisconnectBehavior{&DefaultDisconnectHandler::fallbackImpl, &DefaultDisconnectHandler::durationImpl,
+                                  this};
     }
 
 private:
-    static void fallbackImpl(ControllerRole role,
-                              const messages::ControllerInput& lastInput,
-                              messages::ControllerInput& output,
-                              void* /*ctx*/)
-    {
+    static void fallbackImpl(ControllerRole role, const messages::ControllerInput& lastInput,
+                             messages::ControllerInput& output, void* /*ctx*/) {
         // Start from zero
         output = messages::ControllerInput{};
         output.is_connected = false;
@@ -85,11 +76,16 @@ private:
 
     static uint32_t durationImpl(ControllerRole role, void* /*ctx*/) {
         switch (role) {
-            case ControllerRole::DRIVE:     return 0;
-            case ControllerRole::DOME:      return 0;
-            case ControllerRole::ANIMATION: return 2000;
-            case ControllerRole::CAMERA:    return 0;
-            case ControllerRole::UNASSIGNED: return 0;
+            case ControllerRole::DRIVE:
+                return 0;
+            case ControllerRole::DOME:
+                return 0;
+            case ControllerRole::ANIMATION:
+                return 2000;
+            case ControllerRole::CAMERA:
+                return 0;
+            case ControllerRole::UNASSIGNED:
+                return 0;
         }
         return 0;
     }
@@ -105,12 +101,12 @@ class ControllerManager {
 public:
     static constexpr uint8_t kMaxSlots = limits::MAX_CONTROLLERS;
     static constexpr uint64_t kDefaultTimeoutMs = 200;  ///< Disconnect detection watchdog
-    using ConnectCallback = void(*)(uint8_t slot_index, ControllerRole role, void* context);
-    using UnexpectedDisconnectCallback =
-        void(*)(uint8_t slot_index, ControllerRole role, uint64_t stale_ms, void* context);
+    using ConnectCallback = void (*)(uint8_t slot_index, ControllerRole role, void* context);
+    using UnexpectedDisconnectCallback = void (*)(uint8_t slot_index, ControllerRole role, uint64_t stale_ms,
+                                                  void* context);
 
     ControllerManager()
-        : m_timeoutMs(kDefaultTimeoutMs)
+
     {
         for (uint8_t i = 0; i < kMaxSlots; i++) {
             m_slots[i].slot_index = i;
@@ -121,16 +117,12 @@ public:
 
     // -- Slot accessors --
 
-    const ControllerSlot& getSlot(uint8_t index) const {
-        return m_slots[index < kMaxSlots ? index : 0];
-    }
+    [[nodiscard]] const ControllerSlot& getSlot(uint8_t index) const { return m_slots[index < kMaxSlots ? index : 0]; }
 
-    ControllerSlot& getSlot(uint8_t index) {
-        return m_slots[index < kMaxSlots ? index : 0];
-    }
+    ControllerSlot& getSlot(uint8_t index) { return m_slots[index < kMaxSlots ? index : 0]; }
 
     /// Find a slot by MAC address. Returns -1 if not found.
-    int8_t findSlotByMac(const MacAddress& mac) const {
+    [[nodiscard]] int8_t findSlotByMac(const MacAddress& mac) const {
         for (uint8_t i = 0; i < kMaxSlots; i++) {
             if (m_slots[i].mac == mac && !m_slots[i].isEmpty()) {
                 return static_cast<int8_t>(i);
@@ -140,12 +132,10 @@ public:
     }
 
     /// Find a slot by role. Returns -1 if no slot has that role.
-    int8_t findSlotByRole(ControllerRole role) const {
-        return m_roleManager.getSlotForRole(role);
-    }
+    [[nodiscard]] int8_t findSlotByRole(ControllerRole role) const { return m_roleManager.getSlotForRole(role); }
 
     /// Find first empty slot. Returns -1 if all occupied.
-    int8_t findEmptySlot() const {
+    [[nodiscard]] int8_t findEmptySlot() const {
         for (uint8_t i = 0; i < kMaxSlots; i++) {
             if (m_slots[i].isEmpty()) {
                 return static_cast<int8_t>(i);
@@ -155,10 +145,12 @@ public:
     }
 
     /// Count of active (producing input) controllers.
-    uint8_t getActiveCount() const {
+    [[nodiscard]] uint8_t getActiveCount() const {
         uint8_t count = 0;
-        for (uint8_t i = 0; i < kMaxSlots; i++) {
-            if (m_slots[i].isActive()) count++;
+        for (const auto& m_slot : m_slots) {
+            if (m_slot.isActive()) {
+                count++;
+            }
         }
         return count;
     }
@@ -176,10 +168,7 @@ public:
      * @param now_ms        Current time in milliseconds.
      * @return Slot index assigned, or -1 if rejected (full or not allowed).
      */
-    int8_t onConnect(const MacAddress& mac, uint16_t ctlType,
-                     uint16_t vendorId, uint16_t productId,
-                     uint64_t now_ms)
-    {
+    int8_t onConnect(const MacAddress& mac, uint16_t ctlType, uint16_t vendorId, uint16_t productId, uint64_t now_ms) {
         int8_t idx = findEmptySlot();
         if (idx < 0) {
             ESP_LOGW(kTag, "All slots full, rejecting controller");
@@ -201,10 +190,10 @@ public:
 
         char macStr[18];
         mac.format(macStr, sizeof(macStr));
-        ESP_LOGI(kTag, "Controller connected: slot=%d mac=%s type=%d role=%s",
-                 idx, macStr, ctlType, roleToString(assigned));
+        ESP_LOGI(kTag, "Controller connected: slot=%d mac=%s type=%d role=%s", idx, macStr, ctlType,
+                 roleToString(assigned));
 
-        if (m_connectCallback) {
+        if (m_connectCallback != nullptr) {
             m_connectCallback(static_cast<uint8_t>(idx), assigned, m_connectContext);
         }
 
@@ -218,27 +207,29 @@ public:
      * @param now_ms        Current time in milliseconds.
      */
     void onDisconnect(uint8_t slotIndex, uint64_t now_ms) {
-        if (slotIndex >= kMaxSlots) return;
+        if (slotIndex >= kMaxSlots) {
+            return;
+        }
         ControllerSlot& slot = m_slots[slotIndex];
-        if (slot.isEmpty()) return;
+        if (slot.isEmpty()) {
+            return;
+        }
 
-        ESP_LOGD(kTag, "Controller disconnected: slot=%d role=%s",
-                 slotIndex, roleToString(slot.role));
+        ESP_LOGD(kTag, "Controller disconnected: slot=%d role=%s", slotIndex, roleToString(slot.role));
 
         slot.beginDisconnect(now_ms);
         m_roleManager.onControllerRemoved(slotIndex);
 
         // Apply disconnect fallback
-        if (m_disconnectBehavior.getFallback) {
-            m_disconnectBehavior.getFallback(
-                slot.role, m_lastInputs[slotIndex],
-                m_fallbackInputs[slotIndex], m_disconnectBehavior.context);
+        if (m_disconnectBehavior.getFallback != nullptr) {
+            m_disconnectBehavior.getFallback(slot.role, m_lastInputs[slotIndex], m_fallbackInputs[slotIndex],
+                                             m_disconnectBehavior.context);
             m_fallbackActive[slotIndex] = true;
             m_fallbackStartMs[slotIndex] = now_ms;
 
-            uint32_t dur = m_disconnectBehavior.getFallbackDurationMs
-                ? m_disconnectBehavior.getFallbackDurationMs(slot.role, m_disconnectBehavior.context)
-                : 0;
+            uint32_t dur = (m_disconnectBehavior.getFallbackDurationMs != nullptr)
+                               ? m_disconnectBehavior.getFallbackDurationMs(slot.role, m_disconnectBehavior.context)
+                               : 0;
             m_fallbackDurationMs[slotIndex] = dur;
         }
 
@@ -258,9 +249,7 @@ public:
         for (uint8_t i = 0; i < kMaxSlots; i++) {
             // Process active fallbacks
             if (m_fallbackActive[i]) {
-                const uint64_t elapsed_ms = (now_ms >= m_fallbackStartMs[i])
-                    ? (now_ms - m_fallbackStartMs[i])
-                    : 0;
+                const uint64_t elapsed_ms = (now_ms >= m_fallbackStartMs[i]) ? (now_ms - m_fallbackStartMs[i]) : 0;
                 if (elapsed_ms >= m_fallbackDurationMs[i]) {
                     finishDisconnect(i);
                 }
@@ -274,11 +263,9 @@ public:
                 }
                 const uint64_t stale_ms = now_ms - m_slots[i].last_input_time_ms;
                 if (stale_ms > m_timeoutMs) {
-                    ESP_LOGW(kTag, "Slot %d watchdog timeout (%llu ms)",
-                             i, (unsigned long long)stale_ms);
-                    if (m_unexpectedDisconnectCallback) {
-                        m_unexpectedDisconnectCallback(
-                            i, m_slots[i].role, stale_ms, m_unexpectedDisconnectContext);
+                    ESP_LOGW(kTag, "Slot %d watchdog timeout (%llu ms)", i, (unsigned long long)stale_ms);
+                    if (m_unexpectedDisconnectCallback != nullptr) {
+                        m_unexpectedDisconnectCallback(i, m_slots[i].role, stale_ms, m_unexpectedDisconnectContext);
                     }
                     onDisconnect(i, now_ms);
                 }
@@ -287,16 +274,19 @@ public:
     }
 
     /// Record that input was received from a slot (updates watchdog timer).
-    void recordInput(uint8_t slotIndex, uint64_t now_ms,
-                     const messages::ControllerInput& input) {
-        if (slotIndex >= kMaxSlots) return;
+    void recordInput(uint8_t slotIndex, uint64_t now_ms, const messages::ControllerInput& input) {
+        if (slotIndex >= kMaxSlots) {
+            return;
+        }
         m_slots[slotIndex].last_input_time_ms = now_ms;
         m_lastInputs[slotIndex] = input;
     }
 
     /// Get the fallback input for a disconnecting slot (if any).
     bool getFallbackInput(uint8_t slotIndex, messages::ControllerInput& output) const {
-        if (slotIndex >= kMaxSlots || !m_fallbackActive[slotIndex]) return false;
+        if (slotIndex >= kMaxSlots || !m_fallbackActive[slotIndex]) {
+            return false;
+        }
         output = m_fallbackInputs[slotIndex];
         return true;
     }
@@ -304,12 +294,10 @@ public:
     // -- Role management delegation --
 
     RoleManager& getRoleManager() { return m_roleManager; }
-    const RoleManager& getRoleManager() const { return m_roleManager; }
+    [[nodiscard]] const RoleManager& getRoleManager() const { return m_roleManager; }
 
     /// Set the disconnect behavior handler.
-    void setDisconnectBehavior(const DisconnectBehavior& behavior) {
-        m_disconnectBehavior = behavior;
-    }
+    void setDisconnectBehavior(const DisconnectBehavior& behavior) { m_disconnectBehavior = behavior; }
 
     /// Callback for watchdog-triggered (unexpected) disconnects.
     void setUnexpectedDisconnectCallback(UnexpectedDisconnectCallback cb, void* context = nullptr) {
@@ -328,11 +316,13 @@ public:
 
     /// Set watchdog timeout (ms). 0 to disable.
     void setTimeoutMs(uint64_t ms) { m_timeoutMs = ms; }
-    uint64_t getTimeoutMs() const { return m_timeoutMs; }
+    [[nodiscard]] uint64_t getTimeoutMs() const { return m_timeoutMs; }
 
     /// Get the profile for a slot's controller type.
-    const ButtonMappingProfile* getProfileForSlot(uint8_t slotIndex) const {
-        if (slotIndex >= kMaxSlots) return nullptr;
+    [[nodiscard]] const ButtonMappingProfile* getProfileForSlot(uint8_t slotIndex) const {
+        if (slotIndex >= kMaxSlots) {
+            return nullptr;
+        }
         return findProfile(m_slots[slotIndex].controller_type);
     }
 
@@ -359,7 +349,7 @@ private:
     RoleManager m_roleManager;
     InputMixer m_inputMixer;
     DisconnectBehavior m_disconnectBehavior = {};
-    uint64_t m_timeoutMs;
+    uint64_t m_timeoutMs = kDefaultTimeoutMs;
 
     // Per-slot state for disconnect handling
     messages::ControllerInput m_lastInputs[kMaxSlots] = {};
@@ -373,5 +363,4 @@ private:
     void* m_unexpectedDisconnectContext = nullptr;
 };
 
-} // namespace bluetooth
-} // namespace chopper
+}  // namespace chopper::bluetooth

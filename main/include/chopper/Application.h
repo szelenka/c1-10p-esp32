@@ -50,8 +50,7 @@ public:
      * @param topic     Topic to subscribe to (default: "drive/cmd").
      * @return true if registered successfully.
      */
-    bool addMotor(uint8_t motor_id, hal::IMotorDriver* driver,
-                  const char* topic = "drive/cmd");
+    bool addMotor(uint8_t motor_id, hal::IMotorDriver* driver, const char* topic = "drive/cmd");
 
     /**
      * Register a servo controller on a given topic.
@@ -59,8 +58,7 @@ public:
      * @param topic       Topic to subscribe to (default: "servo/cmd").
      * @return true if registered successfully.
      */
-    bool addServoController(hal::IServoController* controller,
-                            const char* topic = "servo/cmd");
+    bool addServoController(hal::IServoController* controller, const char* topic = "servo/cmd");
 
     /**
      * Register an audio driver.
@@ -68,8 +66,7 @@ public:
      * @param topic   Topic to subscribe to (default: "audio/cmd").
      * @return true if registered successfully.
      */
-    bool addAudio(hal::IAudioDriver* driver,
-                  const char* topic = "audio/cmd");
+    bool addAudio(hal::IAudioDriver* driver, const char* topic = "audio/cmd");
 
     /**
      * Add a custom node to the executor.
@@ -175,4 +172,4 @@ private:
     char servoNodeNames_[kMaxServos][32] = {};
 };
 
-} // namespace chopper
+}  // namespace chopper

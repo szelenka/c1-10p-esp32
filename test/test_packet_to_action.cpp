@@ -144,6 +144,6 @@ int main() {
     test_periscope_up_intent_publishes_lift();
     test_periscope_up_then_down_intent();
 
-    std::printf("\nPassed %d/%d tests\n", pass_count, test_count);
+    std::printf("=== Results: %d/%d passed ===\n", pass_count, test_count);
     return (pass_count == test_count) ? 0 : 1;
 }

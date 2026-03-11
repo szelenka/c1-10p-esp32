@@ -94,5 +94,5 @@ private:
  */
 std::unique_ptr<NodeArchitectureExample> createDefaultNodeArchitecture();
 
-} // namespace examples
-} // namespace chopper
+}  // namespace examples
+}  // namespace chopper

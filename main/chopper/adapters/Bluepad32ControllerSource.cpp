@@ -3,26 +3,21 @@
 #include "esp_timer.h"
 #include <cstring>
 
-static const char* TAG = "Bluepad32ControllerSource";
+static const char* const TAG = "Bluepad32ControllerSource";
 
-namespace chopper {
-namespace adapters {
+namespace chopper::adapters {
 
 Bluepad32ControllerSource::Bluepad32ControllerSource()
     : controller_(nullptr)
     , initialized_(false)
     , cached_state_(ConnectionState::DISCONNECTED)
-    , last_state_check_time_(0)
-{
-}
+    , last_state_check_time_(0) {}
 
 Bluepad32ControllerSource::Bluepad32ControllerSource(std::shared_ptr<ControllerDecorator> controller_decorator)
     : controller_(controller_decorator)
     , initialized_(false)
     , cached_state_(ConnectionState::DISCONNECTED)
-    , last_state_check_time_(0)
-{
-}
+    , last_state_check_time_(0) {}
 
 bool Bluepad32ControllerSource::getControllerData(messages::ControllerInput& output) {
     if (!controller_ || getConnectionState() != ConnectionState::CONNECTED) {
@@ -68,7 +63,7 @@ bool Bluepad32ControllerSource::hasNewData() const {
         return false;
     }
 
-    return controller_->isReady(); // This checks both connection and hasData()
+    return controller_->isReady();  // This checks both connection and hasData()
 }
 
 std::string Bluepad32ControllerSource::getControllerInfo() const {
@@ -82,9 +77,8 @@ std::string Bluepad32ControllerSource::getControllerInfo() const {
     if (controller_->isConnected()) {
         auto props = controller_->getProperties();
         char mac_str[18];
-        snprintf(mac_str, sizeof(mac_str), "%02X:%02X:%02X:%02X:%02X:%02X",
-                 props.btaddr[0], props.btaddr[1], props.btaddr[2],
-                 props.btaddr[3], props.btaddr[4], props.btaddr[5]);
+        snprintf(mac_str, sizeof(mac_str), "%02X:%02X:%02X:%02X:%02X:%02X", props.btaddr[0], props.btaddr[1],
+                 props.btaddr[2], props.btaddr[3], props.btaddr[4], props.btaddr[5]);
         info += " MAC: " + std::string(mac_str);
     }
 
@@ -106,9 +100,8 @@ std::string Bluepad32ControllerSource::getUniqueId() const {
 
     auto props = controller_->getProperties();
     char mac_str[18];
-    snprintf(mac_str, sizeof(mac_str), "%02X:%02X:%02X:%02X:%02X:%02X",
-             props.btaddr[0], props.btaddr[1], props.btaddr[2],
-             props.btaddr[3], props.btaddr[4], props.btaddr[5]);
+    snprintf(mac_str, sizeof(mac_str), "%02X:%02X:%02X:%02X:%02X:%02X", props.btaddr[0], props.btaddr[1],
+             props.btaddr[2], props.btaddr[3], props.btaddr[4], props.btaddr[5]);
 
     return std::string(mac_str);
 }
@@ -147,7 +140,7 @@ bool Bluepad32ControllerSource::setControllerOutput(uint8_t red, uint8_t green, 
         // Set rumble if supported
         if (rumble_strength > 0.0f) {
             uint8_t magnitude = static_cast<uint8_t>(rumble_strength * 255);
-            controller_->playDualRumble(0, 100, magnitude, magnitude); // 100ms rumble
+            controller_->playDualRumble(0, 100, magnitude, magnitude);  // 100ms rumble
         }
 
         return true;
@@ -179,7 +172,7 @@ void Bluepad32ControllerSource::convertControllerData(messages::ControllerInput&
     convertControllerDataSafe(output);
 }
 
-void Bluepad32ControllerSource::convertControllerDataSafe(messages::ControllerInput& output) {
+void Bluepad32ControllerSource::convertControllerDataSafe(messages::ControllerInput& output) const {
     // Safe fallback using ControllerDecorator's public interface
     // This is less efficient but always works
 
@@ -272,5 +265,4 @@ uint32_t Bluepad32ControllerSource::determineCapabilities() const {
     return capabilities;
 }
 
-} // namespace adapters
-} // namespace chopper
+}  // namespace chopper::adapters

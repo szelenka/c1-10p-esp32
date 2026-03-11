@@ -2,8 +2,7 @@
 
 #include "chopper/core/Message.h"
 
-namespace chopper {
-namespace messages {
+namespace chopper::messages {
 
 /**
  * @brief Controller input message matching ControllerDecorator structure
@@ -88,6 +87,15 @@ public:
     bool intent_dome_doors_toggle = false;
     bool intent_body_utility_toggle = false;
     bool intent_carpet_mode_toggle = false;
+
+    // Dome-controller intents (populated for DOME role)
+    bool intent_neck_toggle = false;
+    bool intent_neck_height_up = false;
+    bool intent_neck_height_down = false;
+    bool intent_sound_a = false;
+    bool intent_sound_b = false;
+    bool intent_sound_random = false;
+    bool intent_dome_random_toggle = false;
 };
 
 /**
@@ -95,7 +103,7 @@ public:
  */
 class MotorCommand : public core::TypedMessage<MotorCommand> {
 public:
-    enum class CommandType {
+    enum class CommandType : uint8_t {
         SET_SPEED,      ///< Set motor speed
         SET_POSITION,   ///< Set target position
         STOP,           ///< Stop motor
@@ -116,11 +124,11 @@ public:
  */
 class ServoCommand : public core::TypedMessage<ServoCommand> {
 public:
-    enum class CommandType {
-        SET_POSITION,   ///< Set servo position
-        SET_SPEED,      ///< Set movement speed
-        DISABLE,        ///< Disable servo
-        ENABLE          ///< Enable servo
+    enum class CommandType : uint8_t {
+        SET_POSITION,  ///< Set servo position
+        SET_SPEED,     ///< Set movement speed
+        DISABLE,       ///< Disable servo
+        ENABLE         ///< Enable servo
     };
 
     ServoCommand() = default;
@@ -129,7 +137,7 @@ public:
 
     uint8_t servo_id = 0;
     CommandType command_type = CommandType::SET_POSITION;
-    float value = 0.0f;     ///< Pulse width in microseconds for SET_POSITION; speed units for SET_SPEED
+    float value = 0.0f;        ///< Pulse width in microseconds for SET_POSITION; speed units for SET_SPEED
     uint16_t duration_ms = 0;  ///< Movement duration for position commands
 };
 
@@ -138,7 +146,7 @@ public:
  */
 class SensorData : public core::TypedMessage<SensorData> {
 public:
-    enum class SensorType {
+    enum class SensorType : uint8_t {
         ANALOG,
         DIGITAL,
         BATTERY_VOLTAGE,
@@ -163,7 +171,7 @@ public:
  */
 class SystemStatus : public core::TypedMessage<SystemStatus> {
 public:
-    enum class Status {
+    enum class Status : uint8_t {
         INITIALIZING,
         RUNNING,
         WARNING,
@@ -185,7 +193,7 @@ public:
  */
 class AudioCommand : public core::TypedMessage<AudioCommand> {
 public:
-    enum class CommandType {
+    enum class CommandType : uint8_t {
         PLAY_TRACK,
         STOP,
         PAUSE,
@@ -199,9 +207,9 @@ public:
         : command_type(type), track_id(track_id), volume(volume) {}
 
     CommandType command_type = CommandType::STOP;
-    uint16_t track_id = 0;      ///< Track number to play
-    uint8_t volume = 128;       ///< Volume level (0-255)
-    bool loop = false;          ///< Loop the track
+    uint16_t track_id = 0;  ///< Track number to play
+    uint8_t volume = 128;   ///< Volume level (0-255)
+    bool loop = false;      ///< Loop the track
 };
 
 /**
@@ -209,7 +217,7 @@ public:
  */
 class LEDCommand : public core::TypedMessage<LEDCommand> {
 public:
-    enum class CommandType {
+    enum class CommandType : uint8_t {
         SET_COLOR,
         SET_BRIGHTNESS,
         SET_PATTERN,
@@ -225,15 +233,13 @@ public:
     };
 
     LEDCommand() = default;
-    LEDCommand(CommandType type, uint8_t led_id = 0)
-        : command_type(type), led_id(led_id) {}
+    LEDCommand(CommandType type, uint8_t led_id = 0) : command_type(type), led_id(led_id) {}
 
     CommandType command_type = CommandType::TURN_OFF;
-    uint8_t led_id = 0;         ///< LED identifier
-    Color color;                ///< RGB(W) color values
-    uint8_t brightness = 255;   ///< Brightness (0-255)
-    uint8_t pattern_id = 0;     ///< Pattern identifier for animations
+    uint8_t led_id = 0;        ///< LED identifier
+    Color color;               ///< RGB(W) color values
+    uint8_t brightness = 255;  ///< Brightness (0-255)
+    uint8_t pattern_id = 0;    ///< Pattern identifier for animations
 };
 
-} // namespace messages
-} // namespace chopper
+}  // namespace chopper::messages

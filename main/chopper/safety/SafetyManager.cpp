@@ -1,14 +1,10 @@
 #include "chopper/safety/SafetyManager.h"
 
-static const char* TAG = "SafetyMgr";
+static const char* const TAG = "SafetyMgr";
 
-namespace chopper {
-namespace safety {
+namespace chopper::safety {
 
-SafetyManager::SafetyManager()
-    : emergency_active_(false)
-{
-}
+SafetyManager::SafetyManager() = default;
 
 void SafetyManager::emergencyStop(const char* reason, uint8_t source_id) {
     if (emergency_active_) {
@@ -25,11 +21,7 @@ void SafetyManager::emergencyStop(const char* reason, uint8_t source_id) {
     estop_chain_.execute(reason, source_id);
 
     // Log the event
-    ErrorLog::getActive().log(
-        ErrorLog::SAFETY_ESTOP,
-        source_id,
-        0,
-        ErrorLog::FATAL);
+    ErrorLog::getActive().log(ErrorLog::SAFETY_ESTOP, source_id, 0, ErrorLog::FATAL);
 }
 
 void SafetyManager::update(uint64_t now_us) {
@@ -44,8 +36,7 @@ void SafetyManager::update(uint64_t now_us) {
     // degrade to ESSENTIAL_ONLY
     if (motor_safety_.hasAnyTimeout()) {
         DegradationMode current = degradation_.getCurrentMode();
-        if (current == DegradationMode::FULL_OPERATION ||
-            current == DegradationMode::REDUCED_FEATURES) {
+        if (current == DegradationMode::FULL_OPERATION || current == DegradationMode::REDUCED_FEATURES) {
             degradation_.requestTransition(DegradationMode::ESSENTIAL_ONLY);
         }
     }
@@ -68,10 +59,11 @@ bool SafetyManager::resetEmergencyStop() {
 }
 
 void SafetyManager::onExecutorEStop(const char* reason, void* context) {
-    if (!context) return;
+    if (context == nullptr) {
+        return;
+    }
     auto* self = static_cast<SafetyManager*>(context);
     self->emergencyStop(reason, 0);
 }
 
-} // namespace safety
-} // namespace chopper
+}  // namespace chopper::safety

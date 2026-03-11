@@ -4,16 +4,15 @@
 #include <cmath>
 #include <type_traits>
 
-namespace chopper {
-namespace math {
+namespace chopper::math {
 
 /**
  * Returns 0 if the value is within the deadband around zero.
  * The remaining range is scaled from 0 to maxMagnitude.
  */
 template <typename T>
-typename std::enable_if<std::is_arithmetic<T>::value, T>::type
-ApplyDeadband(T value, T deadband, T maxMagnitude = T{1.0}) {
+typename std::enable_if<std::is_arithmetic<T>::value, T>::type ApplyDeadband(T value, T deadband,
+                                                                             T maxMagnitude = T{1.0}) {
     T magnitude = std::abs(value);
 
     if (magnitude > deadband) {
@@ -22,9 +21,8 @@ ApplyDeadband(T value, T deadband, T maxMagnitude = T{1.0}) {
         }
         if (value > T{0.0}) {
             return maxMagnitude * (value - deadband) / (maxMagnitude - deadband);
-        } else {
-            return maxMagnitude * (value + deadband) / (maxMagnitude - deadband);
         }
+        return maxMagnitude * (value + deadband) / (maxMagnitude - deadband);
     }
     return T{0.0};
 }
@@ -33,8 +31,7 @@ ApplyDeadband(T value, T deadband, T maxMagnitude = T{1.0}) {
  * Limits the speed to a specified range.
  */
 template <typename T>
-typename std::enable_if<std::is_arithmetic<T>::value, T>::type
-ApplySpeedLimit(T speed, T speedLimit) {
+typename std::enable_if<std::is_arithmetic<T>::value, T>::type ApplySpeedLimit(T speed, T speedLimit) {
     T magnitude = std::clamp(std::abs(speed), T{0.0}, T{1.0});
     T limited = std::clamp(std::abs(speedLimit), T{0.0}, T{1.0});
 
@@ -52,5 +49,4 @@ inline long mapValue(long value, long in_min, long in_max, long out_min, long ou
     return (value - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
 
-} // namespace math
-} // namespace chopper
+}  // namespace chopper::math

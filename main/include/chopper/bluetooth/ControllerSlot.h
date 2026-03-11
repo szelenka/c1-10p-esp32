@@ -3,17 +3,16 @@
 #include <cstdint>
 #include <cstring>
 
-namespace chopper {
-namespace bluetooth {
+namespace chopper::bluetooth {
 
 /// Controller roles matching existing ControllerRoles enum values.
 /// LED values retained for backward compatibility with player LED indicators.
 enum class ControllerRole : uint8_t {
-    UNASSIGNED = 0,     ///< Connected but no role assigned
-    DRIVE      = 1,     ///< 0001 - player LED pattern
-    DOME       = 3,     ///< 0011
-    ANIMATION  = 7,     ///< 0111
-    CAMERA     = 15,    ///< 1111
+    UNASSIGNED = 0,  ///< Connected but no role assigned
+    DRIVE = 1,       ///< 0001 - player LED pattern
+    DOME = 3,        ///< 0011
+    ANIMATION = 7,   ///< 0111
+    CAMERA = 15,     ///< 1111
 };
 
 /// Number of assignable roles (excluding UNASSIGNED).
@@ -30,11 +29,16 @@ static constexpr ControllerRole kAllRoles[kRoleCount] = {
 /// Returns a human-readable string for a ControllerRole.
 inline const char* roleToString(ControllerRole role) {
     switch (role) {
-        case ControllerRole::UNASSIGNED: return "UNASSIGNED";
-        case ControllerRole::DRIVE:      return "DRIVE";
-        case ControllerRole::DOME:       return "DOME";
-        case ControllerRole::ANIMATION:  return "ANIMATION";
-        case ControllerRole::CAMERA:     return "CAMERA";
+        case ControllerRole::UNASSIGNED:
+            return "UNASSIGNED";
+        case ControllerRole::DRIVE:
+            return "DRIVE";
+        case ControllerRole::DOME:
+            return "DOME";
+        case ControllerRole::ANIMATION:
+            return "ANIMATION";
+        case ControllerRole::CAMERA:
+            return "CAMERA";
     }
     return "UNKNOWN";
 }
@@ -46,30 +50,29 @@ inline uint8_t roleToLedMask(ControllerRole role) {
 
 /// MAC address as 6 raw bytes.
 struct MacAddress {
-    uint8_t addr[6];
+    uint8_t addr[6]{};
 
     MacAddress() { memset(addr, 0, 6); }
 
-    bool isZero() const {
-        for (int i = 0; i < 6; i++) {
-            if (addr[i] != 0) return false;
+    [[nodiscard]] bool isZero() const {
+        for (unsigned char i : addr) {
+            if (i != 0) {
+                return false;
+            }
         }
         return true;
     }
 
-    bool operator==(const MacAddress& other) const {
-        return memcmp(addr, other.addr, 6) == 0;
-    }
+    bool operator==(const MacAddress& other) const { return memcmp(addr, other.addr, 6) == 0; }
 
-    bool operator!=(const MacAddress& other) const {
-        return !(*this == other);
-    }
+    bool operator!=(const MacAddress& other) const { return !(*this == other); }
 
     /// Format as "XX:XX:XX:XX:XX:XX" into a caller-provided buffer (>= 18 bytes).
     void format(char* buf, size_t bufLen) const {
-        if (bufLen < 18) return;
-        snprintf(buf, bufLen, "%02X:%02X:%02X:%02X:%02X:%02X",
-                 addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
+        if (bufLen < 18) {
+            return;
+        }
+        snprintf(buf, bufLen, "%02X:%02X:%02X:%02X:%02X:%02X", addr[0], addr[1], addr[2], addr[3], addr[4], addr[5]);
     }
 };
 
@@ -83,18 +86,18 @@ struct MacAddress {
 struct ControllerSlot {
     /// Slot state machine states.
     enum class State : uint8_t {
-        EMPTY,             ///< No controller connected
-        IDENTIFYING,       ///< Reading properties after connect
-        ASSIGNING,         ///< Waiting for role assignment
-        ACTIVE,            ///< Producing input
-        DISCONNECTING,     ///< Fallback behavior active after disconnect
-        REJECTED,          ///< Allowlist check failed; pending disconnect
+        EMPTY,          ///< No controller connected
+        IDENTIFYING,    ///< Reading properties after connect
+        ASSIGNING,      ///< Waiting for role assignment
+        ACTIVE,         ///< Producing input
+        DISCONNECTING,  ///< Fallback behavior active after disconnect
+        REJECTED,       ///< Allowlist check failed; pending disconnect
     };
 
     // -- Identity --
     uint8_t slot_index = 0;
     MacAddress mac;
-    uint16_t controller_type = 0;   ///< Bluepad32 controller type enum
+    uint16_t controller_type = 0;  ///< Bluepad32 controller type enum
     uint16_t vendor_id = 0;
     uint16_t product_id = 0;
 
@@ -110,20 +113,18 @@ struct ControllerSlot {
     uint64_t disconnect_time_ms = 0;
 
     // -- Data --
-    uint8_t battery_level = 0;       ///< 0=unknown, 1=empty, 255=full
+    uint8_t battery_level = 0;  ///< 0=unknown, 1=empty, 255=full
 
     // -- Reconnection --
     static constexpr uint64_t kReconnectRoleHoldMs = 30000;  ///< 30 seconds
 
-    bool isEmpty() const { return state == State::EMPTY; }
-    bool isActive() const { return state == State::ACTIVE; }
+    [[nodiscard]] bool isEmpty() const { return state == State::EMPTY; }
+    [[nodiscard]] bool isActive() const { return state == State::ACTIVE; }
 
     /// Check if a previously-held role can be reclaimed on reconnect.
-    bool canReclaimPreviousRole(uint64_t now_ms) const {
+    [[nodiscard]] bool canReclaimPreviousRole(uint64_t now_ms) const {
         const bool mac_matches = previous_mac.isZero() || (mac == previous_mac);
-        return previous_role != ControllerRole::UNASSIGNED &&
-               mac_matches &&
-               disconnect_time_ms > 0 &&
+        return previous_role != ControllerRole::UNASSIGNED && mac_matches && disconnect_time_ms > 0 &&
                (now_ms - disconnect_time_ms) < kReconnectRoleHoldMs;
     }
 
@@ -160,16 +161,21 @@ struct ControllerSlot {
     /// Returns a human-readable state name.
     static const char* stateToString(State s) {
         switch (s) {
-            case State::EMPTY:          return "EMPTY";
-            case State::IDENTIFYING:    return "IDENTIFYING";
-            case State::ASSIGNING:      return "ASSIGNING";
-            case State::ACTIVE:         return "ACTIVE";
-            case State::DISCONNECTING:  return "DISCONNECTING";
-            case State::REJECTED:       return "REJECTED";
+            case State::EMPTY:
+                return "EMPTY";
+            case State::IDENTIFYING:
+                return "IDENTIFYING";
+            case State::ASSIGNING:
+                return "ASSIGNING";
+            case State::ACTIVE:
+                return "ACTIVE";
+            case State::DISCONNECTING:
+                return "DISCONNECTING";
+            case State::REJECTED:
+                return "REJECTED";
         }
         return "UNKNOWN";
     }
 };
 
-} // namespace bluetooth
-} // namespace chopper
+}  // namespace chopper::bluetooth

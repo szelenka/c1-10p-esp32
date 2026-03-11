@@ -4,8 +4,7 @@
 #include "chopper/hal/IServoController.h"
 #include "chopper/messages/CommonMessages.h"
 
-namespace chopper {
-namespace nodes {
+namespace chopper::nodes {
 
 /**
  * Bridge node: subscribes to ServoCommand messages on a given topic
@@ -20,17 +19,14 @@ public:
      * @param topic     Topic to subscribe to (e.g., "servo/body/cmd").
      * @param controller  Servo controller to forward commands to.
      */
-    ServoBridgeNode(const char* name, const char* topic,
-                    hal::IServoController* controller)
-        : PublishingNode(name)
-        , topic_(topic)
-        , controller_(controller)
-    {}
+    ServoBridgeNode(const char* name, const char* topic, hal::IServoController* controller)
+        : PublishingNode(name), topic_(topic), controller_(controller) {}
 
     bool initialize() override {
-        if (!controller_) return false;
-        sub_ = createSubscription<messages::ServoCommand>(
-            topic_, &ServoBridgeNode::onCommand, this);
+        if (controller_ == nullptr) {
+            return false;
+        }
+        sub_ = createSubscription<messages::ServoCommand>(topic_, &ServoBridgeNode::onCommand, this);
         return sub_ != nullptr;
     }
 
@@ -39,28 +35,30 @@ public:
     }
 
     void emergencyStop() override {
-        if (controller_) {
+        if (controller_ != nullptr) {
             controller_->disableAll();
         }
     }
 
-    hal::IServoController* getController() const { return controller_; }
+    [[nodiscard]] hal::IServoController* getController() const { return controller_; }
 
 private:
     void onCommand(const messages::ServoCommand& cmd) {
-        if (!controller_) return;
-        if (cmd.servo_id >= controller_->getChannelCount()) return;
+        if (controller_ == nullptr) {
+            return;
+        }
+        if (cmd.servo_id >= controller_->getChannelCount()) {
+            return;
+        }
 
         switch (cmd.command_type) {
             case messages::ServoCommand::CommandType::SET_POSITION: {
                 // Value is already in pulse-width microseconds
-                controller_->setPosition(cmd.servo_id,
-                    static_cast<uint16_t>(cmd.value));
+                controller_->setPosition(cmd.servo_id, static_cast<uint16_t>(cmd.value));
                 break;
             }
             case messages::ServoCommand::CommandType::SET_SPEED:
-                controller_->setSpeed(cmd.servo_id,
-                    static_cast<uint16_t>(cmd.value));
+                controller_->setSpeed(cmd.servo_id, static_cast<uint16_t>(cmd.value));
                 break;
             case messages::ServoCommand::CommandType::ENABLE:
                 controller_->enable(cmd.servo_id);
@@ -76,5 +74,4 @@ private:
     core::TypedSubscriptionPtr<messages::ServoCommand> sub_;
 };
 
-} // namespace nodes
-} // namespace chopper
+}  // namespace chopper::nodes

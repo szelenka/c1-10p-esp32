@@ -14,10 +14,9 @@
 #define CHOPPER_HAS_NVS 0
 #endif
 
-static const char* TAG = "ParameterServer";
+static const char* const TAG = "ParameterServer";
 
-namespace chopper {
-namespace core {
+namespace chopper::core {
 
 namespace {
 constexpr uint32_t kSnapshotMagic = 0x43505356;  // "CPSV"
@@ -49,14 +48,14 @@ struct PersistSnapshot {
 static PersistSnapshot g_host_snapshot{};
 static bool g_host_snapshot_valid = false;
 #endif
-} // namespace
+}  // namespace
 
 ParameterServer& ParameterServer::getInstance() {
     static ParameterServer instance;
     return instance;
 }
 
-ParameterServer::ParameterServer() : count_(0), listener_count_(0) {
+ParameterServer::ParameterServer() {
     memset(params_, 0, sizeof(params_));
     memset(listeners_, 0, sizeof(listeners_));
 }
@@ -67,15 +66,14 @@ size_t ParameterServer::findIndex(const char* name) const {
             return i;
         }
     }
-    return count_; // not found sentinel
+    return count_;  // not found sentinel
 }
 
 // --- Declare ---
 
-bool ParameterServer::declare(const char* name, int32_t default_val,
-                              int32_t min_val, int32_t max_val,
+bool ParameterServer::declare(const char* name, int32_t default_val, int32_t min_val, int32_t max_val,
                               bool persistent) {
-    if (!name || count_ >= limits::MAX_PARAMETERS) {
+    if ((name == nullptr) || count_ >= limits::MAX_PARAMETERS) {
         ESP_LOGE(TAG, "Cannot declare param '%s': null name or table full", name ? name : "(null)");
         return false;
     }
@@ -105,10 +103,8 @@ bool ParameterServer::declare(const char* name, int32_t default_val,
     return true;
 }
 
-bool ParameterServer::declare(const char* name, float default_val,
-                              float min_val, float max_val,
-                              bool persistent) {
-    if (!name || count_ >= limits::MAX_PARAMETERS) {
+bool ParameterServer::declare(const char* name, float default_val, float min_val, float max_val, bool persistent) {
+    if ((name == nullptr) || count_ >= limits::MAX_PARAMETERS) {
         ESP_LOGE(TAG, "Cannot declare param '%s': null name or table full", name ? name : "(null)");
         return false;
     }
@@ -138,9 +134,8 @@ bool ParameterServer::declare(const char* name, float default_val,
     return true;
 }
 
-bool ParameterServer::declare(const char* name, bool default_val,
-                              bool persistent) {
-    if (!name || count_ >= limits::MAX_PARAMETERS) {
+bool ParameterServer::declare(const char* name, bool default_val, bool persistent) {
+    if ((name == nullptr) || count_ >= limits::MAX_PARAMETERS) {
         ESP_LOGE(TAG, "Cannot declare param '%s': null name or table full", name ? name : "(null)");
         return false;
     }
@@ -172,24 +167,36 @@ bool ParameterServer::declare(const char* name, bool default_val,
 
 bool ParameterServer::get(const char* name, int32_t& out) const {
     size_t idx = findIndex(name);
-    if (idx >= count_) return false;
-    if (params_[idx].type != ParamType::INT32) return false;
+    if (idx >= count_) {
+        return false;
+    }
+    if (params_[idx].type != ParamType::INT32) {
+        return false;
+    }
     out = params_[idx].value.i;
     return true;
 }
 
 bool ParameterServer::get(const char* name, float& out) const {
     size_t idx = findIndex(name);
-    if (idx >= count_) return false;
-    if (params_[idx].type != ParamType::FLOAT) return false;
+    if (idx >= count_) {
+        return false;
+    }
+    if (params_[idx].type != ParamType::FLOAT) {
+        return false;
+    }
     out = params_[idx].value.f;
     return true;
 }
 
 bool ParameterServer::get(const char* name, bool& out) const {
     size_t idx = findIndex(name);
-    if (idx >= count_) return false;
-    if (params_[idx].type != ParamType::BOOL) return false;
+    if (idx >= count_) {
+        return false;
+    }
+    if (params_[idx].type != ParamType::BOOL) {
+        return false;
+    }
     out = params_[idx].value.b;
     return true;
 }
@@ -208,8 +215,8 @@ bool ParameterServer::set(const char* name, int32_t value) {
         return false;
     }
     if (p.has_range && (value < p.min_value.i || value > p.max_value.i)) {
-        ESP_LOGW(TAG, "set: value %d out of range [%d, %d] for '%s'",
-                 (int)value, (int)p.min_value.i, (int)p.max_value.i, name);
+        ESP_LOGW(TAG, "set: value %d out of range [%d, %d] for '%s'", (int)value, (int)p.min_value.i,
+                 (int)p.max_value.i, name);
         return false;
     }
     p.value.i = value;
@@ -268,7 +275,9 @@ bool ParameterServer::set(const char* name, bool value) {
 // --- Change notifications ---
 
 bool ParameterServer::onChange(const char* name, ParamChangeCallback callback, void* context) {
-    if (!callback) return false;
+    if (callback == nullptr) {
+        return false;
+    }
 
     size_t idx = findIndex(name);
     if (idx >= count_) {
@@ -354,18 +363,20 @@ void ParameterServer::loadFromNVS() {
         bool valid = true;
         switch (p.type) {
             case ParamType::INT32:
-                if (p.has_range &&
-                    (entry.value.i < p.min_value.i || entry.value.i > p.max_value.i)) {
+                if (p.has_range && (entry.value.i < p.min_value.i || entry.value.i > p.max_value.i)) {
                     valid = false;
                 }
-                if (valid) p.value.i = entry.value.i;
+                if (valid) {
+                    p.value.i = entry.value.i;
+                }
                 break;
             case ParamType::FLOAT:
-                if (p.has_range &&
-                    (entry.value.f < p.min_value.f || entry.value.f > p.max_value.f)) {
+                if (p.has_range && (entry.value.f < p.min_value.f || entry.value.f > p.max_value.f)) {
                     valid = false;
                 }
-                if (valid) p.value.f = entry.value.f;
+                if (valid) {
+                    p.value.f = entry.value.f;
+                }
                 break;
             case ParamType::BOOL:
                 p.value.b = (entry.value.b != 0);
@@ -447,8 +458,10 @@ void ParameterServer::reset() {
 
 // --- Introspection ---
 
-void ParameterServer::forEach(void(*visitor)(const Parameter&, void*), void* ctx) const {
-    if (!visitor) return;
+void ParameterServer::forEach(void (*visitor)(const Parameter&, void*), void* ctx) const {
+    if (visitor == nullptr) {
+        return;
+    }
     for (size_t i = 0; i < count_; ++i) {
         if (params_[i].active) {
             visitor(params_[i], ctx);
@@ -456,5 +469,4 @@ void ParameterServer::forEach(void(*visitor)(const Parameter&, void*), void* ctx
     }
 }
 
-} // namespace core
-} // namespace chopper
+}  // namespace chopper::core

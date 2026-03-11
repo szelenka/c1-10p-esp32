@@ -30,14 +30,8 @@ public:
      * @param adc_max        Raw ADC value at 359 degrees.
      * @param resolution     ADC resolution (4096 for ESP32 12-bit).
      */
-    DomePotentiometer(DomePosition* dome_position,
-                      int adc_min = 1225, int adc_max = 2500,
-                      int resolution = 4096)
-        : dome_position_(dome_position)
-        , adc_min_(adc_min)
-        , adc_max_(adc_max)
-        , filter_(resolution)
-    {}
+    DomePotentiometer(DomePosition* dome_position, int adc_min = 1225, int adc_max = 2500, int resolution = 4096)
+        : dome_position_(dome_position), adc_min_(adc_min), adc_max_(adc_max), filter_(resolution) {}
 
     /**
      * Feed a raw ADC reading and update DomePosition with the filtered angle.
@@ -74,9 +68,7 @@ private:
         // Clamp to calibration range
         int clamped = std::clamp(filtered, adc_min_, adc_max_);
         // Linear map: [adc_min_, adc_max_] → [0, 359]
-        int angle = static_cast<int>(
-            static_cast<long>(clamped - adc_min_) * 359
-            / std::max(adc_max_ - adc_min_, 1));
+        int angle = static_cast<int>(static_cast<long>(clamped - adc_min_) * 359 / std::max(adc_max_ - adc_min_, 1));
         last_angle_ = angle;
         return angle;
     }
@@ -88,5 +80,5 @@ private:
     math::AnalogFilter filter_;
 };
 
-} // namespace dome
-} // namespace chopper
+}  // namespace dome
+}  // namespace chopper

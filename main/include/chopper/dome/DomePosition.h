@@ -3,8 +3,7 @@
 #include <cmath>
 #include <cstdint>
 
-namespace chopper {
-namespace dome {
+namespace chopper::dome {
 
 /**
  * Dome position tracking and mode management.
@@ -36,23 +35,26 @@ public:
     void update(unsigned angle, uint64_t now_ms) {
         fReady = true;
         if (angle != fLastAngle) {
-            if (fLastAngle < angle)
+            if (fLastAngle < angle) {
                 fRelativeDegrees += shortestDistance(fLastAngle, angle);
-            else
+            } else {
                 fRelativeDegrees -= shortestDistance(angle, fLastAngle);
+            }
             fLastChangeMS = now_ms;
             fLastAngle = angle;
         }
     }
 
-    bool ready() const { return fReady; }
-    unsigned getDomePosition() const { return fLastAngle; }
-    int getRelativeDegrees() const { return fRelativeDegrees; }
+    [[nodiscard]] bool ready() const { return fReady; }
+    [[nodiscard]] unsigned getDomePosition() const { return fLastAngle; }
+    [[nodiscard]] int getRelativeDegrees() const { return fRelativeDegrees; }
 
     // --- Mode management ---
 
-    Mode getDomeMode() const {
-        if (!fReady) return kOff;
+    [[nodiscard]] Mode getDomeMode() const {
+        if (!fReady) {
+            return kOff;
+        }
         return fDomeMode;
     }
 
@@ -61,7 +63,7 @@ public:
         fLastChangeMS = now_ms;
     }
 
-    Mode getDomeDefaultMode() const { return fDomeDefaultMode; }
+    [[nodiscard]] Mode getDomeDefaultMode() const { return fDomeDefaultMode; }
 
     void setDomeDefaultMode(Mode mode, uint64_t now_ms) {
         fDomeDefaultMode = mode;
@@ -70,37 +72,41 @@ public:
 
     // --- Speed ---
 
-    float getDomeSpeed() const {
+    [[nodiscard]] float getDomeSpeed() const {
         switch (getDomeMode()) {
-            case kHome:   return getDomeSpeedHome();
-            case kRandom: return getDomeAutoSpeed();
-            case kTarget: return getDomeSpeedTarget();
+            case kHome:
+                return getDomeSpeedHome();
+            case kRandom:
+                return getDomeAutoSpeed();
+            case kTarget:
+                return getDomeSpeedTarget();
             case kOff:
-            default:      return getDomeMinSpeed();
+            default:
+                return getDomeMinSpeed();
         }
     }
 
-    float getDomeSpeedHome() const { return float(fDomeSpeedHome) / 100.0f; }
-    float getDomeSpeedTarget() const { return float(fDomeSpeedTarget) / 100.0f; }
-    float getDomeMinSpeed() const { return float(fDomeSpeedMin) / 100.0f; }
-    float getDomeAutoSpeed() const { return float(fDomeSpeedAuto) / 100.0f; }
+    [[nodiscard]] float getDomeSpeedHome() const { return float(fDomeSpeedHome) / 100.0f; }
+    [[nodiscard]] float getDomeSpeedTarget() const { return float(fDomeSpeedTarget) / 100.0f; }
+    [[nodiscard]] float getDomeMinSpeed() const { return float(fDomeSpeedMin) / 100.0f; }
+    [[nodiscard]] float getDomeAutoSpeed() const { return float(fDomeSpeedAuto) / 100.0f; }
 
     // --- Random movement range ---
 
-    unsigned getDomeAutoLeft() const { return fDomeAutoLeft; }
-    unsigned getDomeAutoRight() const { return fDomeAutoRight; }
+    [[nodiscard]] unsigned getDomeAutoLeft() const { return fDomeAutoLeft; }
+    [[nodiscard]] unsigned getDomeAutoRight() const { return fDomeAutoRight; }
 
     void setDomeAutoLeftDegrees(uint8_t degrees) { fDomeAutoLeft = degrees; }
     void setDomeAutoRightDegrees(uint8_t degrees) { fDomeAutoRight = degrees; }
 
     // --- Delay configuration (per-mode min/max seconds between movements) ---
 
-    unsigned getDomeAutoMinDelay() const { return fDomeAutoMinDelay; }
-    unsigned getDomeAutoMaxDelay() const { return fDomeAutoMaxDelay; }
-    unsigned getDomeHomeMinDelay() const { return fDomeHomeMinDelay; }
-    unsigned getDomeHomeMaxDelay() const { return fDomeHomeMaxDelay; }
-    unsigned getDomeTargetMinDelay() const { return fDomeTargetMinDelay; }
-    unsigned getDomeTargetMaxDelay() const { return fDomeTargetMaxDelay; }
+    [[nodiscard]] unsigned getDomeAutoMinDelay() const { return fDomeAutoMinDelay; }
+    [[nodiscard]] unsigned getDomeAutoMaxDelay() const { return fDomeAutoMaxDelay; }
+    [[nodiscard]] unsigned getDomeHomeMinDelay() const { return fDomeHomeMinDelay; }
+    [[nodiscard]] unsigned getDomeHomeMaxDelay() const { return fDomeHomeMaxDelay; }
+    [[nodiscard]] unsigned getDomeTargetMinDelay() const { return fDomeTargetMinDelay; }
+    [[nodiscard]] unsigned getDomeTargetMaxDelay() const { return fDomeTargetMaxDelay; }
 
     void setDomeAutoMinDelay(uint8_t sec) { fDomeAutoMinDelay = sec; }
     void setDomeAutoMaxDelay(uint8_t sec) { fDomeAutoMaxDelay = sec; }
@@ -110,37 +116,43 @@ public:
     void setDomeTargetMaxDelay(uint8_t sec) { fDomeTargetMaxDelay = sec; }
 
     /** Get the min delay for the current mode. */
-    unsigned getDomeMinDelay() const {
+    [[nodiscard]] unsigned getDomeMinDelay() const {
         switch (getDomeMode()) {
-            case kHome:   return getDomeHomeMinDelay();
-            case kRandom: return getDomeAutoMinDelay();
-            case kTarget: return getDomeTargetMinDelay();
+            case kHome:
+                return getDomeHomeMinDelay();
+            case kRandom:
+                return getDomeAutoMinDelay();
+            case kTarget:
+                return getDomeTargetMinDelay();
             case kOff:
-            default:      return 0;
+            default:
+                return 0;
         }
     }
 
     /** Get the max delay for the current mode. */
-    unsigned getDomeMaxDelay() const {
+    [[nodiscard]] unsigned getDomeMaxDelay() const {
         switch (getDomeMode()) {
-            case kHome:   return getDomeHomeMaxDelay();
-            case kRandom: return getDomeAutoMaxDelay();
-            case kTarget: return getDomeTargetMaxDelay();
+            case kHome:
+                return getDomeHomeMaxDelay();
+            case kRandom:
+                return getDomeAutoMaxDelay();
+            case kTarget:
+                return getDomeTargetMaxDelay();
             case kOff:
-            default:      return 0;
+            default:
+                return 0;
         }
     }
 
     // --- Position helpers ---
 
-    unsigned getDomeHome() const { return fDomeHome; }
-    unsigned getDomeTargetPosition() const { return fDomeTargetPos; }
-    long getDomeRelativeTargetPosition() const { return fDomeRelativeTargetPos; }
-    unsigned getDomeFudge() const { return fDomeFudge; }
+    [[nodiscard]] unsigned getDomeHome() const { return fDomeHome; }
+    [[nodiscard]] unsigned getDomeTargetPosition() const { return fDomeTargetPos; }
+    [[nodiscard]] long getDomeRelativeTargetPosition() const { return fDomeRelativeTargetPos; }
+    [[nodiscard]] unsigned getDomeFudge() const { return fDomeFudge; }
 
-    void setDomeHomePosition(long degrees) {
-        fDomeHome = normalize(degrees);
-    }
+    void setDomeHomePosition(long degrees) { fDomeHome = normalize(degrees); }
 
     void setDomeTargetPosition(long degrees) {
         fDomeTargetPos = normalize(degrees);
@@ -153,29 +165,25 @@ public:
         fRelativeDegrees = 0;
     }
 
-    void setDomeHomeRelativeTargetPosition(long degrees) {
-        setDomeTargetPosition(degrees + getDomeHome());
-    }
+    void setDomeHomeRelativeTargetPosition(long degrees) { setDomeTargetPosition(degrees + getDomeHome()); }
 
-    void setDomeHomeRelativeHomePosition(long degrees) {
-        fDomeHome = normalize(degrees + getDomeHome());
-    }
+    void setDomeHomeRelativeHomePosition(long degrees) { fDomeHome = normalize(degrees + getDomeHome()); }
 
-    unsigned getHomeRelativeDomePosition() const {
+    [[nodiscard]] unsigned getHomeRelativeDomePosition() const {
         return normalize(long(getDomePosition()) - long(getDomeHome()));
     }
 
-    bool isAtPosition(long degrees) const {
+    [[nodiscard]] bool isAtPosition(long degrees) const {
         long fudge = getDomeFudge();
         degrees = normalize(degrees);
-        return withinArc(
-            static_cast<float>(degrees - fudge),
-            static_cast<float>(degrees + fudge),
-            static_cast<float>(getDomePosition()));
+        return withinArc(static_cast<float>(degrees - fudge), static_cast<float>(degrees + fudge),
+                         static_cast<float>(getDomePosition()));
     }
 
-    bool isTimeout(uint64_t now_ms) const {
-        if (!fReady || fLastAngle == ~0u) return true;
+    [[nodiscard]] bool isTimeout(uint64_t now_ms) const {
+        if (!fReady || fLastAngle == ~0u) {
+            return true;
+        }
         return uint64_t(fTimeout) * 1000 < (now_ms - fLastChangeMS);
     }
 
@@ -185,9 +193,7 @@ public:
         fRelativeDegrees = 0;
     }
 
-    void resetWatchdog(uint64_t now_ms) {
-        fLastChangeMS = now_ms;
-    }
+    void resetWatchdog(uint64_t now_ms) { fLastChangeMS = now_ms; }
 
     void setTimeout(uint8_t timeout) { fTimeout = timeout; }
 
@@ -201,27 +207,32 @@ public:
     // --- Shortest-distance rotation ---
     static int shortestDistance(int origin, int target) {
         int diff = std::abs(origin - target) % 360;
-        int result;
+        int result = 0;
         if (diff > 180) {
             result = 360 - diff;
-            if (target > origin) result *= -1;
+            if (target > origin) {
+                result *= -1;
+            }
         } else {
             result = diff;
-            if (origin > target) result *= -1;
+            if (origin > target) {
+                result *= -1;
+            }
         }
         return result;
     }
 
     static unsigned normalize(long degrees) {
         degrees = degrees % 360;
-        if (degrees < 0) degrees += 360;
+        if (degrees < 0) {
+            degrees += 360;
+        }
         return static_cast<unsigned>(degrees);
     }
 
 private:
     static bool withinArc(float p1, float p2, float p3) {
-        return std::fmod(p2 - p1 + 720.0f, 360.0f) >=
-               std::fmod(p3 - p1 + 720.0f, 360.0f);
+        return std::fmod(p2 - p1 + 720.0f, 360.0f) >= std::fmod(p3 - p1 + 720.0f, 360.0f);
     }
 
     Mode fDomeMode = kOff;
@@ -249,5 +260,4 @@ private:
     int fRelativeDegrees = 0;
 };
 
-} // namespace dome
-} // namespace chopper
+}  // namespace chopper::dome

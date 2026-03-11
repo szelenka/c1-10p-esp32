@@ -5,7 +5,7 @@
 #include "esp_log.h"
 #include "nvs_flash.h"
 
-static const char* TAG = "ValidationMain";
+static const char* const TAG = "ValidationMain";
 
 namespace {
 void validationTask(void*) {
@@ -28,13 +28,9 @@ void validationTask(void*) {
             }
 
             if (data.connected != last_connected[i]) {
-                ESP_LOGI(TAG,
-                         "slot=%d connected=%d mac=%02X:%02X:%02X:%02X:%02X:%02X type=%u batt=%u",
-                         i,
-                         data.connected ? 1 : 0,
-                         data.btaddr[0], data.btaddr[1], data.btaddr[2],
-                         data.btaddr[3], data.btaddr[4], data.btaddr[5],
-                         static_cast<unsigned>(data.controller_type),
+                ESP_LOGI(TAG, "slot=%d connected=%d mac=%02X:%02X:%02X:%02X:%02X:%02X type=%u batt=%u", i,
+                         data.connected ? 1 : 0, data.btaddr[0], data.btaddr[1], data.btaddr[2], data.btaddr[3],
+                         data.btaddr[4], data.btaddr[5], static_cast<unsigned>(data.controller_type),
                          static_cast<unsigned>(data.battery));
                 last_connected[i] = data.connected;
                 if (!data.connected) {
@@ -45,23 +41,16 @@ void validationTask(void*) {
                 }
             }
 
-            if (data.connected && data.last_report_time_us != 0 &&
-                data.last_report_time_us != last_report_seen[i]) {
+            if (data.connected && data.last_report_time_us != 0 && data.last_report_time_us != last_report_seen[i]) {
                 last_report_seen[i] = data.last_report_time_us;
                 const uint16_t buttons = data.gamepad.buttons;
                 const uint8_t dpad = data.gamepad.dpad;
                 const uint8_t misc = data.gamepad.misc_buttons;
                 if (buttons != last_buttons[i] || dpad != last_dpad[i] || misc != last_misc[i]) {
-                    ESP_LOGI(TAG,
-                             "slot=%d input btn=0x%04x dpad=0x%02x misc=0x%02x axes=(%ld,%ld,%ld,%ld)",
-                             i,
-                             static_cast<unsigned>(buttons),
-                             static_cast<unsigned>(dpad),
-                             static_cast<unsigned>(misc),
-                             static_cast<long>(data.gamepad.axis_x),
-                             static_cast<long>(data.gamepad.axis_y),
-                             static_cast<long>(data.gamepad.axis_rx),
-                             static_cast<long>(data.gamepad.axis_ry));
+                    ESP_LOGI(TAG, "slot=%d input btn=0x%04x dpad=0x%02x misc=0x%02x axes=(%ld,%ld,%ld,%ld)", i,
+                             static_cast<unsigned>(buttons), static_cast<unsigned>(dpad), static_cast<unsigned>(misc),
+                             static_cast<long>(data.gamepad.axis_x), static_cast<long>(data.gamepad.axis_y),
+                             static_cast<long>(data.gamepad.axis_rx), static_cast<long>(data.gamepad.axis_ry));
                     last_buttons[i] = buttons;
                     last_dpad[i] = dpad;
                     last_misc[i] = misc;
@@ -72,7 +61,7 @@ void validationTask(void*) {
         vTaskDelay(pdMS_TO_TICKS(1000));
     }
 }
-} // namespace
+}  // namespace
 
 extern "C" int chopper_validation_main(void) {
     esp_err_t nvs_err = nvs_flash_init();
@@ -83,13 +72,7 @@ extern "C" int chopper_validation_main(void) {
         ESP_LOGE(TAG, "nvs_flash_init failed: %d", static_cast<int>(nvs_err));
     }
 
-    BaseType_t ok = xTaskCreate(
-        validationTask,
-        "bluepad_validate",
-        8192,
-        nullptr,
-        tskIDLE_PRIORITY + 2,
-        nullptr);
+    BaseType_t ok = xTaskCreate(validationTask, "bluepad_validate", 8192, nullptr, tskIDLE_PRIORITY + 2, nullptr);
 
     if (ok != pdPASS) {
         ESP_LOGE(TAG, "Failed to create validation task");

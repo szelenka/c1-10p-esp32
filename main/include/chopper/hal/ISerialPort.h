@@ -3,8 +3,7 @@
 #include <cstdint>
 #include <cstddef>
 
-namespace chopper {
-namespace hal {
+namespace chopper::hal {
 
 /**
  * Serial port interface for reading and writing bytes to a UART.
@@ -33,5 +32,4 @@ public:
     virtual int read() { return -1; }
 };
 
-} // namespace hal
-} // namespace chopper
+}  // namespace chopper::hal

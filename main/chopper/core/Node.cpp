@@ -1,18 +1,13 @@
 #include "chopper/core/Node.h"
 #include "esp_log.h"
 
-static const char* TAG = "Node";
+static const char* const TAG = "Node";
 
-namespace chopper {
-namespace core {
+namespace chopper::core {
 
-Node::Node(const char* name)
-    : state_(State::INACTIVE)
-    , last_process_time_(0)
-    , max_execution_time_us_(1000) // Default 1ms max execution time
-{
+Node::Node(const char* name) {
     // Copy name into fixed buffer, ensure null termination
-    strncpy(name_, name ? name : "unnamed", sizeof(name_) - 1);
+    strncpy(name_, (name != nullptr) ? name : "unnamed", sizeof(name_) - 1);
     name_[sizeof(name_) - 1] = '\0';
 
     ESP_LOGI(TAG, "[%s] Created node", name_);
@@ -52,9 +47,7 @@ bool Node::deactivate() {
 
 void Node::setState(State new_state) {
     if (state_ != new_state) {
-        static const char* state_names[] = {
-            "INACTIVE", "ACTIVE", "PAUSED", "ERROR", "SHUTDOWN"
-        };
+        static const char* const state_names[] = {"INACTIVE", "ACTIVE", "PAUSED", "ERROR", "SHUTDOWN"};
         auto idx_old = static_cast<int>(state_);
         auto idx_new = static_cast<int>(new_state);
         const char* old_str = (idx_old >= 0 && idx_old <= 4) ? state_names[idx_old] : "?";
@@ -77,5 +70,4 @@ void Node::logInfo(const char* message) {
     ESP_LOGI(TAG, "[%s] %s", name_, message);
 }
 
-} // namespace core
-} // namespace chopper
+}  // namespace chopper::core

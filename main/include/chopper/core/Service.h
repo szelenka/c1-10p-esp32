@@ -18,7 +18,7 @@ namespace core {
 class ServiceRegistry {
 public:
     /// Handler type: takes raw request/response pointers + context.
-    using RawHandler = bool(*)(const void* request, void* response, void* context);
+    using RawHandler = bool (*)(const void* request, void* response, void* context);
 
     static ServiceRegistry& getInstance() {
         static ServiceRegistry instance;
@@ -26,10 +26,10 @@ public:
     }
 
     struct Entry {
-        TypeId      request_type_id;
-        RawHandler  handler;
-        void*       context;
-        bool        active;
+        TypeId request_type_id;
+        RawHandler handler;
+        void* context;
+        bool active;
     };
 
     /**
@@ -40,7 +40,7 @@ public:
         // Check for duplicate
         for (size_t i = 0; i < count_; ++i) {
             if (entries_[i].active && entries_[i].request_type_id == request_type_id) {
-                return false; // already registered
+                return false;  // already registered
             }
         }
         if (count_ >= limits::MAX_SERVICES) {
@@ -82,7 +82,8 @@ public:
     size_t activeCount() const {
         size_t n = 0;
         for (size_t i = 0; i < count_; ++i) {
-            if (entries_[i].active) ++n;
+            if (entries_[i].active)
+                ++n;
         }
         return n;
     }
@@ -90,8 +91,8 @@ public:
 private:
     ServiceRegistry() : count_(0) {}
 
-    Entry   entries_[limits::MAX_SERVICES];
-    size_t  count_;
+    Entry entries_[limits::MAX_SERVICES];
+    size_t count_;
 
     ServiceRegistry(const ServiceRegistry&) = delete;
     ServiceRegistry& operator=(const ServiceRegistry&) = delete;
@@ -106,10 +107,10 @@ private:
  * @tparam RequestT  The request message type.
  * @tparam ResponseT The response message type.
  */
-template<typename RequestT, typename ResponseT>
+template <typename RequestT, typename ResponseT>
 class ServiceServer {
 public:
-    using Handler = bool(*)(const RequestT& request, ResponseT& response, void* context);
+    using Handler = bool (*)(const RequestT& request, ResponseT& response, void* context);
 
     ServiceServer() : handler_(nullptr), context_(nullptr), registered_(false) {}
 
@@ -126,13 +127,14 @@ public:
      * @return true on success.
      */
     bool registerHandler(Handler handler, void* context = nullptr) {
-        if (!handler) return false;
+        if (!handler)
+            return false;
         handler_ = handler;
         context_ = context;
 
         // Register via a type-erased trampoline
-        registered_ = ServiceRegistry::getInstance().registerService(
-            getTypeId<RequestT>(), &ServiceServer::trampoline, this);
+        registered_ =
+            ServiceRegistry::getInstance().registerService(getTypeId<RequestT>(), &ServiceServer::trampoline, this);
 
         return registered_;
     }
@@ -140,15 +142,13 @@ public:
 private:
     static bool trampoline(const void* request, void* response, void* self_ptr) {
         auto* self = static_cast<ServiceServer*>(self_ptr);
-        return self->handler_(
-            *static_cast<const RequestT*>(request),
-            *static_cast<ResponseT*>(response),
-            self->context_);
+        return self->handler_(*static_cast<const RequestT*>(request), *static_cast<ResponseT*>(response),
+                              self->context_);
     }
 
     Handler handler_;
-    void*   context_;
-    bool    registered_;
+    void* context_;
+    bool registered_;
 
     ServiceServer(const ServiceServer&) = delete;
     ServiceServer& operator=(const ServiceServer&) = delete;
@@ -163,7 +163,7 @@ private:
  * @tparam RequestT  The request message type.
  * @tparam ResponseT The response message type.
  */
-template<typename RequestT, typename ResponseT>
+template <typename RequestT, typename ResponseT>
 class ServiceClient {
 public:
     enum class Status {
@@ -190,5 +190,5 @@ public:
     }
 };
 
-} // namespace core
-} // namespace chopper
+}  // namespace core
+}  // namespace chopper

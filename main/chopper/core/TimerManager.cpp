@@ -2,23 +2,21 @@
 #include "esp_log.h"
 #include <cstring>
 
-static const char* TAG = "TimerManager";
+static const char* const TAG = "TimerManager";
 
-namespace chopper {
-namespace core {
+namespace chopper::core {
 
 TimerManager& TimerManager::getInstance() {
     static TimerManager instance;
     return instance;
 }
 
-TimerManager::TimerManager() : next_id_(1) {
+TimerManager::TimerManager() {
     memset(timers_, 0, sizeof(timers_));
 }
 
-uint32_t TimerManager::createTimer(uint32_t period_us, TimerCallback callback,
-                                   void* context, bool one_shot) {
-    if (!callback) {
+uint32_t TimerManager::createTimer(uint32_t period_us, TimerCallback callback, void* context, bool one_shot) {
+    if (callback == nullptr) {
         ESP_LOGE(TAG, "Cannot create timer with null callback");
         return 0;
     }
@@ -27,18 +25,17 @@ uint32_t TimerManager::createTimer(uint32_t period_us, TimerCallback callback,
         return 0;
     }
 
-    for (size_t i = 0; i < limits::MAX_TIMERS; ++i) {
-        if (!timers_[i].active) {
-            timers_[i].id           = next_id_++;
-            timers_[i].period_us    = period_us;
-            timers_[i].next_fire_us = 0; // Will be set on first tick
-            timers_[i].callback     = callback;
-            timers_[i].context      = context;
-            timers_[i].one_shot     = one_shot;
-            timers_[i].active       = true;
-            ESP_LOGI(TAG, "Created timer id=%u period=%u us one_shot=%d",
-                     timers_[i].id, period_us, (int)one_shot);
-            return timers_[i].id;
+    for (auto& timer : timers_) {
+        if (!timer.active) {
+            timer.id = next_id_++;
+            timer.period_us = period_us;
+            timer.next_fire_us = 0;  // Will be set on first tick
+            timer.callback = callback;
+            timer.context = context;
+            timer.one_shot = one_shot;
+            timer.active = true;
+            ESP_LOGI(TAG, "Created timer id=%u period=%u us one_shot=%d", timer.id, period_us, (int)one_shot);
+            return timer.id;
         }
     }
 
@@ -47,9 +44,9 @@ uint32_t TimerManager::createTimer(uint32_t period_us, TimerCallback callback,
 }
 
 void TimerManager::cancelTimer(uint32_t id) {
-    for (size_t i = 0; i < limits::MAX_TIMERS; ++i) {
-        if (timers_[i].active && timers_[i].id == id) {
-            timers_[i].active = false;
+    for (auto& timer : timers_) {
+        if (timer.active && timer.id == id) {
+            timer.active = false;
             ESP_LOGI(TAG, "Cancelled timer id=%u", id);
             return;
         }
@@ -58,9 +55,9 @@ void TimerManager::cancelTimer(uint32_t id) {
 }
 
 void TimerManager::resetTimer(uint32_t id, uint64_t now_us) {
-    for (size_t i = 0; i < limits::MAX_TIMERS; ++i) {
-        if (timers_[i].active && timers_[i].id == id) {
-            timers_[i].next_fire_us = now_us + timers_[i].period_us;
+    for (auto& timer : timers_) {
+        if (timer.active && timer.id == id) {
+            timer.next_fire_us = now_us + timer.period_us;
             return;
         }
     }
@@ -68,9 +65,10 @@ void TimerManager::resetTimer(uint32_t id, uint64_t now_us) {
 }
 
 void TimerManager::tick(uint64_t now_us) {
-    for (size_t i = 0; i < limits::MAX_TIMERS; ++i) {
-        TimerEntry& t = timers_[i];
-        if (!t.active) continue;
+    for (auto& t : timers_) {
+        if (!t.active) {
+            continue;
+        }
 
         // First tick: initialise next_fire_us
         if (t.next_fire_us == 0) {
@@ -96,11 +94,12 @@ void TimerManager::tick(uint64_t now_us) {
 
 size_t TimerManager::activeCount() const {
     size_t count = 0;
-    for (size_t i = 0; i < limits::MAX_TIMERS; ++i) {
-        if (timers_[i].active) ++count;
+    for (const auto& timer : timers_) {
+        if (timer.active) {
+            ++count;
+        }
     }
     return count;
 }
 
-} // namespace core
-} // namespace chopper
+}  // namespace chopper::core

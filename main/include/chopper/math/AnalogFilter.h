@@ -25,8 +25,7 @@ public:
      * @param sleep_enable     Enable sleep mode for faster settling.
      * @param snap_multiplier  0..1, higher = more responsive but noisier.
      */
-    AnalogFilter(int resolution = 4096, bool sleep_enable = true,
-                 float snap_multiplier = 0.01f)
+    AnalogFilter(int resolution = 4096, bool sleep_enable = true, float snap_multiplier = 0.01f)
         : fAnalogResolution(resolution)
         , fSleepEnable(sleep_enable)
         , fEdgeSnapEnable(true)
@@ -37,8 +36,7 @@ public:
         , fResponsiveValue(0)
         , fPrevResponsiveValue(0)
         , fHasChanged(false)
-        , fSeeded(false)
-    {
+        , fSeeded(false) {
         setSnapMultiplier(snap_multiplier);
     }
 
@@ -62,9 +60,7 @@ public:
     bool hasChanged() const { return fHasChanged; }
     bool isSleeping() const { return fSleeping; }
 
-    void setSnapMultiplier(float m) {
-        fSnapMultiplier = (m > 1.0f) ? 1.0f : (m < 0.0f) ? 0.0f : m;
-    }
+    void setSnapMultiplier(float m) { fSnapMultiplier = (m > 1.0f) ? 1.0f : (m < 0.0f) ? 0.0f : m; }
 
     void enableSleep() { fSleepEnable = true; }
     void disableSleep() { fSleepEnable = false; }
@@ -80,8 +76,7 @@ private:
             if (newValue < fActivityThreshold) {
                 newValue = static_cast<int>(newValue * 2 - fActivityThreshold);
             } else if (newValue > fAnalogResolution - fActivityThreshold) {
-                newValue = static_cast<int>(newValue * 2 - fAnalogResolution
-                                            + fActivityThreshold);
+                newValue = static_cast<int>(newValue * 2 - fAnalogResolution + fActivityThreshold);
             }
         }
 
@@ -141,5 +136,5 @@ private:
     bool fSeeded;
 };
 
-} // namespace math
-} // namespace chopper
+}  // namespace math
+}  // namespace chopper

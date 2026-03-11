@@ -4,59 +4,53 @@
 #include "chopper/messages/CommonMessages.h"
 #include "chopper/telemetry/TelemetryService.h"
 
-namespace chopper {
-namespace nodes {
+namespace chopper::nodes {
 
 class TelemetryIOTapNode : public core::PublishingNode {
 public:
     explicit TelemetryIOTapNode(telemetry::TelemetryService* service)
-        : PublishingNode("telemetry_io_tap")
-        , service_(service)
-    {
+        : PublishingNode("telemetry_io_tap"), service_(service) {
         // Subscriptions should stay lightweight and never trigger node-timeout E-stop.
         setMaxExecutionTime(5000);
     }
 
     bool initialize() override {
-        if (!service_) {
+        if (service_ == nullptr) {
             return false;
         }
 
-        drive_in_sub_ = createSubscription<messages::ControllerInput>(
-            "controller/drive", &TelemetryIOTapNode::onDriveInput, this);
-        dome_in_sub_ = createSubscription<messages::ControllerInput>(
-            "controller/dome", &TelemetryIOTapNode::onDomeInput, this);
-        animation_in_sub_ = createSubscription<messages::ControllerInput>(
-            "controller/animation", &TelemetryIOTapNode::onAnimationInput, this);
-        camera_in_sub_ = createSubscription<messages::ControllerInput>(
-            "controller/camera", &TelemetryIOTapNode::onCameraInput, this);
+        drive_in_sub_ =
+            createSubscription<messages::ControllerInput>("controller/drive", &TelemetryIOTapNode::onDriveInput, this);
+        dome_in_sub_ =
+            createSubscription<messages::ControllerInput>("controller/dome", &TelemetryIOTapNode::onDomeInput, this);
+        animation_in_sub_ = createSubscription<messages::ControllerInput>("controller/animation",
+                                                                          &TelemetryIOTapNode::onAnimationInput, this);
+        camera_in_sub_ = createSubscription<messages::ControllerInput>("controller/camera",
+                                                                       &TelemetryIOTapNode::onCameraInput, this);
 
-        motor_out_sub_ = createSubscription<messages::MotorCommand>(
-            "drive/cmd", &TelemetryIOTapNode::onMotorCommand, this);
-        dome_motor_out_sub_ = createSubscription<messages::MotorCommand>(
-            "dome/motor/cmd", &TelemetryIOTapNode::onMotorCommand, this);
-        servo_out_sub_ = createSubscription<messages::ServoCommand>(
-            "servo/cmd", &TelemetryIOTapNode::onServoAnyCommand, this);
-        servo_body_out_sub_ = createSubscription<messages::ServoCommand>(
-            "servo/body/cmd", &TelemetryIOTapNode::onServoBodyCommand, this);
-        servo_dome_out_sub_ = createSubscription<messages::ServoCommand>(
-            "servo/dome/cmd", &TelemetryIOTapNode::onServoDomeCommand, this);
-        led_out_sub_ = createSubscription<messages::LEDCommand>(
-            "led/cmd", &TelemetryIOTapNode::onLedCommand, this);
-        led_front_out_sub_ = createSubscription<messages::LEDCommand>(
-            "led/front/cmd", &TelemetryIOTapNode::onLedCommand, this);
-        led_back_out_sub_ = createSubscription<messages::LEDCommand>(
-            "led/back/cmd", &TelemetryIOTapNode::onLedCommand, this);
-        audio_out_sub_ = createSubscription<messages::AudioCommand>(
-            "audio/cmd", &TelemetryIOTapNode::onAudioCommand, this);
-        status_sub_ = createSubscription<messages::SystemStatus>(
-            "system/status", &TelemetryIOTapNode::onSystemStatus, this);
+        motor_out_sub_ =
+            createSubscription<messages::MotorCommand>("drive/cmd", &TelemetryIOTapNode::onMotorCommand, this);
+        dome_motor_out_sub_ =
+            createSubscription<messages::MotorCommand>("dome/motor/cmd", &TelemetryIOTapNode::onMotorCommand, this);
+        servo_out_sub_ =
+            createSubscription<messages::ServoCommand>("servo/cmd", &TelemetryIOTapNode::onServoAnyCommand, this);
+        servo_body_out_sub_ =
+            createSubscription<messages::ServoCommand>("servo/body/cmd", &TelemetryIOTapNode::onServoBodyCommand, this);
+        servo_dome_out_sub_ =
+            createSubscription<messages::ServoCommand>("servo/dome/cmd", &TelemetryIOTapNode::onServoDomeCommand, this);
+        led_out_sub_ = createSubscription<messages::LEDCommand>("led/cmd", &TelemetryIOTapNode::onLedCommand, this);
+        led_front_out_sub_ =
+            createSubscription<messages::LEDCommand>("led/front/cmd", &TelemetryIOTapNode::onLedCommand, this);
+        led_back_out_sub_ =
+            createSubscription<messages::LEDCommand>("led/back/cmd", &TelemetryIOTapNode::onLedCommand, this);
+        audio_out_sub_ =
+            createSubscription<messages::AudioCommand>("audio/cmd", &TelemetryIOTapNode::onAudioCommand, this);
+        status_sub_ =
+            createSubscription<messages::SystemStatus>("system/status", &TelemetryIOTapNode::onSystemStatus, this);
 
-        return drive_in_sub_ && dome_in_sub_ && animation_in_sub_ && camera_in_sub_ &&
-               motor_out_sub_ && dome_motor_out_sub_ &&
-               servo_out_sub_ && servo_body_out_sub_ && servo_dome_out_sub_ &&
-               led_out_sub_ && led_front_out_sub_ && led_back_out_sub_ &&
-               audio_out_sub_ && status_sub_;
+        return drive_in_sub_ && dome_in_sub_ && animation_in_sub_ && camera_in_sub_ && motor_out_sub_ &&
+               dome_motor_out_sub_ && servo_out_sub_ && servo_body_out_sub_ && servo_dome_out_sub_ && led_out_sub_ &&
+               led_front_out_sub_ && led_back_out_sub_ && audio_out_sub_ && status_sub_;
     }
 
     void process(uint64_t) override {
@@ -67,75 +61,94 @@ public:
         // No additional action needed; data will reflect latest observed state.
     }
 
-    double getUpdateFrequency() const override { return 0.0; }
+    [[nodiscard]] double getUpdateFrequency() const override { return 0.0; }
 
 private:
     static void onDriveInput(const messages::ControllerInput& msg, void* ctx) {
         auto* self = static_cast<TelemetryIOTapNode*>(ctx);
-        if (!self || !self->service_) return;
+        if ((self == nullptr) || (self->service_ == nullptr)) {
+            return;
+        }
         self->service_->observeInput(telemetry::TelemetryService::InputRole::DRIVE, msg);
     }
 
     static void onDomeInput(const messages::ControllerInput& msg, void* ctx) {
         auto* self = static_cast<TelemetryIOTapNode*>(ctx);
-        if (!self || !self->service_) return;
+        if ((self == nullptr) || (self->service_ == nullptr)) {
+            return;
+        }
         self->service_->observeInput(telemetry::TelemetryService::InputRole::DOME, msg);
     }
 
     static void onAnimationInput(const messages::ControllerInput& msg, void* ctx) {
         auto* self = static_cast<TelemetryIOTapNode*>(ctx);
-        if (!self || !self->service_) return;
+        if ((self == nullptr) || (self->service_ == nullptr)) {
+            return;
+        }
         self->service_->observeInput(telemetry::TelemetryService::InputRole::ANIMATION, msg);
     }
 
     static void onCameraInput(const messages::ControllerInput& msg, void* ctx) {
         auto* self = static_cast<TelemetryIOTapNode*>(ctx);
-        if (!self || !self->service_) return;
+        if ((self == nullptr) || (self->service_ == nullptr)) {
+            return;
+        }
         self->service_->observeInput(telemetry::TelemetryService::InputRole::CAMERA, msg);
     }
 
     static void onMotorCommand(const messages::MotorCommand& msg, void* ctx) {
         auto* self = static_cast<TelemetryIOTapNode*>(ctx);
-        if (!self || !self->service_) return;
+        if ((self == nullptr) || (self->service_ == nullptr)) {
+            return;
+        }
         self->service_->observeMotorCommand(msg);
     }
 
     static void onServoAnyCommand(const messages::ServoCommand& msg, void* ctx) {
         auto* self = static_cast<TelemetryIOTapNode*>(ctx);
-        if (!self || !self->service_) return;
-        self->service_->observeServoCommand(
-            msg, telemetry::TelemetryService::ServoSourceGroup::ANY);
+        if ((self == nullptr) || (self->service_ == nullptr)) {
+            return;
+        }
+        self->service_->observeServoCommand(msg, telemetry::TelemetryService::ServoSourceGroup::ANY);
     }
 
     static void onServoBodyCommand(const messages::ServoCommand& msg, void* ctx) {
         auto* self = static_cast<TelemetryIOTapNode*>(ctx);
-        if (!self || !self->service_) return;
-        self->service_->observeServoCommand(
-            msg, telemetry::TelemetryService::ServoSourceGroup::BODY);
+        if ((self == nullptr) || (self->service_ == nullptr)) {
+            return;
+        }
+        self->service_->observeServoCommand(msg, telemetry::TelemetryService::ServoSourceGroup::BODY);
     }
 
     static void onServoDomeCommand(const messages::ServoCommand& msg, void* ctx) {
         auto* self = static_cast<TelemetryIOTapNode*>(ctx);
-        if (!self || !self->service_) return;
-        self->service_->observeServoCommand(
-            msg, telemetry::TelemetryService::ServoSourceGroup::DOME);
+        if ((self == nullptr) || (self->service_ == nullptr)) {
+            return;
+        }
+        self->service_->observeServoCommand(msg, telemetry::TelemetryService::ServoSourceGroup::DOME);
     }
 
     static void onLedCommand(const messages::LEDCommand& msg, void* ctx) {
         auto* self = static_cast<TelemetryIOTapNode*>(ctx);
-        if (!self || !self->service_) return;
+        if ((self == nullptr) || (self->service_ == nullptr)) {
+            return;
+        }
         self->service_->observeLedCommand(msg);
     }
 
     static void onAudioCommand(const messages::AudioCommand& msg, void* ctx) {
         auto* self = static_cast<TelemetryIOTapNode*>(ctx);
-        if (!self || !self->service_) return;
+        if ((self == nullptr) || (self->service_ == nullptr)) {
+            return;
+        }
         self->service_->observeAudioCommand(msg);
     }
 
     static void onSystemStatus(const messages::SystemStatus& msg, void* ctx) {
         auto* self = static_cast<TelemetryIOTapNode*>(ctx);
-        if (!self || !self->service_) return;
+        if ((self == nullptr) || (self->service_ == nullptr)) {
+            return;
+        }
         self->service_->observeSystemStatus(msg);
     }
 
@@ -157,5 +170,4 @@ private:
     core::TypedSubscriptionPtr<messages::SystemStatus> status_sub_;
 };
 
-} // namespace nodes
-} // namespace chopper
+}  // namespace chopper::nodes

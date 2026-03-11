@@ -726,6 +726,140 @@ void test_sound_misc_start_plays_track() {
 }
 
 // ============================================================
+// Intent-path tests (has_intents = true)
+// ============================================================
+
+void test_dome_arms_intent_toggles_doors() {
+    TEST(dome_arms_intent_toggles_doors);
+    resetFramework();
+
+    auto node = std::make_shared<chopper::nodes::DomeArmsNode>();
+    ASSERT(node->initialize());
+    node->activate();
+    ASSERT(node->isRightDoorOpen());
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
+        "servo/dome/cmd",
+        [](const chopper::messages::ServoCommand&, void*) {},
+        nullptr);
+
+    auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
+
+    // With intents, misc_select is ignored; intent_dome_doors_toggle is used
+    chopper::messages::ControllerInput input;
+    input.has_intents = true;
+    input.intent_dome_doors_toggle = true;
+    input.misc_select = false;  // raw button not pressed
+    pub->publish(input);
+
+    ASSERT(!node->isRightDoorOpen());
+    PASS();
+}
+
+void test_body_utility_intent_extends() {
+    TEST(body_utility_intent_extends);
+    resetFramework();
+
+    auto node = std::make_shared<chopper::nodes::BodyUtilityNode>();
+    ASSERT(node->initialize());
+    node->activate();
+
+    float last_position = 0.0f;
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
+        "servo/body/cmd",
+        [](const chopper::messages::ServoCommand& cmd, void* c) {
+            float* pos = static_cast<float*>(c);
+            *pos = cmd.value;
+        },
+        &last_position);
+
+    auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
+
+    // With intents, button_b is ignored; intent_body_utility_toggle is used
+    chopper::messages::ControllerInput input;
+    input.has_intents = true;
+    input.intent_body_utility_toggle = true;
+    input.button_b = false;
+    pub->publish(input);
+
+    int32_t max_pos = 2500;
+    chopper::core::ParameterServer::getInstance().get("servo.util_arm.max", max_pos);
+    ASSERT_NEAR(last_position, static_cast<float>(max_pos), 0.1f);
+    PASS();
+}
+
+void test_drive_node_carpet_mode_via_intent() {
+    TEST(drive_node_carpet_mode_via_intent);
+    resetFramework();
+
+    auto node = std::make_shared<chopper::nodes::DriveNode>();
+    ASSERT(node->initialize());
+    node->activate();
+    ASSERT(!node->isCarpetMode());
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto motor_sub = broker.createSubscription<chopper::messages::MotorCommand>(
+        "drive/cmd",
+        [](const chopper::messages::MotorCommand&, void*) {},
+        nullptr);
+    auto audio_sub = broker.createSubscription<chopper::messages::AudioCommand>(
+        "audio/cmd",
+        [](const chopper::messages::AudioCommand&, void*) {},
+        nullptr);
+
+    auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
+
+    // Double-click via intent (not raw button)
+    chopper::messages::ControllerInput input;
+    input.has_intents = true;
+    input.intent_carpet_mode_toggle = true;
+    input.button_thumb_l = false;
+    pub->publish(input);
+
+    input.intent_carpet_mode_toggle = false;
+    pub->publish(input);
+
+    input.intent_carpet_mode_toggle = true;
+    pub->publish(input);
+
+    ASSERT(node->isCarpetMode());
+    PASS();
+}
+
+void test_sound_a_via_intent() {
+    TEST(sound_a_via_intent);
+    resetFramework();
+
+    auto node = std::make_shared<chopper::nodes::SoundNode>();
+    ASSERT(node->initialize());
+    node->activate();
+
+    uint16_t last_track = 0;
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto sub = broker.createSubscription<chopper::messages::AudioCommand>(
+        "audio/cmd",
+        [](const chopper::messages::AudioCommand& cmd, void* c) {
+            uint16_t* track = static_cast<uint16_t*>(c);
+            *track = cmd.track_id;
+        },
+        &last_track);
+
+    auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/dome");
+
+    // With intents, button_a is ignored; intent_sound_a is used
+    chopper::messages::ControllerInput input;
+    input.has_intents = true;
+    input.intent_sound_a = true;
+    input.button_a = false;
+    pub->publish(input);
+
+    ASSERT(last_track == static_cast<uint16_t>(chopper::config::sound_track::IMPERIALCAROLBELLS));
+    PASS();
+}
+
+// ============================================================
 // Main
 // ============================================================
 
@@ -764,6 +898,12 @@ int main() {
     test_sound_a_plays_correct_track();
     test_sound_b_plays_correct_track();
     test_sound_misc_start_plays_track();
+
+    // Intent-path tests
+    test_dome_arms_intent_toggles_doors();
+    test_body_utility_intent_extends();
+    test_drive_node_carpet_mode_via_intent();
+    test_sound_a_via_intent();
 
     printf("\n=== Results: %d/%d passed ===\n", pass_count, test_count);
     return (pass_count == test_count) ? 0 : 1;

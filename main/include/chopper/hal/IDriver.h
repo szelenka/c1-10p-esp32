@@ -4,32 +4,29 @@
 #include <cstddef>
 #include <cstring>
 
-namespace chopper {
-namespace hal {
+namespace chopper::hal {
 
 /// Driver lifecycle states.
 enum class DriverStatus : uint8_t {
-    kUninitialized = 0,   ///< init() not yet called
-    kReady,               ///< Operating normally
-    kDegraded,            ///< Operating with warnings (e.g., high latency)
-    kError,               ///< Non-recoverable error; needs reset()
-    kDisabled,            ///< Explicitly disabled via shutdown()
+    kUninitialized = 0,  ///< init() not yet called
+    kReady,              ///< Operating normally
+    kDegraded,           ///< Operating with warnings (e.g., high latency)
+    kError,              ///< Non-recoverable error; needs reset()
+    kDisabled,           ///< Explicitly disabled via shutdown()
 };
 
 /// Error information for driver diagnostics.
 struct ErrorInfo {
-    uint16_t code;            ///< Driver-specific error code (0 = no error)
-    uint64_t timestamp;       ///< When the error occurred (ms since boot)
-    char message[64];         ///< Human-readable description
+    uint16_t code = 0;       ///< Driver-specific error code (0 = no error)
+    uint64_t timestamp = 0;  ///< When the error occurred (ms since boot)
+    char message[64]{};      ///< Human-readable description
 
-    ErrorInfo() : code(0), timestamp(0) {
-        message[0] = '\0';
-    }
+    ErrorInfo() { message[0] = '\0'; }
 
     void set(uint16_t c, uint64_t ts, const char* msg) {
         code = c;
         timestamp = ts;
-        if (msg) {
+        if (msg != nullptr) {
             strncpy(message, msg, sizeof(message) - 1);
             message[sizeof(message) - 1] = '\0';
         } else {
@@ -61,13 +58,13 @@ public:
     virtual void update() = 0;
 
     /// Current operational state.
-    virtual DriverStatus getStatus() const = 0;
+    [[nodiscard]] virtual DriverStatus getStatus() const = 0;
 
     /// Last error code + human-readable message.
-    virtual ErrorInfo getErrorState() const = 0;
+    [[nodiscard]] virtual ErrorInfo getErrorState() const = 0;
 
     /// Driver identifier for diagnostics.
-    virtual const char* getName() const = 0;
+    [[nodiscard]] virtual const char* getName() const = 0;
 
     /// Re-initialize without full system restart.
     virtual DriverStatus reset() = 0;
@@ -77,7 +74,9 @@ public:
 
     /// Diagnostic command interface. Returns true if the command was handled.
     virtual bool handleDiagnostic(const char* command, char* response, size_t maxLen) {
-        (void)command; (void)response; (void)maxLen;
+        (void)command;
+        (void)response;
+        (void)maxLen;
         return false;
     }
 };
@@ -85,14 +84,18 @@ public:
 /// Returns a human-readable string for a DriverStatus value.
 inline const char* driverStatusToString(DriverStatus status) {
     switch (status) {
-        case DriverStatus::kUninitialized: return "UNINITIALIZED";
-        case DriverStatus::kReady:         return "READY";
-        case DriverStatus::kDegraded:      return "DEGRADED";
-        case DriverStatus::kError:         return "ERROR";
-        case DriverStatus::kDisabled:      return "DISABLED";
+        case DriverStatus::kUninitialized:
+            return "UNINITIALIZED";
+        case DriverStatus::kReady:
+            return "READY";
+        case DriverStatus::kDegraded:
+            return "DEGRADED";
+        case DriverStatus::kError:
+            return "ERROR";
+        case DriverStatus::kDisabled:
+            return "DISABLED";
     }
     return "UNKNOWN";
 }
 
-} // namespace hal
-} // namespace chopper
+}  // namespace chopper::hal

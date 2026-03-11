@@ -9,8 +9,7 @@
 #include "esp_random.h"
 #endif
 
-namespace chopper {
-namespace hal {
+namespace chopper::hal {
 
 /**
  * HAL audio driver for the SparkFun MP3 Trigger board.
@@ -39,10 +38,7 @@ public:
      * @param serial    Serial port for MP3 Trigger communication.
      * @param name      Driver name for diagnostics.
      */
-    MP3AudioDriver(ISerialPort& serial, const char* name)
-        : m_serial(&serial)
-        , m_name(name)
-    {
+    MP3AudioDriver(ISerialPort& serial, const char* name) : m_serial(&serial), m_name(name) {
         memset(m_randomTracks, 0, sizeof(m_randomTracks));
     }
 
@@ -51,7 +47,9 @@ public:
      * Call before init(). Returns false if pool is full.
      */
     bool addRandomTrack(uint8_t track) {
-        if (m_randomTrackCount >= kMaxRandomTracks) return false;
+        if (m_randomTrackCount >= kMaxRandomTracks) {
+            return false;
+        }
         m_randomTracks[m_randomTrackCount++] = track;
         return true;
     }
@@ -72,9 +70,9 @@ public:
         mp3Update();
     }
 
-    DriverStatus getStatus() const override { return m_status; }
-    ErrorInfo getErrorState() const override { return m_lastError; }
-    const char* getName() const override { return m_name; }
+    [[nodiscard]] DriverStatus getStatus() const override { return m_status; }
+    [[nodiscard]] ErrorInfo getErrorState() const override { return m_lastError; }
+    [[nodiscard]] const char* getName() const override { return m_name; }
 
     DriverStatus reset() override {
         m_volume = 0;
@@ -92,14 +90,18 @@ public:
     // -- IAudioDriver interface --
 
     void trigger(uint8_t track) override {
-        if (m_status != DriverStatus::kReady && m_status != DriverStatus::kDegraded) return;
+        if (m_status != DriverStatus::kReady && m_status != DriverStatus::kDegraded) {
+            return;
+        }
         ESP_LOGD(m_name, "trigger track %d", track);
         mp3Trigger(track);
         m_playing = true;
     }
 
     void triggerRandom() override {
-        if (m_randomTrackCount == 0) return;
+        if (m_randomTrackCount == 0) {
+            return;
+        }
         uint8_t index = randomIndex() % m_randomTrackCount;
         trigger(m_randomTracks[index]);
     }
@@ -109,9 +111,9 @@ public:
         mp3SetVolume(volume);
     }
 
-    uint8_t getVolume() const override { return m_volume; }
+    [[nodiscard]] uint8_t getVolume() const override { return m_volume; }
 
-    bool isPlaying() const override { return m_playing; }
+    [[nodiscard]] bool isPlaying() const override { return m_playing; }
 
     void stop() override {
         mp3Stop();
@@ -119,11 +121,12 @@ public:
     }
 
     bool handleDiagnostic(const char* command, char* response, size_t maxLen) override {
-        if (!command || !response || maxLen == 0) return false;
+        if ((command == nullptr) || (response == nullptr) || maxLen == 0) {
+            return false;
+        }
 
         if (strcmp(command, "status") == 0) {
-            snprintf(response, maxLen, "%s, volume=%d, playing=%s",
-                     driverStatusToString(m_status), m_volume,
+            snprintf(response, maxLen, "%s, volume=%d, playing=%s", driverStatusToString(m_status), m_volume,
                      m_playing ? "true" : "false");
             return true;
         }
@@ -140,7 +143,9 @@ private:
     void mp3Update() {
         while (m_serial->available() > 0) {
             int byte = m_serial->read();
-            if (byte < 0) break;
+            if (byte < 0) {
+                break;
+            }
 
             switch (static_cast<uint8_t>(byte)) {
                 case 'X':  // Track finished
@@ -198,7 +203,7 @@ private:
     uint8_t m_volume = 0;
     bool m_playing = false;
 
-    uint8_t m_randomTracks[kMaxRandomTracks];
+    uint8_t m_randomTracks[kMaxRandomTracks]{};
     uint8_t m_randomTrackCount = 0;
 
 #ifndef ESP_PLATFORM
@@ -206,5 +211,4 @@ private:
 #endif
 };
 
-} // namespace hal
-} // namespace chopper
+}  // namespace chopper::hal

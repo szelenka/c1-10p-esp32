@@ -4,8 +4,7 @@
 #include "chopper/hal/IMotorDriver.h"
 #include "chopper/messages/CommonMessages.h"
 
-namespace chopper {
-namespace nodes {
+namespace chopper::nodes {
 
 /**
  * Bridge node: subscribes to MotorCommand messages on a given topic
@@ -22,18 +21,14 @@ public:
      * @param driver    Motor driver to forward commands to.
      * @param motor_id  Only process commands matching this motor_id.
      */
-    MotorBridgeNode(const char* name, const char* topic,
-                    hal::IMotorDriver* driver, uint8_t motor_id)
-        : PublishingNode(name)
-        , topic_(topic)
-        , driver_(driver)
-        , motor_id_(motor_id)
-    {}
+    MotorBridgeNode(const char* name, const char* topic, hal::IMotorDriver* driver, uint8_t motor_id)
+        : PublishingNode(name), topic_(topic), driver_(driver), motor_id_(motor_id) {}
 
     bool initialize() override {
-        if (!driver_) return false;
-        sub_ = createSubscription<messages::MotorCommand>(
-            topic_, &MotorBridgeNode::onCommand, this);
+        if (driver_ == nullptr) {
+            return false;
+        }
+        sub_ = createSubscription<messages::MotorCommand>(topic_, &MotorBridgeNode::onCommand, this);
         return sub_ != nullptr;
     }
 
@@ -42,17 +37,19 @@ public:
     }
 
     void emergencyStop() override {
-        if (driver_) {
+        if (driver_ != nullptr) {
             driver_->stop();
         }
     }
 
-    hal::IMotorDriver* getDriver() const { return driver_; }
-    uint8_t getMotorId() const { return motor_id_; }
+    [[nodiscard]] hal::IMotorDriver* getDriver() const { return driver_; }
+    [[nodiscard]] uint8_t getMotorId() const { return motor_id_; }
 
 private:
     void onCommand(const messages::MotorCommand& cmd) {
-        if (!driver_ || cmd.motor_id != motor_id_) return;
+        if ((driver_ == nullptr) || cmd.motor_id != motor_id_) {
+            return;
+        }
 
         switch (cmd.command_type) {
             case messages::MotorCommand::CommandType::SET_SPEED:
@@ -75,5 +72,4 @@ private:
     core::TypedSubscriptionPtr<messages::MotorCommand> sub_;
 };
 
-} // namespace nodes
-} // namespace chopper
+}  // namespace chopper::nodes

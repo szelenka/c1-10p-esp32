@@ -4,8 +4,7 @@
 #include "MessageBroker.h"
 #include "chopper/chopper_limits.h"
 
-namespace chopper {
-namespace core {
+namespace chopper::core {
 
 /**
  * @brief Base class for nodes that publish and subscribe to messages.
@@ -16,13 +15,13 @@ namespace core {
 class PublishingNode : public Node {
 public:
     explicit PublishingNode(const char* name);
-    virtual ~PublishingNode() = default;
+    ~PublishingNode() override = default;
 
 protected:
     /**
      * @brief Create a typed publisher.
      */
-    template<typename MessageT>
+    template <typename MessageT>
     TypedPublisherPtr<MessageT> createPublisher(const char* topic,
                                                 const QoSProfile& qos = QoSProfile::systemDefault()) {
         auto publisher = MessageBroker::getInstance().createPublisher<MessageT>(topic, qos);
@@ -42,9 +41,8 @@ protected:
      *   createSubscription<MotorCommand>("drive/cmd",
      *       &MyNode::onMotorCommand, this);
      */
-    template<typename MessageT, typename NodeT>
-    TypedSubscriptionPtr<MessageT> createSubscription(const char* topic,
-                                                      void (NodeT::*method)(const MessageT&),
+    template <typename MessageT, typename NodeT>
+    TypedSubscriptionPtr<MessageT> createSubscription(const char* topic, void (NodeT::*method)(const MessageT&),
                                                       NodeT* instance,
                                                       const QoSProfile& qos = QoSProfile::systemDefault()) {
         // Store method pointer in a static trampoline context.
@@ -57,15 +55,14 @@ protected:
 
         // Allocate context — stored for lifetime of subscription.
         // This is a one-time init allocation, not in the hot path.
-        auto* ctx = new CallbackContext{instance, method};
+        auto* ctx = new CallbackContext{instance, method};  // NOLINT(cppcoreguidelines-owning-memory,heap)
 
         auto trampoline = [](const MessageT& msg, void* context) {
             auto* c = static_cast<CallbackContext*>(context);
             (c->instance->*(c->method))(msg);
         };
 
-        auto sub = MessageBroker::getInstance().createSubscription<MessageT>(
-            topic, trampoline, ctx, qos);
+        auto sub = MessageBroker::getInstance().createSubscription<MessageT>(topic, trampoline, ctx, qos);
         if (sub_count_ < MAX_PUB_SUB) {
             subscriptions_[sub_count_++] = sub;
         }
@@ -75,21 +72,19 @@ protected:
     /**
      * @brief Create a subscription with a plain function pointer callback.
      */
-    template<typename MessageT>
-    TypedSubscriptionPtr<MessageT> createSubscription(const char* topic,
-                                                      MessageCallbackFn<MessageT> callback,
+    template <typename MessageT>
+    TypedSubscriptionPtr<MessageT> createSubscription(const char* topic, MessageCallbackFn<MessageT> callback,
                                                       void* context = nullptr,
                                                       const QoSProfile& qos = QoSProfile::systemDefault()) {
-        auto sub = MessageBroker::getInstance().createSubscription<MessageT>(
-            topic, callback, context, qos);
+        auto sub = MessageBroker::getInstance().createSubscription<MessageT>(topic, callback, context, qos);
         if (sub_count_ < MAX_PUB_SUB) {
             subscriptions_[sub_count_++] = sub;
         }
         return sub;
     }
 
-    size_t getPublisherCount() const { return pub_count_; }
-    size_t getSubscriptionCount() const { return sub_count_; }
+    [[nodiscard]] size_t getPublisherCount() const { return pub_count_; }
+    [[nodiscard]] size_t getSubscriptionCount() const { return sub_count_; }
 
 private:
     static constexpr size_t MAX_PUB_SUB = 8;
@@ -97,11 +92,10 @@ private:
     // Store shared_ptrs to keep publishers/subscriptions alive.
     // These are base-class pointers since we just need lifetime management.
     PublisherPtr publishers_[MAX_PUB_SUB];
-    size_t pub_count_;
+    size_t pub_count_ = 0;
 
     SubscriptionPtr subscriptions_[MAX_PUB_SUB];
-    size_t sub_count_;
+    size_t sub_count_ = 0;
 };
 
-} // namespace core
-} // namespace chopper
+}  // namespace chopper::core

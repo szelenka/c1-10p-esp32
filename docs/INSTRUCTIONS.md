@@ -1,3 +1,8 @@
+# Historical Notes
+
+This file is historical background only.
+The canonical agent instruction source is [`CLAUDE.md`](/opt/_src/github/szelenka/chopper/CLAUDE.md).
+
 # Thought Process
 
 The main purpose of this repository is to provide a framework for puppeting astromech robots with a Bluetooth Controller. 

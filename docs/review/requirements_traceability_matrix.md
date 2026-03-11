@@ -31,7 +31,7 @@ Scope: current workspace in `/opt/_src/github/szelenka/chopper`
 | Configurable logging levels/outputs | Partial | ESP logging macros used broadly | No dedicated tests for output routing | Logging exists but output backends/configurability requirements are not fully evidenced. |
 | Build orchestration (Makefile + PlatformIO) | Met | `Makefile`, `platformio.ini` | `make test` host harness active | Build/tooling setup is present and functional for host tests. |
 | Cross-platform development compatibility (Windows/Linux/macOS) | Partial | Build scripts/docs + CI workflow `.github/workflows/host-test-matrix.yml` | Host tests run locally; CI workflow prepared | Automated matrix evidence exists as workflow definition; run history pending. |
-| Doxygen/code analysis standards | Partial | Added `analysis-cppcheck` target and `.github/workflows/quality-gates.yml` | Local tests pass; static analysis gate defined | Process is in place, but finding baseline trend and Doxygen enforcement remain to be completed. |
+| Doxygen/code analysis standards | Partial | Added `analyze-cppcheck` target and `.github/workflows/quality-gates.yml` | Local tests pass; static analysis gate defined | Process is in place, but finding baseline trend and Doxygen enforcement remain to be completed. |
 
 ## Current Verification Snapshot
 - Host test run on 2026-02-28: `make test` -> **12/12 suites passed**.

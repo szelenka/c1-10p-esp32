@@ -4,24 +4,21 @@
 #include <algorithm>
 #include <mutex>
 
-static const char* TAG = "Executor";
+static const char* const TAG = "Executor";
 
 namespace {
 bool isSoftStopExcludedNode(const char* name) {
-    if (!name) return false;
-    return (strcmp(name, "safety") == 0) ||
-           (strcmp(name, "telemetry_node") == 0) ||
+    if (name == nullptr) {
+        return false;
+    }
+    return (strcmp(name, "safety") == 0) || (strcmp(name, "telemetry_node") == 0) ||
            (strcmp(name, "telemetry_io_tap") == 0);
 }
-} // namespace
+}  // namespace
 
-namespace chopper {
-namespace core {
+namespace chopper::core {
 
-Executor::Executor()
-    : Executor(Config{})
-{
-}
+Executor::Executor() : Executor(Config{}) {}
 
 Executor::Executor(const Config& config)
     : config_(config)
@@ -35,8 +32,7 @@ Executor::Executor(const Config& config)
     , last_watchdog_feed_(0)
     , emergency_callback_(nullptr)
     , emergency_callback_context_(nullptr)
-    , loop_time_accumulator_(0)
-{
+    , loop_time_accumulator_(0) {
     nodes_.reserve(config_.max_nodes);
     ESP_LOGI(TAG, "Executor created with %u Hz loop frequency", config_.loop_frequency_hz);
 }
@@ -45,7 +41,7 @@ Executor::~Executor() {
     stop();
 }
 
-bool Executor::addNode(NodePtr node) {
+bool Executor::addNode(const NodePtr& node) {
     if (!node) {
         ESP_LOGE(TAG, "Cannot add null node");
         return false;
@@ -75,8 +71,10 @@ bool Executor::addNode(NodePtr node) {
     return true;
 }
 
-bool Executor::removeNode(NodePtr node) {
-    if (!node) return false;
+bool Executor::removeNode(const NodePtr& node) {
+    if (!node) {
+        return false;
+    }
 
     if (is_running_.load()) {
         ESP_LOGE(TAG, "Cannot remove node while executor is running");
@@ -99,7 +97,9 @@ bool Executor::initializeNodes() {
     ESP_LOGI(TAG, "Initializing %zu nodes...", nodes_.size());
 
     for (auto& node : nodes_) {
-        if (!node) continue;
+        if (!node) {
+            continue;
+        }
         if (!node->initialize()) {
             ESP_LOGE(TAG, "Failed to initialize node: %s", node->getName());
             return false;
@@ -115,7 +115,9 @@ bool Executor::activateNodes() {
     ESP_LOGI(TAG, "Activating %zu nodes...", nodes_.size());
 
     for (auto& node : nodes_) {
-        if (!node) continue;
+        if (!node) {
+            continue;
+        }
         if (!node->activate()) {
             ESP_LOGE(TAG, "Failed to activate node: %s", node->getName());
             deactivateNodes();
@@ -133,7 +135,9 @@ bool Executor::deactivateNodes() {
     bool success = true;
 
     for (auto& node : nodes_) {
-        if (!node) continue;
+        if (!node) {
+            continue;
+        }
         if (node->getState() == Node::State::ACTIVE) {
             if (!node->deactivate()) {
                 ESP_LOGE(TAG, "Failed to deactivate node: %s", node->getName());
@@ -158,24 +162,15 @@ bool Executor::start() {
     BaseType_t result = pdPASS;
 #if defined(ESP_PLATFORM)
     if (config_.executor_task_core >= 0) {
-        result = xTaskCreatePinnedToCore(
-            taskWrapper,
-            "chopper_exec",
-            8192,  // 8KB stack as recommended by architecture doc
-            this,
-            configMAX_PRIORITIES - 1,
-            &task_handle_,
-            config_.executor_task_core);
+        result = xTaskCreatePinnedToCore(taskWrapper, "chopper_exec",
+                                         8192,  // 8KB stack as recommended by architecture doc
+                                         this, configMAX_PRIORITIES - 1, &task_handle_, config_.executor_task_core);
     } else
 #endif
     {
-        result = xTaskCreate(
-            taskWrapper,
-            "chopper_exec",
-            8192,  // 8KB stack as recommended by architecture doc
-            this,
-            configMAX_PRIORITIES - 1,
-            &task_handle_);
+        result = xTaskCreate(taskWrapper, "chopper_exec",
+                             8192,  // 8KB stack as recommended by architecture doc
+                             this, configMAX_PRIORITIES - 1, &task_handle_);
     }
 
     if (result != pdPASS) {
@@ -196,10 +191,12 @@ bool Executor::stop() {
     should_stop_.store(true);
 
     // Wait for task to finish gracefully (up to 500ms)
-    if (task_handle_) {
+    if (task_handle_ != nullptr) {
         for (int i = 0; i < 50; i++) {
             vTaskDelay(pdMS_TO_TICKS(10));
-            if (!is_running_.load()) break;
+            if (!is_running_.load()) {
+                break;
+            }
         }
 
         if (is_running_.load() && eTaskGetState(task_handle_) != eDeleted) {
@@ -230,7 +227,7 @@ void Executor::emergencyStop(const char* reason) {
         }
 
         // Call user callback if set
-        if (emergency_callback_) {
+        if (emergency_callback_ != nullptr) {
             emergency_callback_(reason, emergency_callback_context_);
         }
     }
@@ -259,7 +256,7 @@ void Executor::clearSoftStop(const char* reason) {
 }
 
 void Executor::taskWrapper(void* parameter) {
-    Executor* executor = static_cast<Executor*>(parameter);
+    auto* executor = static_cast<Executor*>(parameter);
     executor->executionLoop();
     vTaskDelete(nullptr);
 }
@@ -312,11 +309,8 @@ uint64_t Executor::processNodes(uint64_t now) {
 
         if (soft_stop_.load()) {
             const char* name = node->getName();
-            const bool allowed =
-                (strcmp(name, "bluepad_input") == 0) ||
-                (strcmp(name, "safety") == 0) ||
-                (strcmp(name, "telemetry_node") == 0) ||
-                (strcmp(name, "telemetry_io_tap") == 0);
+            const bool allowed = (strcmp(name, "bluepad_input") == 0) || (strcmp(name, "safety") == 0) ||
+                                 (strcmp(name, "telemetry_node") == 0) || (strcmp(name, "telemetry_io_tap") == 0);
             if (!allowed) {
                 continue;
             }
@@ -325,7 +319,7 @@ uint64_t Executor::processNodes(uint64_t now) {
         // Check if node should be processed based on frequency
         double frequency = node->getUpdateFrequency();
         if (frequency > 0.0) {
-            uint64_t period_us = static_cast<uint64_t>(1000000.0 / frequency);
+            auto period_us = static_cast<uint64_t>(1000000.0 / frequency);
             uint64_t last_process = node->getLastProcessTime();
 
             // last_process == 0 means never processed, so run immediately
@@ -349,19 +343,17 @@ uint64_t Executor::processNodes(uint64_t now) {
 
         // Check execution time limit
         if (node_time > node->getMaxExecutionTime()) {
-            ESP_LOGW(TAG, "Node %s exceeded exec time: %llu us (limit: %llu us)",
-                     node->getName(), node_time, node->getMaxExecutionTime());
+            ESP_LOGW(TAG, "Node %s exceeded exec time: %llu us (limit: %llu us)", node->getName(), node_time,
+                     node->getMaxExecutionTime());
             stats_.missed_deadlines++;
 
             if (node_time > node->getMaxExecutionTime() * 2) {
                 if (config_.node_timeout_triggers_estop) {
                     emergencyStop("Node timeout");
                     break;
-                } else {
-                    ESP_LOGE(TAG, "Node %s timeout -> node emergencyStop only (executor continues)",
-                             node->getName());
-                    node->emergencyStop();
                 }
+                ESP_LOGE(TAG, "Node %s timeout -> node emergencyStop only (executor continues)", node->getName());
+                node->emergencyStop();
             }
         }
     }
@@ -373,11 +365,10 @@ void Executor::checkSafety(uint64_t execution_time_us) {
     uint64_t now = esp_timer_get_time();
 
     if (execution_time_us > config_.max_loop_time_us) {
-        ESP_LOGW(TAG, "Loop exec time exceeded: %llu us (limit: %u us)",
-                 execution_time_us, config_.max_loop_time_us);
+        ESP_LOGW(TAG, "Loop exec time exceeded: %llu us (limit: %u us)", execution_time_us, config_.max_loop_time_us);
         stats_.missed_deadlines++;
 
-        if (execution_time_us > config_.max_loop_time_us * 2) {
+        if (execution_time_us > static_cast<uint64_t>(config_.max_loop_time_us) * 2) {
             if (config_.loop_timeout_triggers_estop) {
                 emergencyStop("Loop timeout");
                 return;
@@ -435,5 +426,4 @@ void Executor::feedWatchdog() {
     last_watchdog_feed_ = esp_timer_get_time();
 }
 
-} // namespace core
-} // namespace chopper
+}  // namespace chopper::core

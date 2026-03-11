@@ -11,8 +11,8 @@ Status: Hardware-assisted validation completed on ESP32 dev board (simulated per
 2. Verified emergency-stop propagation paths and telemetry snapshot generation.
 3. Verified quality gates:
 - `make test` pass
-- `make traceability-check` pass
-- `make analysis-cppcheck` pass
+- `make check-traceability` pass
+- `make analyze-cppcheck` pass
 
 ## Result Summary
 - Software behavior coverage is strong in host environment.
@@ -21,7 +21,7 @@ Status: Hardware-assisted validation completed on ESP32 dev board (simulated per
 ## Executed Scope (Hardware-Assisted)
 1. Flashed `esp32dev-validation` firmware to `/dev/cu.usbserial-59691018321`.
 2. Ran automated validation script:
-- `./scripts/run_on_device_validation.sh --env esp32dev-validation --port /dev/cu.usbserial-59691018321 --seconds 30`
+- `./.scripts/run_on_device_validation.sh --env esp32dev-validation --port /dev/cu.usbserial-59691018321 --seconds 30`
 3. Observed required serial markers:
 - `NVS_SELFTEST:PASS loaded_drive_max_speed=0.570`
 - `TEL:{...}`

@@ -6,8 +6,7 @@
 #include "chopper/chopper_limits.h"
 #include "esp_timer.h"
 
-namespace chopper {
-namespace core {
+namespace chopper::core {
 
 /**
  * @brief Base class for all nodes in the Chopper framework.
@@ -17,12 +16,12 @@ namespace core {
  */
 class Node {
 public:
-    enum class State {
-        INACTIVE,   ///< Created but not started
-        ACTIVE,     ///< Running normally
-        PAUSED,     ///< Paused but can resume
-        ERROR,      ///< Error state
-        SHUTDOWN    ///< Shutting down
+    enum class State : uint8_t {
+        INACTIVE,  ///< Created but not started
+        ACTIVE,    ///< Running normally
+        PAUSED,    ///< Paused but can resume
+        ERROR,     ///< Error state
+        SHUTDOWN   ///< Shutting down
     };
 
     /**
@@ -34,10 +33,10 @@ public:
     virtual ~Node() = default;
 
     /// Get node name (null-terminated, fixed-size buffer).
-    const char* getName() const { return name_; }
+    [[nodiscard]] const char* getName() const { return name_; }
 
     /// Get current node state.
-    State getState() const { return state_; }
+    [[nodiscard]] State getState() const { return state_; }
 
     /// Initialize the node. Called once before activate().
     virtual bool initialize() = 0;
@@ -56,16 +55,16 @@ public:
     virtual void emergencyStop() = 0;
 
     /// Desired update frequency in Hz. 0 means event-driven only.
-    virtual double getUpdateFrequency() const { return 0.0; }
+    [[nodiscard]] virtual double getUpdateFrequency() const { return 0.0; }
 
     /// Get last process execution time in microseconds.
-    uint64_t getLastProcessTime() const { return last_process_time_; }
+    [[nodiscard]] uint64_t getLastProcessTime() const { return last_process_time_; }
 
     /// Set last process time (called by Executor after process()).
     void setLastProcessTime(uint64_t time_us) { last_process_time_ = time_us; }
 
     /// Get maximum allowed execution time in microseconds.
-    uint64_t getMaxExecutionTime() const { return max_execution_time_us_; }
+    [[nodiscard]] uint64_t getMaxExecutionTime() const { return max_execution_time_us_; }
 
     /// Set maximum allowed execution time.
     void setMaxExecutionTime(uint64_t max_time_us) { max_execution_time_us_ = max_time_us; }
@@ -80,16 +79,16 @@ protected:
     void logInfo(const char* message);
 
 private:
-    char name_[limits::MAX_NODE_NAME_LEN];
-    State state_;
-    uint64_t last_process_time_;
-    uint64_t max_execution_time_us_;
+    char name_[limits::MAX_NODE_NAME_LEN]{};
+    State state_ = State::INACTIVE;
+    uint64_t last_process_time_ = 0;
+    uint64_t max_execution_time_us_ = 1000;
 
+public:
     Node(const Node&) = delete;
     Node& operator=(const Node&) = delete;
 };
 
 using NodePtr = std::shared_ptr<Node>;
 
-} // namespace core
-} // namespace chopper
+}  // namespace chopper::core
