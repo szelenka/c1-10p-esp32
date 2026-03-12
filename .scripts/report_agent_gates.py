@@ -28,7 +28,8 @@ CHECKS = [
     ("check-ui", "check-ui", False),
     ("check-source-inventory", "check-source-inventory", True),
     ("check-capacity", "check-capacity", False),
-    ("check-safety-ordering", "check-safety-ordering", False),
+    ("check-safety-ordering", "check-safety-ordering", True),
+    ("check-safety-paths", "check-safety-paths", True),
 ]
 
 
@@ -47,7 +48,7 @@ def run_check(name: str, target: str) -> dict:
         "passed": proc.returncode == 0,
         "exit_code": proc.returncode,
         "elapsed_seconds": elapsed,
-        "output": (proc.stdout + proc.stderr).strip()[-500:],  # last 500 chars
+        "output": (proc.stdout + proc.stderr).strip()[-2000:],  # last 2000 chars
     }
 
 

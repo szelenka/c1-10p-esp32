@@ -63,6 +63,7 @@ const LED_NAMES = { 0: "Front LED", 1: "Right Eye", 2: "Centre Eye", 3: "Left Ey
 // ── Runtime mapping (populated from config or defaults) ───────────────
 
 let SERVO_JOINT_MAP = {};   // servoKey -> [jointName, ...]
+let SERVO_CALIBRATION = {}; // servoKey -> { min, max, neutral }
 let MOTOR_JOINT_MAP = {};   // motorId  -> jointName
 let MOTOR_RAD_PER_SEC = {};
 let LED_LINK_MAP = {};      // ledId -> linkName
@@ -70,11 +71,14 @@ let URDF_UP_AXIS = "Z";    // "Z" for hand-written, "Y" for Fusion
 
 // ── State ──────────────────────────────────────────────────────────────
 
+const SERVO_SMOOTH_RATE = 8.0; // exponential decay rate (higher = faster)
+
 const state = {
   servoValues: new Map(),
+  servoCurrentNorm: new Map(), // smoothed normalized servo values
   motorValues: new Map(),
   motorAngles: new Map(),
-  ledData: new Map(),       // ledId -> { on, r, g, b }
+  ledData: new Map(),       // ledId -> { on, r, g, b, brightness }
   urdfRobot: null,
   fallbackParts: null,
   lastFrameTime: 0,
@@ -144,9 +148,18 @@ async function loadMappingConfig() {
       }
     }
 
+    if (cfg.servo_calibration) {
+      const cal = {};
+      for (const [key, value] of Object.entries(cfg.servo_calibration)) {
+        if (key.startsWith("_")) continue;
+        cal[key] = { min: Number(value.min), max: Number(value.max), neutral: Number(value.neutral) };
+      }
+      SERVO_CALIBRATION = cal;
+    }
+
     URDF_UP_AXIS = cfg.urdf_up_axis || "Z";
 
-    console.log("Joint mapping loaded:", Object.keys(servoMap).length, "servos,", Object.keys(motorMap).length, "motors,", Object.keys(LED_LINK_MAP).length, "leds");
+    console.log("Joint mapping loaded:", Object.keys(servoMap).length, "servos,", Object.keys(motorMap).length, "motors,", Object.keys(LED_LINK_MAP).length, "leds,", Object.keys(SERVO_CALIBRATION).length, "calibrations");
     return cfg;
   } catch (err) {
     console.warn("joint_mapping.json not available, using defaults:", err.message);
@@ -171,14 +184,33 @@ function clamp(value, lo, hi) {
   return Math.max(lo, Math.min(hi, value));
 }
 
-function toServoNorm(rawValue) {
+/**
+ * Normalize a raw servo value to [-1, 1] using per-servo calibration.
+ * neutral → 0, min → -1, max → +1.
+ * Falls back to generic 500-2500 range if no calibration is available.
+ */
+function toServoNorm(rawValue, servoKey) {
   const v = Number(rawValue);
   if (!Number.isFinite(v)) {
-    return -1; // no data → joint at lower limit (minimum)
+    return 0; // no data → neutral (mesh default pose)
   }
   if (Math.abs(v) <= 1.25) {
     return clamp(v, -1, 1);
   }
+
+  const cal = servoKey ? SERVO_CALIBRATION[servoKey] : null;
+  if (cal) {
+    // Map: min → -1, neutral → 0, max → +1
+    if (v <= cal.neutral) {
+      const range = cal.neutral - cal.min;
+      return range > 0 ? clamp((v - cal.neutral) / range, -1, 0) : 0;
+    } else {
+      const range = cal.max - cal.neutral;
+      return range > 0 ? clamp((v - cal.neutral) / range, 0, 1) : 0;
+    }
+  }
+
+  // Fallback: generic PWM range
   if (v >= 500 && v <= 2500) {
     return clamp((v - 1500) / 500, -1, 1);
   }
@@ -188,8 +220,27 @@ function toServoNorm(rawValue) {
   return clamp(v / 1000, -1, 1);
 }
 
+function servoNormTarget(group, id) {
+  const key = `${group}:${id}`;
+  return toServoNorm(state.servoValues.get(key), key);
+}
+
+/**
+ * Advance smoothed servo values toward their targets by dt seconds.
+ */
+function updateServoSmoothing(dt) {
+  const alpha = 1 - Math.exp(-SERVO_SMOOTH_RATE * dt);
+  for (const [servoKey] of Object.entries(SERVO_JOINT_MAP)) {
+    const [group, idStr] = servoKey.split(":");
+    const target = servoNormTarget(group, Number(idStr));
+    const current = state.servoCurrentNorm.get(servoKey) ?? target;
+    state.servoCurrentNorm.set(servoKey, current + (target - current) * alpha);
+  }
+}
+
 function servoNorm(group, id) {
-  return toServoNorm(state.servoValues.get(`${group}:${id}`));
+  const key = `${group}:${id}`;
+  return state.servoCurrentNorm.get(key) ?? servoNormTarget(group, id);
 }
 
 function mapToJointRange(norm, joint) {
@@ -198,7 +249,15 @@ function mapToJointRange(norm, joint) {
   }
   const lo = joint.limit?.lower ?? -Math.PI;
   const hi = joint.limit?.upper ?? Math.PI;
-  return lo + (norm + 1) * 0.5 * (hi - lo);
+  // Map norm=0 → joint value 0 (URDF default pose), not midpoint.
+  // norm=-1 → lower limit, norm=+1 → upper limit, piecewise linear.
+  let value;
+  if (norm <= 0) {
+    value = -norm * lo;   // -1→lo, 0→0
+  } else {
+    value = norm * hi;    // 0→0, +1→hi
+  }
+  return clamp(value, lo, hi);
 }
 
 // ── Telemetry recording ────────────────────────────────────────────────
@@ -223,6 +282,7 @@ function recordLedTelemetry(msg) {
       r: led.color?.r ?? led.color?.red ?? 0,
       g: led.color?.g ?? led.color?.green ?? 0,
       b: led.color?.b ?? led.color?.blue ?? 0,
+      brightness: led.brightness ?? 255,
     });
   }
 }
@@ -295,9 +355,10 @@ function applyLedColors(robot, THREE) {
         child.material._ledOwned = true;
       }
       if (data.on) {
+        const intensity = (data.brightness ?? 255) / 255;
         const color = new THREE.Color(data.r / 255, data.g / 255, data.b / 255);
         child.material.emissive = color;
-        child.material.emissiveIntensity = 0.8;
+        child.material.emissiveIntensity = 0.8 * intensity;
       } else {
         child.material.emissive = new THREE.Color(0, 0, 0);
         child.material.emissiveIntensity = 0;
@@ -312,8 +373,9 @@ function applyFallbackLedColors(parts, THREE) {
     const data = state.ledData.get(ledId) || state.ledData.get(Number(ledId));
     if (!data || !mesh) continue;
     if (data.on) {
+      const intensity = (data.brightness ?? 255) / 255;
       mesh.material.emissive.setRGB(data.r / 255, data.g / 255, data.b / 255);
-      mesh.material.emissiveIntensity = 0.8;
+      mesh.material.emissiveIntensity = 0.8 * intensity;
     } else {
       mesh.material.emissive.setRGB(0, 0, 0);
       mesh.material.emissiveIntensity = 0;
@@ -841,6 +903,8 @@ async function bootstrap() {
       const prev = state.motorAngles.get(motorId) || 0;
       state.motorAngles.set(motorId, prev + speed * radPerSec * dt);
     }
+
+    updateServoSmoothing(dt);
 
     const leftSpeed = state.motorValues.get(0) || 0;
     const rightSpeed = state.motorValues.get(1) || 0;

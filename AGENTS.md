@@ -1,44 +1,40 @@
 # Chopper — Agent Entry Point
 
-These instructions apply to any coding agent working in this repository.
+Read [`CLAUDE.md`](CLAUDE.md). It is self-contained for 90% of tasks: rules, routing, role capsules, verification.
 
-Start here, then load only the minimum additional context needed for the task.
+Order: Quick Start → Task Patterns → Task Routing → Role Capsules → edit → verify.
 
-## Read Order
+For safety-critical or cross-cutting tasks: also load [`.agents/extended.md`](.agents/extended.md) (referenced sections only).
 
-1. Read [`CLAUDE.md`](/opt/_src/github/szelenka/chopper/CLAUDE.md).
-2. Read the one matching file in [`.agents/personas/`](/opt/_src/github/szelenka/chopper/.agents/personas) for your area before making behavioral edits.
-3. Read [`.agents/policies/working-agreement.md`](/opt/_src/github/szelenka/chopper/.agents/policies/working-agreement.md) only for multi-phase, parallel, or handoff-driven work.
+For trivial edits: [.agents/express.md](.agents/express.md) (single file, <20 lines, no safety).
 
-## Fast Path
+<!-- BEGIN GENERATED: minimum-verification -->
+Minimum verification: `make test` + `make format`; if actuator path reachable, also run `make check-safety`.
+<!-- END GENERATED: minimum-verification -->
+Capability degradation table: `.agents/policies/cross-tool.md`.
 
-For most single-agent tasks:
+## Minimum Viable Instructions (fallback)
 
-- Read `CLAUDE.md` plus the relevant role file in `.agents/personas/`.
-- Skip handoff artifacts, `.agents/handoff/current_handoff.yaml`, `.agents/handoff/STATUS.md`, and `make check-handoff` unless the task is multi-phase or uses parallel subagents.
-- Skip structured reviewer/safety-auditor output templates in single-agent work; fix issues inline and note the role switch.
+If your tool cannot load CLAUDE.md automatically, use this block:
 
-## Core Rules
+```
+Project: ESP32 C++20 embedded astromech. Zero-allocation pub/sub hot path.
+Pipeline: Input capture → Intent mapping → Action node → Bridge node → Driver → Hardware.
+Vocabulary: Intent mapping = button→action tables. Action node = command logic. Bridge node = safety-gated forwarding. Area = route group (safety, hardware, implementation, tests, telemetry-ui, docs).
 
-- Follow the quick triage, task modes, hard rules, and verification model in `CLAUDE.md`.
-- Safety-critical changes must run `make check-safety`.
-- Behavioral edits must follow the trigger rules in `.agents/generated/trigger-rules.md`.
-- Source code and executable checks win when docs and code disagree; update stale docs in the same task when in scope.
+HARD RULES:
+1. Button mapping in intent table (DriveIntentMapping.h), NEVER in action node.
+2. NEVER weaken test assertions. Fix code, not tests.
+3. ALL motor/servo commands gated by DegradationManager. No bypass — even transitive.
 
-## Role Routing
+BANNED on hot path: new, delete, malloc, std::string, std::vector, std::function, std::unordered_map, dynamic_cast, typeid.
+Style: snake_case functions, PascalCase types, ALL_CAPS constants, #pragma once.
 
-- `.agents/personas/implementer.md`: production firmware and most code changes
-- `.agents/personas/tester.md`: tests, mocks, Makefile test targets
-- `.agents/personas/hardware.md`: HAL, adapters, serial protocol, driver changes
-- `.agents/personas/telemetry-ui.md`: telemetry UI and `joint_mapping.json`
-- `.agents/personas/docs.md`: documentation updates
-- `.agents/personas/architect.md`: design decisions, capacity, cross-cutting constraints
-- `.agents/personas/reviewer.md`: read-only review findings
-- `.agents/personas/safety-auditor.md`: read-only actuator and safety audit findings
-- `.agents/personas/orchestrator.md`: planning, sequencing, multi-area coordination
+VERIFY: make test && make format (after every edit). make check-safety (if actuator path reachable).
+DONE: make test passes, make format applied, placement reasoning stated, safety checked if relevant, make agent-gate-fast for non-trivial tasks.
 
-## Keep Context Small
+Key paths: main/include/chopper/ (headers), main/chopper/ (source), test/test_*.cpp (tests).
+Limits: main/include/chopper/chopper_limits.h. Messages: main/include/chopper/messages/CommonMessages.h.
+```
 
-- Do not load all role files by default.
-- Do not load reference docs unless the current task needs them.
-- Prefer the single-agent fast path unless the task is clearly multi-area, safety-critical, or blocked on coordination.
+For persona capsules (compressed role summaries), see `.agents/policies/cross-tool.md` §Persona Capsules.

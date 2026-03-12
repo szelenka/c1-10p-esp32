@@ -1,0 +1,8 @@
+# Read CLAUDE.md — it has all rules, routing, role capsules, and verification.
+# Then: Quick Start → Task Patterns → Task Routing → Role Capsules → edit → verify.
+# For safety/cross-cutting: also load .agents/extended.md (referenced sections only).
+# Express: single file, <20 lines, no safety.
+<!-- BEGIN GENERATED: minimum-verification -->
+# Minimum verification: `make test` + `make format`; if actuator path reachable, also run `make check-safety`.
+<!-- END GENERATED: minimum-verification -->
+# For minimal context: see CLAUDE.md Minimum Viable Instructions section.

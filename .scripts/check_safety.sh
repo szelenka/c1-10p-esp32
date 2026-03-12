@@ -76,42 +76,14 @@ else
 fi
 
 echo ""
-echo "== Safety gate ordering: gate before actuator dispatch in bridge handlers =="
-# For each bridge node, verify that in the onCommand handler, any safety/degradation
-# check appears BEFORE the driver call (set, setPosition, setSpeed, stop).
-# This catches the case where a grep reference exists but is after the dispatch.
-ORDERING_OK=true
-for header in $(find "$BRIDGE_DIR" -name '*BridgeNode.h' -type f 2>/dev/null | sort); do
-    node=$(basename "$header" .h)
-    # Extract the onCommand function body (from "void onCommand" to next "};")
-    ON_CMD=$(sed -n '/void onCommand/,/^    }/p' "$header" 2>/dev/null || true)
-    if [ -z "$ON_CMD" ]; then
-        continue
-    fi
-
-    # Check if there's a safety gate (degradation/mode check) in onCommand
-    HAS_GATE=$(echo "$ON_CMD" | grep -n 'degradation_\|getMode\|getAllowMotors\|getAllowServos\|safety_mode' || true)
-    HAS_DISPATCH=$(echo "$ON_CMD" | grep -n 'driver_->set\|driver_->stop\|controller_->setPosition\|controller_->setSpeed\|controller_->enable\|controller_->disable' || true)
-
-    if [ -z "$HAS_DISPATCH" ]; then
-        continue  # no dispatch in this handler, skip
-    fi
-
-    if [ -z "$HAS_GATE" ]; then
-        check_warn "$node: onCommand dispatches to driver without safety gate in handler (may be gated upstream)"
-        continue
-    fi
-
-    # Compare line numbers: gate must appear before first dispatch
-    GATE_LINE=$(echo "$HAS_GATE" | head -1 | cut -d: -f1)
-    DISPATCH_LINE=$(echo "$HAS_DISPATCH" | head -1 | cut -d: -f1)
-    if [ "$GATE_LINE" -gt "$DISPATCH_LINE" ]; then
-        check_fail "$node: safety gate (line $GATE_LINE) appears AFTER first driver dispatch (line $DISPATCH_LINE) in onCommand"
-        ORDERING_OK=false
-    else
-        check_pass "$node: safety gate precedes driver dispatch in onCommand"
-    fi
-done
+echo "== Safety gate ordering: delegating to check_safety_ordering.py =="
+# Semantic ordering analysis (comment-aware) is handled by the Python script.
+# This avoids duplicating fragile C++ parsing in bash.
+if python3 ./.scripts/check_safety_ordering.py; then
+    : # pass -- output already printed by Python script
+else
+    EXIT_CODE=1
+fi
 
 echo ""
 if [ $EXIT_CODE -eq 0 ] && [ $WARN_COUNT -eq 0 ]; then

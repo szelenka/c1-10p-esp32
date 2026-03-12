@@ -1,0 +1,17 @@
+# Known Test Failures
+#
+# One test binary name per line (e.g., test_safety).
+# Blank lines and lines starting with # are ignored.
+#
+# The test runner (make test) cross-checks this file automatically:
+#   - Listed test that still fails  → expected, not counted as new failure
+#   - Listed test that now passes   → STALE warning, remove the entry
+#   - Unlisted test that fails      → real failure, must investigate
+#
+# Protocol:
+#   1. Before investigating a failure, check if it's listed here.
+#   2. If pre-existing (not your change), add the test name here and proceed.
+#   3. When you fix the test, remove its line in the same commit.
+#   4. Never add tests you broke — fix them immediately.
+
+

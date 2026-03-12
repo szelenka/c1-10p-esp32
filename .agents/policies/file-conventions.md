@@ -1,19 +1,37 @@
-# File Conventions
+# File Ownership (single source of truth)
 
-> Referenced from CLAUDE.md. Update this file when adding a new agent or changing agent scope.
+> Ownership = review responsibility + default routing, not write-locks.
+> In single-agent mode, write across all scopes — note which hat you're wearing.
 
-Each path area has conventions and a primary owner. When working across areas, follow each area's conventions. Ownership is about **review responsibility and default routing**, not hard write-locks.
+| Path | Owner | Key rules |
+|------|-------|-----------|
+| `main/include/chopper/adapters/`, `main/chopper/adapters/` | hardware | Protocol specs, checksums |
+| `main/include/chopper/hal/`, `main/chopper/hal/` | hardware | HAL contracts, driver registration |
+| `main/include/chopper/input/` | implementer | Intent mapping (pipeline: intent mapping stage) |
+| `main/include/chopper/`, `main/chopper/` (rest) | implementer | No heap, fixed arrays, safety gating |
+| `test/test_*.cpp` | tester | Doctest, DEPS_ entry |
+| `test/mocks/` | tester | Mirror ESP-IDF paths |
+| `Makefile` | implementer | Tester advisory for DEPS_ only |
+| `docs/design/` | architect | Architecture, constraints |
+| `docs/` (rest) | docs | Verify against source |
+| `docs/registry.md` | implementer (code tasks) / docs (sync tasks) | `make check-docs` validates |
+| `tools/telemetry_ui/` | telemetry-ui | Zero-build JS, --simulate works |
+| `description/` | telemetry-ui | URDF/STL |
+| `.agents/` | docs | Agent config |
 
-| Path | Primary Owner | Follow These Rules |
-|------|-------------------|-------------------|
-| `main/include/chopper/adapters/`, `main/chopper/adapters/` | hardware | Serial protocol specs, datasheet references, checksum validation |
-| `main/include/chopper/hal/`, `main/chopper/hal/` | hardware | HAL interface contracts, driver registration |
-| `main/include/chopper/`, `main/chopper/` (everything else) | implementer | No heap on hot path, fixed arrays, safety gating |
-| `test/test_*.cpp` | tester | TEST/PASS/ASSERT macros, results summary, Makefile target |
-| `test/mocks/` | tester | Mirror ESP-IDF paths, minimal stubs |
-| `docs/` | docs / architect (`design/` only) | Verify API signatures against source |
-| `tools/telemetry_ui/` | telemetry-ui | Zero-build JS, `--simulate` must work |
-| `description/` | telemetry-ui | URDF/STL meshes |
-| `.scripts/` | implementer | Shell scripts, build utilities |
-| `Makefile` | implementer | Tester may add test targets to the test section |
-| `platformio.ini`, `sdkconfig.defaults` | implementer | Build configuration |
+## Scope Exceptions
+
+| Agent | May also write | When |
+|-------|---------------|------|
+| tester | `main/` (minimal fixes) | No new API, fix < test it unblocks |
+| safety-auditor | inline fixes + `safety-auditor.md` | Single-agent mode, note switch |
+| hardware | `test/mocks/` | Accurate HW simulation needed |
+
+## Contested Files
+
+| File | Default writer | Advisory |
+|------|---------------|----------|
+| `Makefile` DEPS_ | implementer | tester |
+| `docs/registry.md` (code task) | implementer | docs |
+| `docs/registry.md` (doc task) | docs | implementer |
+| `joint_mapping.json` | telemetry-ui | hardware |

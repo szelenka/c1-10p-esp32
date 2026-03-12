@@ -9,43 +9,48 @@ Canonical topic names used across the codebase. **Always reuse these** -- do not
 
 | Topic | Message Type | Publisher(s) | Subscriber(s) |
 |-------|-------------|-------------|----------------|
-| `controller/drive` | ControllerInput | BluepadInputNode | DriveNode |
-| `controller/dome` | ControllerInput | BluepadInputNode | DomeNode, DomeArmsNode, PeriscopeNode |
-| `controller/animation` | ControllerInput | BluepadInputNode | SoundNode, BodyUtilityNode |
+| `controller/drive` | ControllerInput | BluepadInputNode | DriveNode, DomeNode, DomeArmsNode, PeriscopeNode, BodyUtilityNode |
+| `controller/dome` | ControllerInput | BluepadInputNode | DomeNode, NeckNode, SoundNode |
+| `controller/animation` | ControllerInput | BluepadInputNode | (reserved) |
 | `controller/camera` | ControllerInput | BluepadInputNode | (reserved) |
 | `drive/cmd` | MotorCommand | DriveNode | MotorBridgeNode(s) |
 | `dome/motor/cmd` | MotorCommand | DomeNode | MotorBridgeNode |
-| `servo/cmd` | ServoCommand | (aggregate command channel; application default) | TelemetryIOTapNode |
 | `dome/position` | SensorData | DomeNode | (telemetry) |
+| `servo/cmd` | ServoCommand | (aggregate command channel; application default) | TelemetryIOTapNode |
 | `servo/body/cmd` | ServoCommand | BodyUtilityNode | ServoBridgeNode |
 | `servo/dome/cmd` | ServoCommand | DomeArmsNode, PeriscopeNode, NeckNode | ServoBridgeNode |
-| `led/cmd` | LedCommand | (reserved / aggregate LED command channel) | TelemetryIOTapNode |
-| `led/front/cmd` | LedCommand | (reserved) | TelemetryIOTapNode |
-| `led/back/cmd` | LedCommand | (reserved) | TelemetryIOTapNode |
 | `audio/cmd` | AudioCommand | SoundNode, DriveNode | AudioBridgeNode |
+| `led/cmd` | LEDCommand | (reserved / aggregate LED command channel) | TelemetryIOTapNode |
+| `led/front/cmd` | LEDCommand | BodyLedNode | TelemetryIOTapNode |
+| `led/back/cmd` | LEDCommand | (reserved) | TelemetryIOTapNode |
+| `led/dome_eye/cmd` | LEDCommand | DomeNode | OpenMvBridgeNode |
+| `openmv/tracking/cmd` | TrackingCommand | DomeNode | OpenMvBridgeNode |
+| `vision/result` | VisionResult | OpenMvBridgeNode | DomeNode |
 | `system/status` | SystemStatus | SafetyNode | (telemetry) |
 
-TelemetryIOTapNode subscribes to all of the above for passthrough to the telemetry UI, including aggregate `servo/cmd` and LED command channels reserved for tap/bridge visibility.
+TelemetryIOTapNode subscribes to all command/status topics for passthrough to the telemetry UI, including aggregate `servo/cmd` and LED command channels reserved for tap/bridge visibility.
 
 ## Node Inventory
 
-| Node | Header | Role |
-|------|--------|------|
-| BluepadInputNode | `nodes/BluepadInputNode.h` | BT controller -> per-role ControllerInput topics |
-| DriveNode | `nodes/DriveNode.h` | Controller input -> tank drive MotorCommands |
-| DomeNode | `nodes/DomeNode.h` | Controller input -> dome rotation MotorCommand |
-| NeckNode | `nodes/NeckNode.h` | Controller input -> 3-RSS neck IK -> ServoCommands |
-| DomeArmsNode | `nodes/DomeArmsNode.h` | Controller input -> dome arm ServoCommands |
-| PeriscopeNode | `nodes/PeriscopeNode.h` | Controller input -> periscope ServoCommands |
-| SoundNode | `nodes/SoundNode.h` | Controller input -> AudioCommands |
-| BodyUtilityNode | `nodes/BodyUtilityNode.h` | Controller input -> body utility arm ServoCommands |
-| MotorBridgeNode | `nodes/MotorBridgeNode.h` | MotorCommand -> IMotorDriver (one per motor) |
-| ServoBridgeNode | `nodes/ServoBridgeNode.h` | ServoCommand -> IServoController |
-| AudioBridgeNode | `nodes/AudioBridgeNode.h` | AudioCommand -> IAudioDriver |
-| SafetyNode | `nodes/SafetyNode.h` | Publishes SystemStatus, monitors safety state |
-| TelemetryNode | `nodes/TelemetryNode.h` | Periodic telemetry frame emission |
-| TelemetryIOTapNode | `nodes/TelemetryIOTapNode.h` | Passthrough tap on all topics for telemetry |
-| DriverUpdateNode | `nodes/DriverUpdateNode.h` | Periodic driver tick (serial flush, etc.) |
+| Node | Header | Stage | Single Responsibility |
+|------|--------|-------|----------------------|
+| BluepadInputNode | `nodes/BluepadInputNode.h` | Input | Read BT controller state, apply intent mapping, publish per-role ControllerInput. All button/axis interpretation happens here. |
+| DriveNode | `nodes/DriveNode.h` | Action | Translate drive intents into tank-drive MotorCommands. Never inspects raw buttons. |
+| DomeNode | `nodes/DomeNode.h` | Action | Translate dome intents into dome rotation MotorCommand, eye LEDs, tracking commands. Subscribes to both `controller/dome` and `controller/drive` (cross-controller dome spin). Never inspects raw buttons. |
+| NeckNode | `nodes/NeckNode.h` | Action | Translate neck intents into 3-RSS IK ServoCommands. Never inspects raw buttons. |
+| DomeArmsNode | `nodes/DomeArmsNode.h` | Action | Translate dome-arm intents into ServoCommands. Never inspects raw buttons. |
+| PeriscopeNode | `nodes/PeriscopeNode.h` | Action | Translate periscope intents into ServoCommands. Never inspects raw buttons. |
+| SoundNode | `nodes/SoundNode.h` | Action | Translate sound intents into AudioCommands. Never inspects raw buttons. |
+| BodyUtilityNode | `nodes/BodyUtilityNode.h` | Action | Translate body utility intents into ServoCommands. Never inspects raw buttons. |
+| MotorBridgeNode | `nodes/MotorBridgeNode.h` | Bridge | Safety-gated forwarding of MotorCommand to IMotorDriver. No decision logic. |
+| ServoBridgeNode | `nodes/ServoBridgeNode.h` | Bridge | Safety-gated forwarding of ServoCommand to IServoController. No decision logic. |
+| AudioBridgeNode | `nodes/AudioBridgeNode.h` | Bridge | Forward AudioCommand to IAudioDriver. No decision logic. |
+| OpenMvBridgeNode | `nodes/OpenMvBridgeNode.h` | Bridge | ESP32 ↔ OpenMV serial bridge for dome eye LEDs and vision tracking. Subscribes to `led/dome_eye/cmd` and `openmv/tracking/cmd`, publishes `vision/result`. |
+| SafetyNode | `nodes/SafetyNode.h` | Safety | Publish SystemStatus, monitor safety state. Does not issue commands. |
+| TelemetryNode | `nodes/TelemetryNode.h` | Telemetry | Periodic telemetry frame emission. Read-only observer. |
+| TelemetryIOTapNode | `nodes/TelemetryIOTapNode.h` | Telemetry | Passthrough tap on all topics for telemetry. Read-only observer. |
+| BodyLedNode | `nodes/BodyLedNode.h` | Action | Autonomous triangle-wave fade on body LED. Publishes LEDCommand for telemetry visibility. |
+| DriverUpdateNode | `nodes/DriverUpdateNode.h` | Driver | Periodic driver tick (serial flush, etc.). No command logic. |
 
 ## System Data Flow
 
@@ -53,13 +58,20 @@ TelemetryIOTapNode subscribes to all of the above for passthrough to the telemet
 BT Controllers (Core 0, Bluepad32)
   +-- BluepadInputNode
         +-- controller/drive --> DriveNode --> drive/cmd --> MotorBridgeNode --> Sabertooth
-        +-- controller/dome  --> DomeNode  --> dome/motor/cmd --> MotorBridgeNode --> SyRen
-        |                    +-- NeckNode  --> servo/dome/cmd --> ServoBridgeNode --> Maestro(dome)
-        |                    +-- DomeArmsNode --> servo/dome/cmd -->  ^
+        |                    +-- DomeNode (cross-controller dome spin via L2)
+        |                    +-- DomeArmsNode --> servo/dome/cmd --> ServoBridgeNode --> Maestro(dome)
         |                    +-- PeriscopeNode --> servo/dome/cmd --> ^
-        +-- controller/animation --> SoundNode --> audio/cmd --> AudioBridgeNode --> MP3 Trigger
-        |                        +-- BodyUtilityNode --> servo/body/cmd --> ServoBridgeNode --> Maestro(body)
-        +-- controller/camera  (reserved)
+        |                    +-- BodyUtilityNode --> servo/body/cmd --> ServoBridgeNode --> Maestro(body)
+        +-- controller/dome  --> DomeNode  --> dome/motor/cmd --> MotorBridgeNode --> SyRen
+        |                    |            --> dome/position (sensor data)
+        |                    |            --> led/dome_eye/cmd --> OpenMvBridgeNode --> OpenMV serial
+        |                    |            --> openmv/tracking/cmd --> OpenMvBridgeNode --> OpenMV serial
+        |                    +-- NeckNode  --> servo/dome/cmd --> ServoBridgeNode --> Maestro(dome)
+        |                    +-- SoundNode --> audio/cmd --> AudioBridgeNode --> MP3 Trigger
+        +-- controller/animation  (reserved)
+        +-- controller/camera     (reserved)
+
+OpenMvBridgeNode --> vision/result --> DomeNode (face tracking closed loop)
 
 SafetyNode --> system/status
 TelemetryIOTapNode (taps all topics) --> TelemetryService --> serial TEL: lines --> UI bridge
