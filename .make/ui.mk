@@ -9,6 +9,11 @@ UI_BAUD ?= 115200
 
 run-ui-bridge:
 	@set -e; \
+	if [ ! -f ".venv/bin/activate" ]; then \
+		echo "No .venv found at project root — creating ..."; \
+		python3 -m venv .venv; \
+	fi; \
+	. .venv/bin/activate; \
 	SERIAL="$(UI_SERIAL)"; \
 	if [ -z "$$SERIAL" ]; then \
 		if command -v pio >/dev/null 2>&1; then \
@@ -32,16 +37,16 @@ run-ui-bridge:
 			echo "pio not found; skipping serial auto-detect."; \
 		fi; \
 	fi; \
+	PID=$$(lsof -ti tcp:$(UI_PORT) 2>/dev/null || true); \
+	if [ -n "$$PID" ]; then \
+		echo "Killing existing process on port $(UI_PORT) (pid $$PID)..."; \
+		kill $$PID 2>/dev/null || true; \
+		sleep 1; \
+	fi; \
 	echo "Telemetry UI URL: http://$(UI_HOST):$(UI_PORT)"; \
 	echo "Starting UI bridge (serial='$$SERIAL' baud=$(UI_BAUD))"; \
 	cd tools/telemetry_ui; \
-	if [ -x "./.venv/bin/python" ]; then \
-		PY="./.venv/bin/python"; \
-	elif [ -x "../.venv/bin/python" ]; then \
-		PY="../.venv/bin/python"; \
-	else \
-		PY="python3"; \
-	fi; \
+	PY="python3"; \
 	if ! $$PY -c "import aiohttp, serial" >/dev/null 2>&1; then \
 		echo "Installing UI bridge dependencies..."; \
 		$$PY -m pip install -r requirements.txt; \

@@ -365,8 +365,8 @@ function updateBatteryDisplay(slotId, battery, connected) {
   const slash = document.getElementById(`${pfx}-slash`);
   if (!slash) return;
 
-  const hasData = connected && battery !== null && battery !== undefined && battery > 0 && battery !== 255;
-  const filledSegs = hasData ? Math.min(BATT_LEVELS, Math.max(0, Math.ceil((battery / 254) * BATT_LEVELS))) : 0;
+  const hasData = connected && battery !== null && battery !== undefined && battery > 0;
+  const filledSegs = hasData ? Math.min(BATT_LEVELS, Math.max(0, Math.ceil((battery / 255) * BATT_LEVELS))) : 0;
 
   for (let i = 0; i < BATT_LEVELS; i++) {
     const seg = document.getElementById(`${pfx}-seg-${i}`);
