@@ -415,6 +415,33 @@ void test_mac_based_policy_conflict() {
     PASS();
 }
 
+void test_mac_based_policy_supports_five_mappings() {
+    TEST(mac_based_policy_supports_five_mappings);
+    using namespace chopper::bluetooth;
+
+    MacBasedPolicy policy;
+    ASSERT(policy.addMapping(makeMac(0x10, 0, 0, 0, 0, 1), ControllerRole::DRIVE));
+    ASSERT(policy.addMapping(makeMac(0x10, 0, 0, 0, 0, 2), ControllerRole::DOME));
+    ASSERT(policy.addMapping(makeMac(0x10, 0, 0, 0, 0, 3), ControllerRole::ANIMATION));
+    ASSERT(policy.addMapping(makeMac(0x10, 0, 0, 0, 0, 4), ControllerRole::CAMERA));
+    MacAddress mac_tembed = makeMac(0x10, 0, 0, 0, 0, 5);
+    ASSERT(policy.addMapping(mac_tembed, ControllerRole::DRIVE));
+
+    ControllerSlot slots[4];
+    for (auto& s : slots) s.fullReset();
+
+    RoleManager mgr;
+    mgr.setSlots(slots, 4);
+    mgr.setPolicy(policy.getPolicy());
+
+    slots[0].mac = mac_tembed;
+    slots[0].state = ControllerSlot::State::ASSIGNING;
+    ControllerRole role = mgr.onControllerAdded(0, 1000);
+    ASSERT_EQ(role, ControllerRole::DRIVE);
+
+    PASS();
+}
+
 void test_first_available_policy() {
     TEST(first_available_policy);
     using namespace chopper::bluetooth;
@@ -913,6 +940,7 @@ int main() {
     // RoleManager
     test_mac_based_policy();
     test_mac_based_policy_conflict();
+    test_mac_based_policy_supports_five_mappings();
     test_first_available_policy();
     test_first_available_with_preference();
     test_manual_policy();

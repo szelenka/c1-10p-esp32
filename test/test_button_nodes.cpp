@@ -1203,6 +1203,46 @@ void test_dome_no_button_publishes_zero() {
     PASS();
 }
 
+void test_dome_analog_rx_publishes_proportional_speed() {
+    TEST(dome_analog_rx_publishes_proportional_speed);
+    resetFramework();
+
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 100.0f, 2, false, 320);
+    ASSERT(node->initialize());
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto dome_pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/dome");
+
+    float last_speed = 0.0f;
+    int motor_count = 0;
+    struct Ctx {
+        float* speed;
+        int* count;
+    };
+    Ctx ctx{&last_speed, &motor_count};
+    auto motor_sub = broker.createSubscription<chopper::messages::MotorCommand>(
+        "dome/motor/cmd",
+        [](const chopper::messages::MotorCommand& cmd, void* c) {
+            auto* x = static_cast<Ctx*>(c);
+            (*x->count)++;
+            *x->speed = cmd.value;
+        },
+        &ctx);
+
+    chopper::messages::ControllerInput input;
+    input.has_intents = true;
+    input.axis_rx_normalized = 0.5f;
+    dome_pub->publish(input);
+    node->process(1000);
+
+    ASSERT(motor_count > 0);
+    float dome_max_speed = 0.5f;
+    chopper::core::ParameterServer::getInstance().get("dome.max_speed", dome_max_speed);
+    const float expected = -dome_max_speed * chopper::math::ApplyDeadband(0.5f, 0.05f);
+    ASSERT_NEAR(last_speed, expected, 0.01f);
+    PASS();
+}
+
 // ============================================================
 // DomeNode face tracking tests
 // ============================================================
@@ -1567,6 +1607,7 @@ int main() {
     test_dome_drive_l2_publishes_positive_speed();
     test_dome_dome_l2_publishes_negative_speed();
     test_dome_no_button_publishes_zero();
+    test_dome_analog_rx_publishes_proportional_speed();
 
     // DomeNode face tracking
     test_dome_tracking_toggle_via_intent();

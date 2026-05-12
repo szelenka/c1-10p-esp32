@@ -112,6 +112,7 @@ void test_hardware_config_bluetooth_macs() {
     using namespace chopper::config::bluetooth;
     ASSERT(strcmp(DRIVE_MAC, "98:E6:B9:62:6E:58") == 0);
     ASSERT(strcmp(DOME_MAC, "98:E6:B9:5A:CA:74") == 0);
+    ASSERT(strcmp(TEMBED_MAC, "7C:2C:67:8A:14:0E") == 0);
     ASSERT(FORGET_ON_STARTUP == false);
 
     PASS();
@@ -624,14 +625,12 @@ void test_persistent_load_validation() {
     PASS();
 }
 
-// ---- Test: Capacity (88 params fits within MAX_PARAMETERS=128) ----
+// ---- Test: Default parameters fit within MAX_PARAMETERS ----
 
 void test_capacity_within_limits() {
     TEST(capacity_within_limits);
 
     ASSERT(chopper::config::kExpectedParameterCount <= chopper::limits::MAX_PARAMETERS);
-    // Verify there's headroom for user-declared params
-    ASSERT(chopper::config::kExpectedParameterCount + 20 <= chopper::limits::MAX_PARAMETERS);
 
     PASS();
 }

@@ -150,6 +150,7 @@ public:
         last_time_ms_ = now_ms;
         drive_rotate_left_ = rotate_left;
         dome_rotate_right_ = rotate_right;
+        dome_analog_rotate_ = 0.0f;
         updateDomeSpin();
         resolveAndPublish();
     }
@@ -195,6 +196,7 @@ private:
 
         // Dome rotate right from dome controller button
         dome_rotate_right_ = input.has_intents ? input.intent_dome_rotate_right : input.button_l2;
+        dome_analog_rotate_ = math::ApplyDeadband(input.axis_rx_normalized, deadband_);
         updateDomeSpin();
     }
 
@@ -206,7 +208,9 @@ private:
         auto now_ms = last_time_ms_;
 
         float target = 0.0f;
-        if (drive_rotate_left_ && !dome_rotate_right_) {
+        if (std::fabs(dome_analog_rotate_) > 0.001f) {
+            target = (inverted_ ? 1.0f : -1.0f) * dome_analog_rotate_ * max_speed_;
+        } else if (drive_rotate_left_ && !dome_rotate_right_) {
             target = inverted_ ? -max_speed_ : max_speed_;
         } else if (!drive_rotate_left_ && dome_rotate_right_) {
             target = inverted_ ? max_speed_ : -max_speed_;
@@ -619,6 +623,7 @@ private:
     // Button-based dome rotation state (cross-controller)
     bool drive_rotate_left_ = false;
     bool dome_rotate_right_ = false;
+    float dome_analog_rotate_ = 0.0f;
 
     // Random toggle (Home button)
     bool last_random_toggle_ = false;

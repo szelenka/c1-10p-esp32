@@ -74,6 +74,7 @@ int app_main(void) {
         chopper_config_bluetooth_DOME_MAC,
         chopper_config_bluetooth_ANIMATE_MAC,
         chopper_config_bluetooth_CAMERA_MAC,
+        chopper_config_bluetooth_TEMBED_MAC,
     };
 
     if (chopper_config_bluetooth_FORGET_ON_STARTUP)
@@ -87,13 +88,20 @@ int app_main(void) {
     {
         bd_addr_t controller_addr;
         // Parse human-readable Bluetooth address.
-        sscanf_bd_addr(mac_addrs[i], controller_addr);
+        if (!sscanf_bd_addr(mac_addrs[i], controller_addr)) {
+            printf("Failed to parse controller MAC: %s\n", mac_addrs[i]);
+            return 1;
+        }
 
         // Notice that this address will be added in the Non-volatile-storage (NVS).
         // If the device reboots, the address will still be stored.
         // Adding a duplicate value will do nothing.
-        // You can add up to four entries in the allowlist.
-        uni_bt_allowlist_add_addr(controller_addr);
+        // Allowlist entries persist in NVS; duplicate adds are ignored.
+        if (!uni_bt_allowlist_add_addr(controller_addr) &&
+            !uni_bt_allowlist_is_allowed_addr(controller_addr)) {
+            printf("Failed to add controller MAC to Bluepad32 allowlist: %s\n", mac_addrs[i]);
+            return 1;
+        }
     }
 
     // Finally, enable the allowlist.

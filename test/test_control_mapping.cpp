@@ -8,8 +8,11 @@
 #define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include "doctest.h"
 
+#include <cstring>
+
 #include "chopper/messages/CommonMessages.h"
 #include "chopper/input/DriveIntentMapping.h"
+#include "chopper/input/TEmbedInputAdapter.h"
 
 using chopper::input::ControlField;
 using chopper::input::DriveIntentMap;
@@ -250,4 +253,72 @@ TEST_CASE("new_control_fields_round_trip") {
 
     chopper::input::applyControlRelease(input, ControlField::BUTTON_L2);
     CHECK_FALSE(chopper::input::isControlPressed(input, ControlField::BUTTON_L2));
+}
+
+TEST_CASE("tembed_mac_detection_matches_expected_controller") {
+    CHECK(chopper::input::isTEmbedMac("7C:2C:67:8A:14:0E"));
+    CHECK_FALSE(chopper::input::isTEmbedMac("98:E6:B9:62:6E:58"));
+}
+
+TEST_CASE("tembed_drive_input_keeps_drive_axes_and_only_door_intent") {
+    chopper::messages::ControllerInput raw{};
+    raw.controller_id = 3;
+    raw.battery_level = 77;
+    raw.is_connected = true;
+    raw.has_data = true;
+    raw.is_gamepad = true;
+    std::strcpy(raw.mac_address, chopper::input::kTEmbedMac);
+    raw.axis_x = 120;
+    raw.axis_y = -240;
+    raw.axis_x_normalized = 0.25f;
+    raw.axis_y_normalized = -0.5f;
+    raw.axis_x_slew = 0.2f;
+    raw.axis_y_slew = -0.4f;
+    raw.axis_rx = 333;
+    raw.axis_rx_normalized = 0.65f;
+    raw.button_x = true;
+    raw.misc_select = true;
+
+    const auto drive = chopper::input::makeTEmbedDriveInput(raw);
+    CHECK(drive.has_intents);
+    CHECK(drive.intent_dome_doors_toggle);
+    CHECK_FALSE(drive.intent_sound_a);
+    CHECK_FALSE(drive.intent_carpet_mode_toggle);
+    CHECK(drive.axis_x == raw.axis_x);
+    CHECK(drive.axis_y == raw.axis_y);
+    CHECK(drive.axis_x_normalized == doctest::Approx(raw.axis_x_normalized));
+    CHECK(drive.axis_y_normalized == doctest::Approx(raw.axis_y_normalized));
+    CHECK(drive.axis_x_slew == doctest::Approx(raw.axis_x_slew));
+    CHECK(drive.axis_y_slew == doctest::Approx(raw.axis_y_slew));
+    CHECK(drive.axis_rx == 0);
+    CHECK_FALSE(drive.button_x);
+    CHECK_FALSE(drive.misc_select);
+    CHECK(std::strcmp(drive.mac_address, chopper::input::kTEmbedMac) == 0);
+}
+
+TEST_CASE("tembed_dome_input_keeps_rx_axis_and_only_temp_sound_intent") {
+    chopper::messages::ControllerInput raw{};
+    raw.controller_id = 1;
+    raw.battery_level = 55;
+    raw.is_connected = true;
+    raw.has_data = true;
+    raw.is_gamepad = true;
+    std::strcpy(raw.mac_address, chopper::input::kTEmbedMac);
+    raw.axis_x = -200;
+    raw.axis_rx = 256;
+    raw.axis_rx_normalized = 0.5f;
+    raw.button_x = true;
+    raw.misc_select = true;
+
+    const auto dome = chopper::input::makeTEmbedDomeInput(raw);
+    CHECK(dome.has_intents);
+    CHECK(dome.intent_sound_a);
+    CHECK_FALSE(dome.intent_dome_random_toggle);
+    CHECK_FALSE(dome.intent_neck_toggle);
+    CHECK(dome.axis_rx == raw.axis_rx);
+    CHECK(dome.axis_rx_normalized == doctest::Approx(raw.axis_rx_normalized));
+    CHECK(dome.axis_x == 0);
+    CHECK_FALSE(dome.button_x);
+    CHECK_FALSE(dome.misc_select);
+    CHECK(std::strcmp(dome.mac_address, chopper::input::kTEmbedMac) == 0);
 }

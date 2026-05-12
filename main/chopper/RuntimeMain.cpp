@@ -72,6 +72,7 @@ void initRolePolicy() {
         {chopper::config::bluetooth::DOME_MAC, chopper::bluetooth::ControllerRole::DOME},
         {chopper::config::bluetooth::ANIMATE_MAC, chopper::bluetooth::ControllerRole::ANIMATION},
         {chopper::config::bluetooth::CAMERA_MAC, chopper::bluetooth::ControllerRole::CAMERA},
+        {chopper::config::bluetooth::TEMBED_MAC, chopper::bluetooth::ControllerRole::DRIVE},
     };
 
     for (const auto& mapping : mappings) {
@@ -110,6 +111,7 @@ void onControllerConnected(uint8_t slot_index, chopper::bluetooth::ControllerRol
             {chopper::config::bluetooth::DOME_MAC, chopper::bluetooth::ControllerRole::DOME},
             {chopper::config::bluetooth::ANIMATE_MAC, chopper::bluetooth::ControllerRole::ANIMATION},
             {chopper::config::bluetooth::CAMERA_MAC, chopper::bluetooth::ControllerRole::CAMERA},
+            {chopper::config::bluetooth::TEMBED_MAC, chopper::bluetooth::ControllerRole::DRIVE},
         };
 
         chopper::bluetooth::ControllerRole expected = chopper::bluetooth::ControllerRole::UNASSIGNED;

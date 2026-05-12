@@ -4,6 +4,9 @@
 
 FIRMWARE_ENV ?= esp32dev
 UPLOAD_PORT ?=
+PARTITIONS_FILE ?= partitions.csv
+NVS_OFFSET ?= $(shell awk -F',' '/^nvs[[:space:]]*,/ {gsub(/[[:space:]]*/, "", $$4); print $$4; exit}' $(PARTITIONS_FILE))
+NVS_SIZE ?= $(shell awk -F',' '/^nvs[[:space:]]*,/ {gsub(/[[:space:]]*/, "", $$5); print $$5; exit}' $(PARTITIONS_FILE))
 
 define run_firmware_build
 	if [ -x "./.scripts/pio_local.sh" ]; then \
@@ -73,6 +76,27 @@ define run_firmware_monitor
 	fi
 endef
 
+define run_firmware_erase_nvs
+	if [ -z "$(UPLOAD_PORT)" ]; then \
+		echo "Error: UPLOAD_PORT is required for erase-nvs" >&2; \
+		exit 1; \
+	elif [ -z "$(NVS_OFFSET)" ] || [ -z "$(NVS_SIZE)" ]; then \
+		echo "Error: could not resolve NVS partition from $(PARTITIONS_FILE)" >&2; \
+		exit 1; \
+	elif [ -x "./.scripts/pio_local.sh" ]; then \
+		echo "Erasing NVS partition (offset=$(NVS_OFFSET), size=$(NVS_SIZE)) via local esptool"; \
+		./.scripts/pio_local.sh pkg exec -p tool-esptoolpy -- esptool.py --port "$(UPLOAD_PORT)" erase_region "$(NVS_OFFSET)" "$(NVS_SIZE)"; \
+	elif command -v pio >/dev/null 2>&1; then \
+		echo "Erasing NVS partition (offset=$(NVS_OFFSET), size=$(NVS_SIZE)) via PlatformIO esptool"; \
+		pio pkg exec -p tool-esptoolpy -- esptool.py --port "$(UPLOAD_PORT)" erase_region "$(NVS_OFFSET)" "$(NVS_SIZE)"; \
+	else \
+		echo "Error: no supported firmware tool found for erase-nvs (expected ./.scripts/pio_local.sh or pio)." >&2; \
+		exit 1; \
+	fi
+endef
+
+.PHONY: build flash monitor erase-nvs
+
 build:
 	@set -e; $(run_firmware_build)
 
@@ -81,3 +105,6 @@ flash:
 
 monitor:
 	@set -e; $(run_firmware_monitor)
+
+erase-nvs:
+	@set -e; $(run_firmware_erase_nvs)

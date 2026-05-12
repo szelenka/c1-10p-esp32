@@ -6,6 +6,7 @@
 #include "chopper/bluetooth/ControllerManager.h"
 #include "chopper/hal/ChopperBluetooth.h"
 #include "chopper/input/DriveIntentMapping.h"
+#include "chopper/input/TEmbedInputAdapter.h"
 #include "chopper/messages/CommonMessages.h"
 
 #include "controller/uni_gamepad.h"
@@ -33,6 +34,7 @@ public:
             last_report_seen_us_[i] = 0;
             connect_time_ms_[i] = 0;
             have_last_input_[i] = false;
+            split_tembed_[i] = false;
         }
         // Controller join/reconnect can transiently take >100 ms when BT task
         // transitions overlap with logging and slot/role synchronization.
@@ -79,9 +81,12 @@ public:
             if (slot >= 0 && slot < bluetooth::ControllerManager::kMaxSlots) {
                 if (has_fresh_report && have_last_input_[bt_slot]) {
                     controller_manager_->recordInput(static_cast<uint8_t>(slot), now_ms, last_input_cache_[bt_slot]);
-
-                    const auto role = controller_manager_->getSlot(static_cast<uint8_t>(slot)).role;
-                    publishByRole(role, last_input_cache_[bt_slot]);
+                    if (split_tembed_[bt_slot]) {
+                        publishTEmbedSplit(last_input_cache_[bt_slot]);
+                    } else {
+                        const auto role = controller_manager_->getSlot(static_cast<uint8_t>(slot)).role;
+                        publishByRole(role, last_input_cache_[bt_slot]);
+                    }
                 } else if (now_ms - connect_time_ms_[bt_slot] < kConnectGraceMs) {
                     // Time-based grace period after BT connect.  JoyCons can
                     // send one early report then go quiet for >500 ms while
@@ -139,6 +144,12 @@ private:
             mapped_slot_[bt_slot] = controller_manager_->onConnect(mac, data.controller_type, 0, 0, now_ms);
             observed_connected_[bt_slot] = true;
             connect_time_ms_[bt_slot] = now_ms;
+            char mac_str[18];
+            formatMac(data.btaddr, mac_str);
+            split_tembed_[bt_slot] = input::isTEmbedMac(mac_str);
+            if (split_tembed_[bt_slot]) {
+                ESP_LOGI(TAG, "T-Embed split path active: bt_slot=%d mac=%s", bt_slot, mac_str);
+            }
 
             // Select per-controller-type intent maps for the assigned role.
             if (mapped_slot_[bt_slot] >= 0) {
@@ -153,11 +164,15 @@ private:
             if (mapped_slot_[bt_slot] >= 0) {
                 controller_manager_->onDisconnect(static_cast<uint8_t>(mapped_slot_[bt_slot]), now_ms);
             }
+            if (split_tembed_[bt_slot]) {
+                publishTEmbedZero();
+            }
             observed_connected_[bt_slot] = false;
             mapped_slot_[bt_slot] = -1;
             last_report_seen_us_[bt_slot] = 0;
             connect_time_ms_[bt_slot] = 0;
             have_last_input_[bt_slot] = false;
+            split_tembed_[bt_slot] = false;
         }
     }
 
@@ -253,6 +268,26 @@ private:
         }
     }
 
+    void publishTEmbedSplit(const messages::ControllerInput& input) {
+        if (drive_pub_) {
+            drive_pub_->publish(input::makeTEmbedDriveInput(input));
+        }
+        if (dome_pub_) {
+            dome_pub_->publish(input::makeTEmbedDomeInput(input));
+        }
+    }
+
+    void publishTEmbedZero() {
+        messages::ControllerInput zero{};
+        zero.has_intents = true;
+        if (drive_pub_) {
+            drive_pub_->publish(zero);
+        }
+        if (dome_pub_) {
+            dome_pub_->publish(zero);
+        }
+    }
+
     /// Detect SL+SR (L1+R1) held for 2 seconds on the dome controller.
     /// Sets intent_face_tracking_toggle = true for one publish cycle
     /// when the hold threshold is reached, then suppresses until released.
@@ -297,6 +332,7 @@ private:
     uint64_t connect_time_ms_[CHOPPER_BT_MAX_DEVICES];
     messages::ControllerInput last_input_cache_[CHOPPER_BT_MAX_DEVICES];
     bool have_last_input_[CHOPPER_BT_MAX_DEVICES];
+    bool split_tembed_[CHOPPER_BT_MAX_DEVICES];
 
     // Face tracking SL+SR hold state
     uint64_t tracking_hold_start_ms_ = 0;

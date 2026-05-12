@@ -48,7 +48,7 @@ struct MacRoleEntry {
  */
 class MacBasedPolicy {
 public:
-    static constexpr uint8_t kMaxEntries = limits::MAX_CONTROLLERS;
+    static constexpr uint8_t kMaxEntries = limits::MAX_CONTROLLER_MAC_MAPPINGS;
 
     MacBasedPolicy() { memset(m_entries, 0, sizeof(m_entries)); }
 
@@ -99,7 +99,7 @@ private:
  */
 class FirstAvailablePolicy {
 public:
-    static constexpr uint8_t kMaxEntries = limits::MAX_CONTROLLERS;
+    static constexpr uint8_t kMaxEntries = limits::MAX_CONTROLLER_MAC_MAPPINGS;
 
     FirstAvailablePolicy() { memset(m_preferred, 0, sizeof(m_preferred)); }
 
