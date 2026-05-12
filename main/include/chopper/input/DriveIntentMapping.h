@@ -131,6 +131,8 @@ inline bool isControlPressed(const messages::ControllerInput& input, ControlFiel
             return input.misc_start;
         case ControlField::MISC_SYSTEM:
             return input.misc_system;
+        case ControlField::MISC_CAPTURE:
+            return input.misc_capture;
     }
     return false;
 }
@@ -176,6 +178,9 @@ inline void applyControlPress(messages::ControllerInput& input, ControlField con
         case ControlField::MISC_SYSTEM:
             input.misc_system = true;
             break;
+        case ControlField::MISC_CAPTURE:
+            input.misc_capture = true;
+            break;
     }
 }
 
@@ -219,6 +224,9 @@ inline void applyControlRelease(messages::ControllerInput& input, ControlField c
             break;
         case ControlField::MISC_SYSTEM:
             input.misc_system = false;
+            break;
+        case ControlField::MISC_CAPTURE:
+            input.misc_capture = false;
             break;
     }
 }

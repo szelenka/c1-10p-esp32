@@ -5,6 +5,8 @@
 
 namespace chopper::math {
 
+static constexpr float kPiOver4 = 0.7853981633974483f;
+
 /**
  * Pure-math drive mixing: converts joystick inputs to left/right wheel speeds.
  *
@@ -87,7 +89,7 @@ inline WheelSpeeds ReelTwoDriveIK(float xSpeed, float zRotation, bool squareInpu
 
     float ray = std::hypot(xSpeed, zRotation);
     float theta = std::atan2(zRotation, xSpeed);
-    theta += static_cast<float>(M_PI_4);
+    theta += kPiOver4;
     float leftSpeed = ray * std::cos(theta);
     float rightSpeed = ray * std::sin(theta);
 

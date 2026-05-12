@@ -33,6 +33,7 @@ inline messages::ControllerInput makeTEmbedDriveInput(const messages::Controller
     out.axis_y_slew = raw.axis_y_slew;
 
     out.has_intents = true;
+    out.intent_dome_doors_toggle = raw.misc_select;
     return out;
 }
 

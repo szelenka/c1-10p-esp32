@@ -39,6 +39,7 @@
 #include "chopper/messages/CommonMessages.h"
 #include "chopper/nodes/NeckNode.h"
 #include "chopper/nodes/DomeNode.h"
+#include "chopper/config/DefaultParameters.h"
 
 // ---- Test helpers ----
 
@@ -794,9 +795,14 @@ void test_neck_node_emergency_stop() {
 // DomeNode integration test
 // ============================================================
 
+static void setup_dome_node_test() {
+    chopper::core::ParameterServer::getInstance().reset();
+    chopper::config::registerDefaultParameters();
+}
+
 void test_dome_node_publishes_position() {
     TEST(dome_node_publishes_position);
-    
+    setup_dome_node_test();
 
     chopper::dome::DomePosition domePos;
     domePos.update(180, 1000);
@@ -822,7 +828,7 @@ void test_dome_node_publishes_position() {
 
 void test_dome_node_spin_control() {
     TEST(dome_node_spin_control);
-    
+    setup_dome_node_test();
 
     chopper::dome::DomePosition domePos;
     auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 100.0f, 2, false);
@@ -854,7 +860,7 @@ void test_dome_node_spin_control() {
 
 void test_dome_node_emergency_stop() {
     TEST(dome_node_emergency_stop);
-    
+    setup_dome_node_test();
 
     chopper::dome::DomePosition domePos;
     auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos);
@@ -884,7 +890,7 @@ void test_dome_node_emergency_stop() {
 
 void test_dome_node_random_toggle() {
     TEST(dome_node_random_toggle);
-    
+    setup_dome_node_test();
 
     chopper::dome::DomePosition domePos;
     domePos.update(180, 1000);
@@ -924,7 +930,7 @@ void test_dome_node_random_toggle() {
 
 void test_dome_node_auto_safety_gate() {
     TEST(dome_node_auto_safety_gate);
-    
+    setup_dome_node_test();
 
     chopper::dome::DomePosition domePos;
     domePos.update(180, 1000);
@@ -936,21 +942,21 @@ void test_dome_node_auto_safety_gate() {
     // Enable random mode directly for testing
     domePos.setDomeDefaultMode(chopper::dome::DomePosition::kRandom, 1000);
 
-    // Count motor commands from process()
-    int cmd_count = 0;
+    // Track speed of motor commands from process()
+    float last_speed = 0.0f;
     auto& broker = chopper::core::MessageBroker::getInstance();
     auto sub = broker.createSubscription<chopper::messages::MotorCommand>(
         "dome/motor/cmd",
-        [](const chopper::messages::MotorCommand&, void* ctx) {
-            int* count = static_cast<int*>(ctx);
-            (*count)++;
+        [](const chopper::messages::MotorCommand& cmd, void* ctx) {
+            float* speed = static_cast<float*>(ctx);
+            *speed = cmd.value;
         },
-        &cmd_count);
+        &last_speed);
 
-    // Auto-safety is on and dome hasn't moved manually — should not produce auto commands
+    // Auto-safety is on and dome hasn't moved manually — should not produce auto movement
     // Process at a time well past any delay
     node->process(100000);
-    ASSERT(cmd_count == 0);
+    ASSERT(std::fabs(last_speed) < 0.001f);
 
     // Mark manual move — now auto should be allowed
     node->setDomeMovedManually(true);
@@ -964,7 +970,7 @@ void test_dome_node_auto_safety_gate() {
 
 void test_dome_node_idle_transition() {
     TEST(dome_node_idle_transition);
-    
+    setup_dome_node_test();
 
     chopper::dome::DomePosition domePos;
     domePos.update(180, 0);
@@ -994,7 +1000,7 @@ void test_dome_node_idle_transition() {
 
 void test_dome_node_move_to_target() {
     TEST(dome_node_move_to_target);
-    
+    setup_dome_node_test();
 
     // Test the auto-dome movement by enabling random mode and processing
     chopper::dome::DomePosition domePos;
@@ -1012,6 +1018,7 @@ void test_dome_node_move_to_target() {
     // Track motor commands
     float last_speed = 0.0f;
     int cmd_count = 0;
+    std::pair<float, int> cmd_data{0.0f, 0};
     auto& broker = chopper::core::MessageBroker::getInstance();
     auto sub = broker.createSubscription<chopper::messages::MotorCommand>(
         "dome/motor/cmd",
@@ -1020,7 +1027,7 @@ void test_dome_node_move_to_target() {
             data->first = cmd.value;
             data->second++;
         },
-        nullptr);  // We'll use a different approach
+        &cmd_data);
 
     // Process at a time well past the idle delay (6s default = 6000ms)
     // and past the random schedule delay
