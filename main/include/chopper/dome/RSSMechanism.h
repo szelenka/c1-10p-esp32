@@ -1,5 +1,6 @@
 #pragma once
 
+#include "chopper/math/MathConstants.h"
 #include "chopper/math/RSSMachine.h"
 #include "chopper/math/MathUtil.h"
 #include <algorithm>
@@ -52,7 +53,7 @@ public:
     }
 
     void setRotationAngleOffset(float angle) {
-        _rotationRadianOffset = std::clamp(angle, 0.0f, 160.0f) * (static_cast<float>(M_PI) / 180.0f);
+        _rotationRadianOffset = std::clamp(angle, 0.0f, 160.0f) * (math::kPi / 180.0f);
     }
 
     void setActuationRange(uint16_t actuationRange) {

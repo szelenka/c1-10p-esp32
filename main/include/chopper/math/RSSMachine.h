@@ -5,6 +5,8 @@
 #include <algorithm>
 #include <tuple>
 
+#include "chopper/math/MathConstants.h"
+
 namespace chopper {
 namespace math {
 
@@ -176,8 +178,8 @@ protected:
     float _platformMaxHeight;
 
 private:
-    static constexpr float _rad2deg = 180.0f / static_cast<float>(M_PI);
-    static constexpr float _90degRad = 90.0f * static_cast<float>(M_PI) / 180.0f;
+    static constexpr float _rad2deg = 180.0f / kPi;
+    static constexpr float _90degRad = 90.0f * kPi / 180.0f;
     float d, e, f, g;
     bool _jointIsBentOut;
 };

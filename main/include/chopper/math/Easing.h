@@ -3,6 +3,8 @@
 #include <cmath>
 #include <cstdint>
 
+#include "chopper/math/MathConstants.h"
+
 namespace chopper {
 namespace math {
 
@@ -95,9 +97,9 @@ public:
         return 0.5f * f * f * f * f * f + 1;
     }
 
-    static float SineEaseIn(float p) { return std::sin((p - 1) * static_cast<float>(M_PI_2)) + 1; }
-    static float SineEaseOut(float p) { return std::sin(p * static_cast<float>(M_PI_2)); }
-    static float SineEaseInOut(float p) { return 0.5f * (1 - std::cos(p * static_cast<float>(M_PI))); }
+    static float SineEaseIn(float p) { return std::sin((p - 1) * kPiOver2) + 1; }
+    static float SineEaseOut(float p) { return std::sin(p * kPiOver2); }
+    static float SineEaseInOut(float p) { return 0.5f * (1 - std::cos(p * kPi)); }
 
     static float CircularEaseIn(float p) { return 1 - std::sqrt(1 - (p * p)); }
     static float CircularEaseOut(float p) { return std::sqrt((2 - p) * p); }
@@ -117,31 +119,26 @@ public:
         return -0.5f * std::pow(2.0f, (-20 * p) + 10) + 1;
     }
 
-    static float ElasticEaseIn(float p) {
-        return std::sin(13 * static_cast<float>(M_PI_2) * p) * std::pow(2.0f, 10 * (p - 1));
-    }
-    static float ElasticEaseOut(float p) {
-        return std::sin(-13 * static_cast<float>(M_PI_2) * (p + 1)) * std::pow(2.0f, -10 * p) + 1;
-    }
+    static float ElasticEaseIn(float p) { return std::sin(13 * kPiOver2 * p) * std::pow(2.0f, 10 * (p - 1)); }
+    static float ElasticEaseOut(float p) { return std::sin(-13 * kPiOver2 * (p + 1)) * std::pow(2.0f, -10 * p) + 1; }
     static float ElasticEaseInOut(float p) {
         if (p < 0.5f)
-            return 0.5f * std::sin(13 * static_cast<float>(M_PI_2) * (2 * p)) * std::pow(2.0f, 10 * ((2 * p) - 1));
-        return 0.5f *
-               (std::sin(-13 * static_cast<float>(M_PI_2) * ((2 * p - 1) + 1)) * std::pow(2.0f, -10 * (2 * p - 1)) + 2);
+            return 0.5f * std::sin(13 * kPiOver2 * (2 * p)) * std::pow(2.0f, 10 * ((2 * p) - 1));
+        return 0.5f * (std::sin(-13 * kPiOver2 * ((2 * p - 1) + 1)) * std::pow(2.0f, -10 * (2 * p - 1)) + 2);
     }
 
-    static float BackEaseIn(float p) { return p * p * p - p * std::sin(p * static_cast<float>(M_PI)); }
+    static float BackEaseIn(float p) { return p * p * p - p * std::sin(p * kPi); }
     static float BackEaseOut(float p) {
         float f = 1 - p;
-        return 1 - (f * f * f - f * std::sin(f * static_cast<float>(M_PI)));
+        return 1 - (f * f * f - f * std::sin(f * kPi));
     }
     static float BackEaseInOut(float p) {
         if (p < 0.5f) {
             float f = 2 * p;
-            return 0.5f * (f * f * f - f * std::sin(f * static_cast<float>(M_PI)));
+            return 0.5f * (f * f * f - f * std::sin(f * kPi));
         }
         float f = 1 - (2 * p - 1);
-        return 0.5f * (1 - (f * f * f - f * std::sin(f * static_cast<float>(M_PI)))) + 0.5f;
+        return 0.5f * (1 - (f * f * f - f * std::sin(f * kPi))) + 0.5f;
     }
 
     static float BounceEaseOut(float p) {

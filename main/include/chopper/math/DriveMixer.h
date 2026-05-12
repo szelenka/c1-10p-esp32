@@ -3,9 +3,9 @@
 #include <algorithm>
 #include <cmath>
 
-namespace chopper::math {
+#include "chopper/math/MathConstants.h"
 
-static constexpr float kPiOver4 = 0.7853981633974483f;
+namespace chopper::math {
 
 /**
  * Pure-math drive mixing: converts joystick inputs to left/right wheel speeds.
