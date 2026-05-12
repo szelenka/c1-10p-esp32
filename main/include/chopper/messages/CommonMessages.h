@@ -2,6 +2,11 @@
 
 #include "chopper/core/Message.h"
 
+// windows.h defines ERROR as a macro, which collides with enum values.
+#ifdef ERROR
+#undef ERROR
+#endif
+
 namespace chopper::messages {
 
 /**
