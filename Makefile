@@ -21,6 +21,8 @@
 CXX       := g++
 CXXFLAGS  := -std=c++20 -I test/mocks -I main/include -pthread
 
+PYTHON ?= $(shell command -v python3 2>/dev/null || command -v python 2>/dev/null)
+
 CLANG_TIDY ?= $(shell command -v clang-tidy 2>/dev/null || echo /opt/homebrew/opt/llvm/bin/clang-tidy)
 CLANG_FORMAT ?= $(shell command -v clang-format 2>/dev/null || echo /opt/homebrew/opt/llvm/bin/clang-format)
 

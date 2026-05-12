@@ -13,6 +13,6 @@ agent-gate: agent-gate-fast
 
 # Structured gate runner — emits GATE: lines and a GATE_SUMMARY JSON line
 agent-gate-json:
-	@python3 .scripts/run_gates.py
+	@$(PYTHON) .scripts/run_gates.py
 
 ci-local: agent-gate-fast analyze-cppcheck

@@ -11,14 +11,14 @@ run-ui-bridge:
 	@set -e; \
 	if [ ! -f ".venv/bin/activate" ]; then \
 		echo "No .venv found at project root — creating ..."; \
-		python3 -m venv .venv; \
+		$(PYTHON) -m venv .venv; \
 	fi; \
 	. .venv/bin/activate; \
 	SERIAL="$(UI_SERIAL)"; \
 	if [ -z "$$SERIAL" ]; then \
 		if command -v pio >/dev/null 2>&1; then \
 			CANDIDATES=$$(pio device list --json-output 2>/dev/null \
-				| python3 -c "import sys,json; devs=[d['port'] for d in json.load(sys.stdin) if 'VID:PID' in d.get('hwid','')]; print('\n'.join(devs))"); \
+				| $(PYTHON) -c "import sys,json; devs=[d['port'] for d in json.load(sys.stdin) if 'VID:PID' in d.get('hwid','')]; print('\n'.join(devs))"); \
 			COUNT=$$(echo "$$CANDIDATES" | grep -c . 2>/dev/null || true); \
 			if [ "$$COUNT" -eq 1 ]; then \
 				SERIAL="$$CANDIDATES"; \
@@ -46,7 +46,7 @@ run-ui-bridge:
 	echo "Telemetry UI URL: http://$(UI_HOST):$(UI_PORT)"; \
 	echo "Starting UI bridge (serial='$$SERIAL' baud=$(UI_BAUD))"; \
 	cd tools/telemetry_ui; \
-	PY="python3"; \
+	PY="$(PYTHON)"; \
 	if ! $$PY -c "import aiohttp, serial" >/dev/null 2>&1; then \
 		echo "Installing UI bridge dependencies..."; \
 		$$PY -m pip install -r requirements.txt; \
@@ -78,7 +78,7 @@ import-urdf:
 	mkdir -p description/fusion2urdf/meshes
 	cp "$(FUSION_EXPORT_DIR)"/meshes/*.stl description/fusion2urdf/meshes/
 	@echo "Resolving xacro -> URDF ..."
-	python3 .scripts/xacro2urdf.py "$(FUSION_EXPORT_DIR)" description/fusion2urdf/chopper_fusion.urdf
+	$(PYTHON) .scripts/xacro2urdf.py "$(FUSION_EXPORT_DIR)" description/fusion2urdf/chopper_fusion.urdf
 	@echo ""
 	@echo "Imported $$(ls description/fusion2urdf/meshes/*.stl | wc -l | tr -d ' ') STL meshes"
 	@echo "URDF: description/fusion2urdf/chopper_fusion.urdf"
@@ -90,7 +90,7 @@ import-urdf:
 check-ui:
 	@mkdir -p build/pycache
 	@echo "── Python syntax check ──"
-	@PYTHONPYCACHEPREFIX="$(CURDIR)/build/pycache" python3 -m py_compile tools/telemetry_ui/app.py
+	@PYTHONPYCACHEPREFIX="$(CURDIR)/build/pycache" $(PYTHON) -m py_compile tools/telemetry_ui/app.py
 	@echo "PASS: app.py"
 	@echo "── JS syntax check ──"
 	@node --check tools/telemetry_ui/web/app.js
@@ -102,11 +102,11 @@ check-ui:
 	@echo "── UI check complete ──"
 
 check-ui-mapping:
-	@python3 ./.scripts/check_ui_mapping.py
+	@$(PYTHON) ./.scripts/check_ui_mapping.py
 
 check-telemetry-sync:
-	@python3 ./.scripts/check_telemetry_sync.py
+	@$(PYTHON) ./.scripts/check_telemetry_sync.py
 
 test-ui-integration:
 	@echo "── Telemetry parser integration test ──"
-	@python3 .scripts/test_ui_integration.py
+	@$(PYTHON) .scripts/test_ui_integration.py

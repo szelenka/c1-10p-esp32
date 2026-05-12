@@ -24,6 +24,7 @@ jobs:
           install: >-
             make
             mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-python
 
       - name: Run host tests (Linux/macOS)
         if: runner.os != 'Windows'

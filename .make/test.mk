@@ -58,10 +58,10 @@ endef
 $(foreach t,$(TEST_NAMES),$(eval $(call make_test_rule,$(t))))
 
 check-test-inventory:
-	@python3 ./.scripts/check_test_inventory.py
+	@$(PYTHON) ./.scripts/check_test_inventory.py
 
 check-source-inventory:
-	@python3 ./.scripts/check_source_inventory.py
+	@$(PYTHON) ./.scripts/check_source_inventory.py
 
 test-build: check-test-inventory $(TEST_BINS)
 
