@@ -18,7 +18,7 @@ public:
     /**
      * @brief Controller connection state
      */
-    enum class ConnectionState {
+    enum class ConnectionState : uint8_t {
         DISCONNECTED,  ///< No controller connected
         CONNECTING,    ///< Controller is connecting
         CONNECTED,     ///< Controller connected and ready
@@ -28,7 +28,7 @@ public:
     /**
      * @brief Controller capability flags
      */
-    enum CapabilityFlags {
+    enum CapabilityFlags : uint8_t {
         HAS_ANALOG_STICKS = 1 << 0,   ///< Has analog stick support
         HAS_TRIGGERS = 1 << 1,        ///< Has analog triggers
         HAS_GYRO = 1 << 2,            ///< Has gyroscope

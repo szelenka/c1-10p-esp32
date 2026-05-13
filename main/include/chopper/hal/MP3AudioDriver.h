@@ -147,8 +147,8 @@ private:
                 break;
             }
 
-            switch (static_cast<uint8_t>(byte)) {
-                case 'X':  // Track finished
+            switch (static_cast<uint8_t>(byte)) {  // NOLINT(bugprone-branch-clone)
+                case 'X':                          // Track finished
                     m_playing = false;
                     break;
                 case 'E':  // Error

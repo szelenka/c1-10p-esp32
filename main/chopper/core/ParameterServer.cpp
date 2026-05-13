@@ -45,8 +45,8 @@ struct PersistSnapshot {
 
 #if !CHOPPER_HAS_NVS
 // Host-test fallback persistence backend.
-static PersistSnapshot g_host_snapshot{};
-static bool g_host_snapshot_valid = false;
+static PersistSnapshot g_host_snapshot{};   // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+static bool g_host_snapshot_valid = false;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
 #endif
 }  // namespace
 

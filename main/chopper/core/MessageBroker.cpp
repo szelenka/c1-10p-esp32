@@ -7,8 +7,8 @@ static const char* const TAG = "MessageBroker";
 namespace chopper::core {
 
 MessageBroker::MessageBroker() {
-    memset(publishers_, 0, sizeof(publishers_));
-    memset(subscriptions_, 0, sizeof(subscriptions_));
+    memset(static_cast<void*>(publishers_), 0, sizeof(publishers_));
+    memset(static_cast<void*>(subscriptions_), 0, sizeof(subscriptions_));
 }
 
 MessageBroker& MessageBroker::getInstance() {
@@ -129,7 +129,7 @@ MessageBroker::Statistics MessageBroker::getStatistics() const {
     stats.total_subscriptions = subscription_count_;
 
     // Count unique topics
-    const char* seen_topics[limits::MAX_TOPICS] = {};
+    const char* seen_topics[limits::MAX_TOPICS] = {};  // NOLINT(misc-const-correctness)
     size_t topic_count = 0;
 
     for (size_t i = 0; i < publisher_count_; i++) {

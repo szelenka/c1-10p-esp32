@@ -37,7 +37,7 @@ struct RoleAssignmentPolicy {
  */
 struct MacRoleEntry {
     MacAddress mac;
-    ControllerRole role;
+    ControllerRole role = ControllerRole::UNASSIGNED;
 };
 
 /**

@@ -87,10 +87,8 @@ public:
         entries_[idx].detail = detail;
 
         total_count_.fetch_add(1, std::memory_order_relaxed);
-
-        if (sev <= FATAL && sev < Severity::ERROR) {
-            // no-op for non-error severities; count tracked below
-        }
+        
+        // no-op for non-error severities; count tracked below
         severity_counts_[sev].fetch_add(1, std::memory_order_relaxed);
     }
 

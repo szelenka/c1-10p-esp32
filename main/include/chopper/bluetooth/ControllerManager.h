@@ -76,7 +76,7 @@ private:
     }
 
     static uint32_t durationImpl(ControllerRole role, void* /*ctx*/) {
-        switch (role) {
+        switch (role) {  // NOLINT(bugprone-branch-clone)
             case ControllerRole::DRIVE:
                 return 0;
             case ControllerRole::DOME:

@@ -381,7 +381,7 @@ void TelemetryService::formatJsonFromFrame(const PublishFrame& frame, char* out_
         if (!out_json || out_len == 0 || used >= out_len) {
             return;
         }
-        va_list args;
+        va_list args;  // NOLINT(cppcoreguidelines-init-variables)
         va_start(args, fmt);
         int n = std::vsnprintf(out_json + used, out_len - used, fmt, args);
         va_end(args);

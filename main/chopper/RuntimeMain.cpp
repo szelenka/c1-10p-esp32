@@ -31,9 +31,11 @@
 
 namespace {
 static const char* const TAG = "RuntimeMain";
-static chopper::bluetooth::MacBasedPolicy g_role_policy;
+// NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables)
+static chopper::bluetooth::MacBasedPolicy g_role_policy;  // NOLINT(bugprone-throwing-static-initialization)
 static bool g_policy_initialized = false;
 static bool g_runtime_started = false;
+// NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 constexpr ledc_timer_t LED_TIMER = LEDC_TIMER_0;
 constexpr ledc_channel_t LED_CHANNEL = LEDC_CHANNEL_0;
@@ -49,6 +51,7 @@ bool parseMacAddress(const char* text, chopper::bluetooth::MacAddress& out) {
     if (text == nullptr) {
         return false;
     }
+    // NOLINTNEXTLINE(bugprone-unchecked-string-to-number-conversion)
     const int n = std::sscanf(text, "%02x:%02x:%02x:%02x:%02x:%02x", &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]);
     if (n != 6) {
         return false;

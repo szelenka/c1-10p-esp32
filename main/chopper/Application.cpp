@@ -40,8 +40,8 @@ bool Application::addAudio(hal::IAudioDriver* driver, const char* topic) {
     return true;
 }
 
-bool Application::addNode(core::NodePtr node) {
-    return executor_.addNode(std::move(node));
+bool Application::addNode(const core::NodePtr& node) {
+    return executor_.addNode(node);
 }
 
 bool Application::init() {

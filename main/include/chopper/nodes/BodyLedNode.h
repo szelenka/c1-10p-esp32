@@ -34,7 +34,7 @@ public:
     }
 
     void process(uint64_t now_us) override {
-        if (!write_fn_) {
+        if (write_fn_ == nullptr) {
             return;
         }
 
@@ -48,7 +48,7 @@ public:
 
         // Triangle wave: first half ramps up, second half ramps down.
         uint64_t half = period_us_ / 2;
-        uint8_t brightness;
+        uint8_t brightness = 0;
         if (phase < half) {
             brightness = static_cast<uint8_t>((phase * 255) / half);
         } else {
@@ -68,7 +68,7 @@ public:
     }
 
     void emergencyStop() override {
-        if (write_fn_) {
+        if (write_fn_ != nullptr) {
             write_fn_(0, write_ctx_);
         }
         if (led_pub_) {

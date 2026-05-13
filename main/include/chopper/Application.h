@@ -71,7 +71,7 @@ public:
     /**
      * Add a custom node to the executor.
      */
-    bool addNode(core::NodePtr node);
+    bool addNode(const core::NodePtr& node);
 
     /**
      * Configure telemetry output channels.

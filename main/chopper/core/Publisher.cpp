@@ -8,7 +8,7 @@ namespace chopper::core {
 
 Publisher::Publisher(const char* topic, TypeId type_id, const QoSProfile& qos)
     : topic_(topic), type_id_(type_id), qos_(qos) {
-    memset(subscribers_, 0, sizeof(subscribers_));
+    memset(static_cast<void*>(subscribers_), 0, sizeof(subscribers_));
 }
 
 Publisher::~Publisher() {

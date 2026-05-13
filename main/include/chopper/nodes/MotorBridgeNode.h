@@ -51,7 +51,7 @@ private:
             return;
         }
 
-        switch (cmd.command_type) {
+        switch (cmd.command_type) {  // NOLINT(bugprone-branch-clone)
             case messages::MotorCommand::CommandType::SET_SPEED:
                 driver_->set(cmd.value);
                 break;

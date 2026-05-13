@@ -30,6 +30,9 @@ struct UartPortConfig {
  */
 class UartBusManager {
 public:
+    UartBusManager(const UartBusManager&) = delete;
+    UartBusManager& operator=(const UartBusManager&) = delete;
+
     static constexpr uint8_t kMaxPorts = 6;
     static constexpr int8_t kPinUnused = -1;
     static constexpr uint8_t kNoOwner = 0xFF;
@@ -185,9 +188,6 @@ private:
     bool m_allocated[kMaxPorts]{};
     uint8_t m_pinOwner[kMaxGpioNum]{};
     uint8_t m_allocatedCount = 0;
-
-    UartBusManager(const UartBusManager&) = delete;
-    UartBusManager& operator=(const UartBusManager&) = delete;
 };
 
 }  // namespace chopper::hal

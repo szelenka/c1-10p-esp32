@@ -113,6 +113,8 @@ private:
             case config::drive_mode::TANK:
                 speeds = math::TankDriveIK(x, z);
                 break;
+            default:
+                break;
         }
 
         // Apply max speed

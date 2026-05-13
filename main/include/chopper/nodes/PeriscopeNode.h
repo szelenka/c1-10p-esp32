@@ -219,7 +219,7 @@ private:
 
         // Wait for manual input to settle before starting auto-wander
         if (last_manual_spin_ms_ != 0) {
-            uint64_t cooldown = static_cast<uint64_t>(auto_max_delay_ms_);
+            uint64_t cooldown = static_cast<uint64_t>(auto_max_delay_ms_);  // NOLINT(modernize-use-auto)
             if (now_ms - last_manual_spin_ms_ < cooldown) {
                 return;
             }
