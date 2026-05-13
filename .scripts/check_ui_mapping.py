@@ -63,7 +63,7 @@ def resolve_urdf_path(mapping: dict) -> Path:
     package_root = package_candidates.get(urdf_package, DESCRIPTION_ROOT / urdf_package)
     urdf_path = package_root / urdf_file
     if not urdf_path.exists():
-        fail(f"referenced URDF file not found: {urdf_path}")
+        return None
     return urdf_path
 
 
@@ -94,7 +94,6 @@ def validate_section_keys(section_name: str, section: object, pattern: re.Patter
 def main() -> int:
     mapping = load_mapping()
     urdf_path = resolve_urdf_path(mapping)
-    urdf_joints, urdf_links = collect_urdf_names(urdf_path)
 
     servo_entries = validate_section_keys("servo_joints", mapping.get("servo_joints"), SERVO_KEY_RE)
     dome_entries = validate_section_keys(
@@ -106,29 +105,34 @@ def main() -> int:
     )
     led_entries = validate_section_keys("led_links", mapping.get("led_links"), NUMERIC_KEY_RE)
 
-    for section_name, entries in (
-        ("servo_joints", servo_entries),
-        ("dome_servo_joints", dome_entries),
-    ):
-        for key, value in entries.items():
-            names = normalize_names(value)
-            missing = sorted(name for name in names if name not in urdf_joints)
-            if missing:
-                fail(f"{section_name}.{key} references joints missing from {urdf_path}: {', '.join(missing)}")
+    if urdf_path is not None:
+        urdf_joints, urdf_links = collect_urdf_names(urdf_path)
 
-    for key, value in motor_entries.items():
-        names = normalize_names(value, allow_empty_list=False)
-        if len(names) != 1:
-            fail(f"motor_joints.{key} must map to exactly one joint")
-        if names[0] not in urdf_joints:
-            fail(f"motor_joints.{key} references missing joint '{names[0]}' in {urdf_path}")
+        for section_name, entries in (
+            ("servo_joints", servo_entries),
+            ("dome_servo_joints", dome_entries),
+        ):
+            for key, value in entries.items():
+                names = normalize_names(value)
+                missing = sorted(name for name in names if name not in urdf_joints)
+                if missing:
+                    fail(f"{section_name}.{key} references joints missing from {urdf_path}: {', '.join(missing)}")
 
-    for key, value in led_entries.items():
-        names = normalize_names(value, allow_empty_list=False)
-        if len(names) != 1:
-            fail(f"led_links.{key} must map to exactly one link")
-        if names[0] not in urdf_links:
-            fail(f"led_links.{key} references missing link '{names[0]}' in {urdf_path}")
+        for key, value in motor_entries.items():
+            names = normalize_names(value, allow_empty_list=False)
+            if len(names) != 1:
+                fail(f"motor_joints.{key} must map to exactly one joint")
+            if names[0] not in urdf_joints:
+                fail(f"motor_joints.{key} references missing joint '{names[0]}' in {urdf_path}")
+
+        for key, value in led_entries.items():
+            names = normalize_names(value, allow_empty_list=False)
+            if len(names) != 1:
+                fail(f"led_links.{key} must map to exactly one link")
+            if names[0] not in urdf_links:
+                fail(f"led_links.{key} references missing link '{names[0]}' in {urdf_path}")
+    else:
+        print("SKIP: URDF file not found (gitignored), skipping joint/link cross-reference")
 
     if set(speed_entries) != set(motor_entries):
         missing_speed = sorted(set(motor_entries) - set(speed_entries))
@@ -148,9 +152,10 @@ def main() -> int:
     if up_axis not in {"X", "Y", "Z"}:
         fail("urdf_up_axis must be one of X, Y, Z")
 
+    urdf_status = "with URDF cross-reference" if urdf_path else "schema only, URDF not available"
     print(
-        "PASS: joint mapping validated "
-        f"({len(servo_entries) + len(dome_entries)} servo keys, "
+        f"PASS: joint mapping validated ({urdf_status}, "
+        f"{len(servo_entries) + len(dome_entries)} servo keys, "
         f"{len(motor_entries)} motors, {len(led_entries)} leds)"
     )
     return 0
