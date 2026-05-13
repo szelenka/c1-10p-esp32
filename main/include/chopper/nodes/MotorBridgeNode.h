@@ -3,6 +3,7 @@
 #include "chopper/core/PublishingNode.h"
 #include "chopper/hal/IMotorDriver.h"
 #include "chopper/messages/CommonMessages.h"
+#include "chopper/safety/DegradationManager.h"
 
 namespace chopper::nodes {
 
@@ -21,8 +22,13 @@ public:
      * @param driver    Motor driver to forward commands to.
      * @param motor_id  Only process commands matching this motor_id.
      */
-    MotorBridgeNode(const char* name, const char* topic, hal::IMotorDriver* driver, uint8_t motor_id)
-        : PublishingNode(name), topic_(topic), driver_(driver), motor_id_(motor_id) {}
+    MotorBridgeNode(const char* name, const char* topic, hal::IMotorDriver* driver, uint8_t motor_id,
+                    safety::DegradationManager* degradation_mgr = nullptr)
+        : PublishingNode(name)
+        , topic_(topic)
+        , driver_(driver)
+        , motor_id_(motor_id)
+        , degradation_mgr_(degradation_mgr) {}
 
     bool initialize() override {
         if (driver_ == nullptr) {
@@ -51,6 +57,10 @@ private:
             return;
         }
 
+        if (degradation_mgr_ != nullptr && degradation_mgr_->getCurrentMode() >= safety::DegradationMode::SAFE_STOP) {
+            return;
+        }
+
         switch (cmd.command_type) {  // NOLINT(bugprone-branch-clone)
             case messages::MotorCommand::CommandType::SET_SPEED:
                 driver_->set(cmd.value);
@@ -69,6 +79,7 @@ private:
     const char* topic_;
     hal::IMotorDriver* driver_;
     uint8_t motor_id_;
+    safety::DegradationManager* degradation_mgr_;
     core::TypedSubscriptionPtr<messages::MotorCommand> sub_;
 };
 

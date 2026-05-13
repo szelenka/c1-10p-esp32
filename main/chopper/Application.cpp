@@ -64,8 +64,9 @@ bool Application::init() {
     for (uint8_t i = 0; i < motorCount_; i++) {
         snprintf(motorNodeNames_[i], sizeof(motorNodeNames_[i]), "motor_bridge_%d", motors_[i].motor_id);
 
-        auto node = std::make_shared<nodes::MotorBridgeNode>(motorNodeNames_[i], motors_[i].topic, motors_[i].driver,
-                                                             motors_[i].motor_id);
+        auto node =
+            std::make_shared<nodes::MotorBridgeNode>(motorNodeNames_[i], motors_[i].topic, motors_[i].driver,
+                                                     motors_[i].motor_id, &safetyManager_.getDegradationManager());
 
         if (!executor_.addNode(node)) {
             ESP_LOGE(TAG, "Failed to add motor bridge node %d", i);
@@ -78,8 +79,8 @@ bool Application::init() {
     for (uint8_t i = 0; i < servoCount_; i++) {
         snprintf(servoNodeNames_[i], sizeof(servoNodeNames_[i]), "servo_bridge_%d", i);
 
-        auto node =
-            std::make_shared<nodes::ServoBridgeNode>(servoNodeNames_[i], servos_[i].topic, servos_[i].controller);
+        auto node = std::make_shared<nodes::ServoBridgeNode>(
+            servoNodeNames_[i], servos_[i].topic, servos_[i].controller, &safetyManager_.getDegradationManager());
 
         if (!executor_.addNode(node)) {
             ESP_LOGE(TAG, "Failed to add servo bridge node %d", i);
@@ -91,7 +92,8 @@ bool Application::init() {
 
     // 5. Create audio bridge node
     if (audioDriver_ != nullptr) {
-        auto node = std::make_shared<nodes::AudioBridgeNode>("audio_bridge", audioTopic_, audioDriver_);
+        auto node = std::make_shared<nodes::AudioBridgeNode>("audio_bridge", audioTopic_, audioDriver_,
+                                                             &safetyManager_.getDegradationManager());
 
         if (!executor_.addNode(node)) {
             ESP_LOGE(TAG, "Failed to add audio bridge node");

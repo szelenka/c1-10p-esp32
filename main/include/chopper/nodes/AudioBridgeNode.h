@@ -3,6 +3,7 @@
 #include "chopper/core/PublishingNode.h"
 #include "chopper/hal/IAudioDriver.h"
 #include "chopper/messages/CommonMessages.h"
+#include "chopper/safety/DegradationManager.h"
 
 namespace chopper::nodes {
 
@@ -12,8 +13,9 @@ namespace chopper::nodes {
  */
 class AudioBridgeNode : public core::PublishingNode {
 public:
-    AudioBridgeNode(const char* name, const char* topic, hal::IAudioDriver* driver)
-        : PublishingNode(name), topic_(topic), driver_(driver) {}
+    AudioBridgeNode(const char* name, const char* topic, hal::IAudioDriver* driver,
+                    safety::DegradationManager* degradation_mgr = nullptr)
+        : PublishingNode(name), topic_(topic), driver_(driver), degradation_mgr_(degradation_mgr) {}
 
     bool initialize() override {
         if (driver_ == nullptr) {
@@ -39,6 +41,10 @@ private:
             return;
         }
 
+        if (degradation_mgr_ != nullptr && degradation_mgr_->getCurrentMode() >= safety::DegradationMode::SAFE_STOP) {
+            return;
+        }
+
         switch (cmd.command_type) {
             case messages::AudioCommand::CommandType::PLAY_TRACK:
                 driver_->trigger(static_cast<uint8_t>(cmd.track_id));
@@ -56,6 +62,7 @@ private:
 
     const char* topic_;
     hal::IAudioDriver* driver_;
+    safety::DegradationManager* degradation_mgr_;
     core::TypedSubscriptionPtr<messages::AudioCommand> sub_;
 };
 

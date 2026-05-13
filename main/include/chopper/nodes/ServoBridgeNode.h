@@ -3,6 +3,7 @@
 #include "chopper/core/PublishingNode.h"
 #include "chopper/hal/IServoController.h"
 #include "chopper/messages/CommonMessages.h"
+#include "chopper/safety/DegradationManager.h"
 
 namespace chopper::nodes {
 
@@ -19,8 +20,9 @@ public:
      * @param topic     Topic to subscribe to (e.g., "servo/body/cmd").
      * @param controller  Servo controller to forward commands to.
      */
-    ServoBridgeNode(const char* name, const char* topic, hal::IServoController* controller)
-        : PublishingNode(name), topic_(topic), controller_(controller) {}
+    ServoBridgeNode(const char* name, const char* topic, hal::IServoController* controller,
+                    safety::DegradationManager* degradation_mgr = nullptr)
+        : PublishingNode(name), topic_(topic), controller_(controller), degradation_mgr_(degradation_mgr) {}
 
     bool initialize() override {
         if (controller_ == nullptr) {
@@ -51,6 +53,10 @@ private:
             return;
         }
 
+        if (degradation_mgr_ != nullptr && degradation_mgr_->getCurrentMode() >= safety::DegradationMode::SAFE_STOP) {
+            return;
+        }
+
         switch (cmd.command_type) {
             case messages::ServoCommand::CommandType::SET_POSITION: {
                 // Value is already in pulse-width microseconds
@@ -71,6 +77,7 @@ private:
 
     const char* topic_;
     hal::IServoController* controller_;
+    safety::DegradationManager* degradation_mgr_;
     core::TypedSubscriptionPtr<messages::ServoCommand> sub_;
 };
 
