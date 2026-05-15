@@ -85,8 +85,8 @@ Dual-core: Core 0 = BT/WiFi, Core 1 = application executor.
 |--------|----------|------------|
 | Sabertooth 2x32 | UART 38400, 4B packets | ~1.0ms/pkt, device must match/autobaud |
 | SyRen 10 | UART 38400 (shared/separate) | dome rotation, device must match/autobaud |
-| Pololu Maestro x2 | serial compact | body ch0-5, dome ch0-9, 500-2500us |
-| SparkFun MP3 | serial 38400 | on-demand, <1ms TX |
+| Pololu Maestro x2 | UART 38400, Pololu protocol | body ch0-5, dome ch0-10, 500-2500us; boards fixed/autodetect baud must match |
+| SparkFun MP3 | serial 9600 | SD `MP3TRIGR.INI` must set `#BAUD 9600` |
 | Bluepad32 | BT (Core 0) | 4 controllers, axes -512..+512 |
 | OpenMV Cam | UART2 115200, binary | GPIO25 TX/GPIO33 RX, SYNC=0xA5 |
 
@@ -273,7 +273,7 @@ For dedicated review phases in multi-agent pipelines only. In single-agent mode,
 
 **Embedded Constraints** (beyond CLAUDE.md §Constraints):
 - Resource counts within `chopper_limits.h`
-- No unaccounted blocking calls in executor (Sabertooth serial TX ~1.0ms at 38400 baud)
+- No unaccounted blocking calls in executor (Sabertooth packet ~1.0ms, Maestro speed cmd ~1.6ms, Maestro dome multi-target ~7ms at 38400 baud)
 - Deterministic WCET for new public functions
 - const correctness (messages by const-ref)
 - No unbounded loops, uninitialized memory, stack overflow risk

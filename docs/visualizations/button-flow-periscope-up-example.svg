@@ -127,7 +127,7 @@
   <text class="box-title" x="2050" y="306">Maestro dome</text>
   <text class="box-text" x="2050" y="334">channel 0 lift</text>
   <text class="box-text" x="2050" y="356">pulse-width PWM</text>
-  <text class="small" x="2050" y="378">9600 baud</text>
+  <text class="small" x="2050" y="378">38400 baud</text>
   <path class="line" d="M 145 330 L 270 330"/>
   <path class="line" d="M 480 330 L 540 330"/>
   <path class="thin dash" d="M 510 246 L 510 326" fill="none" stroke="#98a2b3"/>

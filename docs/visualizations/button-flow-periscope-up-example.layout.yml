@@ -277,7 +277,7 @@ items:
     lines:
       - {x: 2050, y: 334, text: channel 0 lift}
       - {x: 2050, y: 356, text: pulse-width PWM}
-      - {class: small, x: 2050, y: 378, text: 9600 baud}
+      - {class: small, x: 2050, y: 378, text: 38400 baud}
 
   - kind: path
     class: line

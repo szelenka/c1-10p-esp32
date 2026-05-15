@@ -18,8 +18,8 @@ This document defines the Hardware Abstraction Layer for the chopper ESP32 astro
 |-------------------------------|-----------|-------------------|------------|-----------|--------------------------------------------|
 | Sabertooth 2x32 (addr 129)   | UART (SW) | Packet Serial     | TX-only    | 38400     | Differential drive, 2 motors; DEScribe baud must match |
 | SyRen 10 (addr 128)          | UART (SW) | Packet Serial     | TX-only    | 38400     | Dome rotation, 1 motor; autobauds from delayed 0xAA |
-| Pololu Maestro Body (id 12)  | UART (SW) | Pololu Protocol   | Bidi       | 9600      | 6 channels: neck servos, utility arm, doors|
-| Pololu Maestro Dome (id 13)  | UART (SW) | Pololu Protocol   | Bidi       | 9600      | 11 channels: periscope, doors, arms        |
+| Pololu Maestro Body (id 12)  | UART (SW) | Pololu Protocol   | Bidi       | 38400     | 6 channels: neck servos, utility arm, doors; board baud must match/autodetect |
+| Pololu Maestro Dome (id 13)  | UART (SW) | Pololu Protocol   | Bidi       | 38400     | 11 channels: periscope, doors, arms; board baud must match/autodetect |
 | SparkFun MP3 Trigger          | UART (SW) | Serial commands   | Bidi       | 9600      | Audio playback; SD card init file must match |
 | OpenMV Camera                 | UART (HW) | Custom/Serial     | Bidi       | 115200    | Vision processing (Serial2)                |
 | Dome Potentiometer            | ADC       | Analog            | Input      | N/A       | GPIO34, 12-bit ADC                         |
@@ -199,14 +199,16 @@ UART Port      | Pins (RX/TX)   | Device             | Baud   | Mode
 HW UART0       | GPIO3/GPIO1    | USB Console/BP32   | 115200 | Reserved
 HW UART2       | GPIO33/GPIO25  | OpenMV Camera      | 115200 | Bidi
 SW UART-A      | N/A/GPIO16     | Sabertooth bus     | 38400  | TX-only
-SW UART-B      | GPIO32/GPIO4   | Maestro Body       | 9600   | Bidi
-SW UART-C      | GPIO13/GPIO14  | Maestro Dome       | 9600   | Bidi
+SW UART-B      | GPIO32/GPIO4   | Maestro Body       | 38400  | Bidi
+SW UART-C      | GPIO13/GPIO14  | Maestro Dome       | 38400  | Bidi
 SW UART-D      | GPIO22/GPIO21  | MP3 Trigger        | 9600   | Bidi
 ```
 
 Sabertooth is TX-only from the ESP32 side and uses `SABERTOOTH_RX = UNUSED_PIN` / `SABERTOOTH_TX = GPIO16`, matching the legacy `NOT_A_PIN` receive mapping. OpenMV uses the separate GPIO33/GPIO25 hardware UART allocation.
 
 The SparkFun MP3 Trigger defaults to 38400 baud when no initialization file is present. This runtime uses 9600 baud to improve SoftwareSerial RX/TX timing margin. The microSD card must include `MP3TRIGR.INI` in the root directory with `#BAUD 9600` before the end-of-command marker so the board and firmware agree. See `docs/reference/MP3TRIGR.INI` for the project reference file.
+
+The Pololu Maestro boards run at 38400 baud to keep blocking SoftwareSerial writes inside the executor timing budget. Maestro TTL serial supports this rate in both fixed-baud and autodetect-baud modes; if a board is configured for fixed baud, set it to 38400 before powered testing. In autodetect mode, the full Pololu protocol `0xAA` start byte provides baud detection.
 
 ### 3.2 UART Bus Manager
 
@@ -400,10 +402,10 @@ NVS keys are organized by driver namespace. Each driver has a dedicated NVS name
 Namespace: "hal_uart"
   Key: "saber_baud"    Type: u32    Default: 38400
   Key: "saber_tx_pin"  Type: u8     Default: 16
-  Key: "maestb_baud"   Type: u32    Default: 9600
+  Key: "maestb_baud"   Type: u32    Default: 38400
   Key: "maestb_rx"     Type: u8     Default: 32
   Key: "maestb_tx"     Type: u8     Default: 4
-  Key: "maestd_baud"   Type: u32    Default: 9600
+  Key: "maestd_baud"   Type: u32    Default: 38400
   Key: "maestd_rx"     Type: u8     Default: 13
   Key: "maestd_tx"     Type: u8     Default: 14
   Key: "mp3_baud"      Type: u32    Default: 9600
@@ -821,4 +823,6 @@ The Executor monitors controller activity and transitions power modes:
 
 4. **Sabertooth shared bus timing**: Multiple Sabertooth/SyRen devices on one TX line require sequential writes. The runtime uses 38400 baud, so a typical 4-byte packet takes about 1.0 ms. Three motor updates in one cycle are still blocking, but fit the current 50 Hz executor budget with much better margin. Bench validation must confirm the Sabertooth 2x32 DEScribe setting and SyRen autobaud before powered testing.
 
-5. **NVS write endurance**: ESP32 NVS uses flash, which has limited write cycles (~100K). Configuration saves should be rate-limited (no more than once per minute) and only written when values actually change.
+5. **Maestro baud agreement**: Runtime firmware uses 38400 baud for both Pololu Maestro boards to reduce servo UART blocking time. Confirm both boards are configured for 38400 fixed baud or autodetect baud before powered testing.
+
+6. **NVS write endurance**: ESP32 NVS uses flash, which has limited write cycles (~100K). Configuration saves should be rate-limited (no more than once per minute) and only written when values actually change.
