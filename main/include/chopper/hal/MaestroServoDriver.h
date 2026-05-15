@@ -2,6 +2,7 @@
 
 #include "chopper/hal/IServoController.h"
 #include "chopper/hal/ISerialPort.h"
+#include "esp_log.h"
 #include <cstring>
 
 namespace chopper::hal {
@@ -22,6 +23,7 @@ namespace chopper::hal {
 class MaestroServoDriver : public IServoController {
 public:
     static constexpr uint8_t kMaxChannels = 24;
+    static constexpr uint16_t ERROR_SERIAL_WRITE = 1;
 
     // Pololu compact protocol command bytes
     static constexpr uint8_t CMD_SET_TARGET = 0x84;
@@ -69,8 +71,7 @@ public:
             }
         }
 
-        if (changed) {
-            maestroSetMultiTarget(m_channelCount, 0, m_targets);
+        if (changed && maestroSetMultiTarget(m_channelCount, 0, m_targets)) {
             for (uint8_t i = 0; i < m_channelCount; i++) {
                 m_previousTargets[i] = m_targets[i];
             }
@@ -130,14 +131,24 @@ public:
         }
         m_enabled[channel] = false;
         m_positions[channel] = 0;
+        m_targets[channel] = 0;
         // Send immediate disable (target=0 stops PWM pulses)
-        maestroSetTarget(channel, 0);
+        if (maestroSetTarget(channel, 0)) {
+            m_previousTargets[channel] = 0;
+        }
     }
 
     void disableAll() override {
         for (uint8_t i = 0; i < m_channelCount; i++) {
             m_enabled[i] = false;
             m_positions[i] = 0;
+            m_targets[i] = 0;
+        }
+        if ((m_status != DriverStatus::kUninitialized && m_status != DriverStatus::kDisabled) &&
+            maestroSetMultiTarget(m_channelCount, 0, m_targets)) {
+            for (uint8_t i = 0; i < m_channelCount; i++) {
+                m_previousTargets[i] = 0;
+            }
         }
     }
 
@@ -145,14 +156,18 @@ public:
         if (channel >= m_channelCount) {
             return;
         }
-        maestroSetSpeed(channel, speed);
+        if (!maestroSetSpeed(channel, speed)) {
+            return;
+        }
     }
 
     void setAcceleration(uint8_t channel, uint16_t accel) override {
         if (channel >= m_channelCount) {
             return;
         }
-        maestroSetAcceleration(channel, accel);
+        if (!maestroSetAcceleration(channel, accel)) {
+            return;
+        }
     }
 
     [[nodiscard]] uint8_t getChannelCount() const override { return m_channelCount; }
@@ -190,60 +205,73 @@ private:
      * Sends: 0x84, channel, target_low_7bits, target_high_7bits
      * Target is in quarter-microsecond units.
      */
-    void maestroSetTarget(uint8_t channel, uint16_t target) {
+    [[nodiscard]] bool maestroSetTarget(uint8_t channel, uint16_t target) {
         uint8_t buf[4];
         buf[0] = CMD_SET_TARGET;
         buf[1] = channel;
         buf[2] = static_cast<uint8_t>(target & 0x7F);         // low 7 bits
         buf[3] = static_cast<uint8_t>((target >> 7) & 0x7F);  // high 7 bits
-        m_serial->write(buf, 4);
+        return writeBytes(buf, 4, "set target");
     }
 
     /**
      * Set Speed (compact protocol command 0x87).
      * Sends: 0x87, channel, speed_low_7bits, speed_high_7bits
      */
-    void maestroSetSpeed(uint8_t channel, uint16_t speed) {
+    [[nodiscard]] bool maestroSetSpeed(uint8_t channel, uint16_t speed) {
         uint8_t buf[4];
         buf[0] = CMD_SET_SPEED;
         buf[1] = channel;
         buf[2] = static_cast<uint8_t>(speed & 0x7F);
         buf[3] = static_cast<uint8_t>((speed >> 7) & 0x7F);
-        m_serial->write(buf, 4);
+        return writeBytes(buf, 4, "set speed");
     }
 
     /**
      * Set Acceleration (compact protocol command 0x89).
      * Sends: 0x89, channel, accel_low_7bits, accel_high_7bits
      */
-    void maestroSetAcceleration(uint8_t channel, uint16_t accel) {
+    [[nodiscard]] bool maestroSetAcceleration(uint8_t channel, uint16_t accel) {
         uint8_t buf[4];
         buf[0] = CMD_SET_ACCELERATION;
         buf[1] = channel;
         buf[2] = static_cast<uint8_t>(accel & 0x7F);
         buf[3] = static_cast<uint8_t>((accel >> 7) & 0x7F);
-        m_serial->write(buf, 4);
+        return writeBytes(buf, 4, "set acceleration");
     }
 
     /**
      * Set Multiple Targets (compact protocol command 0x9F).
      * Sends: 0x9F, count, firstChannel, then count × (target_low, target_high) pairs.
      */
-    void maestroSetMultiTarget(uint8_t count, uint8_t firstChannel, const uint16_t* targets) {
-        // Header: command, count, firstChannel
-        uint8_t header[3];
-        header[0] = CMD_SET_MULTI_TARGET;
-        header[1] = count;
-        header[2] = firstChannel;
-        m_serial->write(header, 3);
-
-        // Target data: two 7-bit bytes per channel
-        for (uint8_t i = 0; i < count; i++) {
-            uint8_t pair[2];
-            pair[0] = static_cast<uint8_t>(targets[i] & 0x7F);
-            pair[1] = static_cast<uint8_t>((targets[i] >> 7) & 0x7F);
-            m_serial->write(pair, 2);
+    [[nodiscard]] bool maestroSetMultiTarget(uint8_t count, uint8_t firstChannel, const uint16_t* targets) {
+        if (count > kMaxChannels || targets == nullptr) {
+            return false;
         }
+
+        uint8_t buf[3 + (kMaxChannels * 2)];
+        buf[0] = CMD_SET_MULTI_TARGET;
+        buf[1] = count;
+        buf[2] = firstChannel;
+
+        for (uint8_t i = 0; i < count; i++) {
+            const size_t offset = 3 + (i * 2);
+            buf[offset] = static_cast<uint8_t>(targets[i] & 0x7F);
+            buf[offset + 1] = static_cast<uint8_t>((targets[i] >> 7) & 0x7F);
+        }
+        return writeBytes(buf, static_cast<size_t>(3 + (count * 2)), "multi target");
+    }
+
+    [[nodiscard]] bool writeBytes(const uint8_t* data, size_t length, const char* operation) {
+        const size_t written = m_serial->write(data, length);
+        if (written == length) {
+            return true;
+        }
+        m_status = DriverStatus::kError;
+        m_lastError.set(ERROR_SERIAL_WRITE, 0, "Maestro serial write incomplete");
+        ESP_LOGE(m_name, "%s write failed: %u/%u bytes", operation, static_cast<unsigned>(written),
+                 static_cast<unsigned>(length));
+        return false;
     }
 
     ISerialPort* m_serial;

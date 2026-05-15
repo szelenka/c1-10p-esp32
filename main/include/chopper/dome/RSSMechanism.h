@@ -134,7 +134,7 @@ public:
         }
     }
 
-    std::tuple<float, float> adjustJoystickToAngleOffset(float& x, float& y) const {
+    [[nodiscard]] std::tuple<float, float> adjustJoystickToAngleOffset(float& x, float& y) const {
         x = std::round(math::ApplyDeadband(x, m_deadband) * 100.0f) / 100.0f;
         y = std::round(math::ApplyDeadband(y, m_deadband) * 100.0f) / 100.0f;
         float rotatedX = x * std::cos(_rotationRadianOffset) - y * std::sin(_rotationRadianOffset);
@@ -193,7 +193,7 @@ protected:
     float m_deadband = kDefaultDeadband;
 
 private:
-    static float normalizeDegrees(float angle) {
+    [[nodiscard]] static float normalizeDegrees(float angle) {
         float normalized = std::fmod(angle, 360.0f);
         if (normalized > 180.0f) {
             normalized -= 360.0f;
@@ -204,12 +204,12 @@ private:
         return normalized;
     }
 
-    float mapPWMToAngle(uint16_t pulseWidth) const {
+    [[nodiscard]] float mapPWMToAngle(uint16_t pulseWidth) const {
         return static_cast<float>(
             math::mapValue(pulseWidth, _servoTheoreticalMinPulse, _servoTheoreticalMaxPulse, 0, _servoActuationRange));
     }
 
-    uint16_t mapAngleToPWM(float angle) const {
+    [[nodiscard]] uint16_t mapAngleToPWM(float angle) const {
         return static_cast<uint16_t>(math::mapValue(static_cast<long>(std::round(angle)), 0, _servoActuationRange,
                                                     _servoTheoreticalMinPulse, _servoTheoreticalMaxPulse));
     }

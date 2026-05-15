@@ -18,12 +18,18 @@
 class MockSerialPort : public chopper::hal::ISerialPort {
 public:
     std::vector<uint8_t> bytes;
+    bool short_write_next = false;
 
     size_t write(const uint8_t* data, size_t length) override {
-        for (size_t i = 0; i < length; i++) {
+        size_t written = length;
+        if (short_write_next && length > 0) {
+            written = length - 1;
+            short_write_next = false;
+        }
+        for (size_t i = 0; i < written; i++) {
             bytes.push_back(data[i]);
         }
-        return length;
+        return written;
     }
 
     void clear() { bytes.clear(); }
@@ -313,6 +319,78 @@ void test_disable_all() {
     ASSERT(driver.getPosition(1) == 0);
     ASSERT(driver.getPosition(2) == 0);
 
+    // disableAll() must send an immediate all-channel zero target because
+    // shutdown/e-stop paths do not get another safe driver update.
+    ASSERT(serial.bytes.size() == 9);
+    ASSERT(serial.bytes[0] == 0x9F);
+    ASSERT(serial.bytes[1] == 3);
+    ASSERT(serial.bytes[2] == 0);
+    for (size_t i = 3; i < serial.bytes.size(); i++) {
+        ASSERT(serial.bytes[i] == 0);
+    }
+
+    PASS();
+}
+
+void test_update_write_failure_sets_error() {
+    TEST(maestro_update_write_failure_sets_error);
+
+    MockSerialPort serial;
+    chopper::hal::MaestroServoDriver driver(serial, 2, "test");
+    driver.init();
+
+    driver.enable(0);
+    driver.setPosition(0, 1500);
+    serial.short_write_next = true;
+    driver.update();
+
+    ASSERT(driver.getStatus() == chopper::hal::DriverStatus::kError);
+    ASSERT(driver.getErrorState().code == chopper::hal::MaestroServoDriver::ERROR_SERIAL_WRITE);
+
+    PASS();
+}
+
+void test_disable_all_retries_after_error() {
+    TEST(maestro_disable_all_retries_after_error);
+
+    MockSerialPort serial;
+    chopper::hal::MaestroServoDriver driver(serial, 2, "test");
+    driver.init();
+
+    driver.enable(0);
+    driver.setPosition(0, 1500);
+    serial.short_write_next = true;
+    driver.update();
+    ASSERT(driver.getStatus() == chopper::hal::DriverStatus::kError);
+
+    serial.clear();
+    driver.disableAll();
+
+    ASSERT(serial.bytes.size() == 7);
+    ASSERT(serial.bytes[0] == 0x9F);
+    ASSERT(serial.bytes[1] == 2);
+    ASSERT(serial.bytes[2] == 0);
+    for (size_t i = 3; i < serial.bytes.size(); i++) {
+        ASSERT(serial.bytes[i] == 0);
+    }
+
+    PASS();
+}
+
+void test_disable_write_failure_sets_error() {
+    TEST(maestro_disable_write_failure_sets_error);
+
+    MockSerialPort serial;
+    chopper::hal::MaestroServoDriver driver(serial, 2, "test");
+    driver.init();
+
+    driver.enable(0);
+    serial.short_write_next = true;
+    driver.disable(0);
+
+    ASSERT(driver.getStatus() == chopper::hal::DriverStatus::kError);
+    ASSERT(driver.getErrorState().code == chopper::hal::MaestroServoDriver::ERROR_SERIAL_WRITE);
+
     PASS();
 }
 
@@ -424,6 +502,9 @@ int main() {
     test_set_speed_protocol();
     test_set_acceleration_protocol();
     test_disable_all();
+    test_update_write_failure_sets_error();
+    test_disable_all_retries_after_error();
+    test_disable_write_failure_sets_error();
     test_reset_restores_ready();
     test_diagnostic_status();
     test_diagnostic_home();

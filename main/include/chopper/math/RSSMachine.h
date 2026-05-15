@@ -56,7 +56,7 @@ public:
     /**
      * Calculate servo angle when links are fully extended (maximum height).
      */
-    float calculateStraightAngle() const {
+    [[nodiscard]] float calculateStraightAngle() const {
         float theta = 0.0f;
         if (d > e) {
             theta = std::acos((d - e) / (g + f));
@@ -71,7 +71,7 @@ public:
     /**
      * Calculate servo angle at minimum height.
      */
-    float calculateMinHeightAngle() const {
+    [[nodiscard]] float calculateMinHeightAngle() const {
         float ref_hypot = std::sqrt(std::pow(d - e, 2) + std::pow(_platformMinHeight, 2));
 
         float theta2 = std::acos((std::pow(ref_hypot, 2) + std::pow(f, 2) - std::pow(g, 2)) / (2 * ref_hypot * f));
@@ -105,7 +105,7 @@ public:
      * Normalize and clamp a tilt vector (nx, ny) into a unit normal.
      * Returns (nx, ny, nz).
      */
-    std::tuple<float, float, float> unitNormalVector(float nx, float ny) const {
+    [[nodiscard]] std::tuple<float, float, float> unitNormalVector(float nx, float ny) const {
         float nmag = std::sqrt(nx * nx + ny * ny + 1.0f);
         nx /= nmag;
         ny /= nmag;
