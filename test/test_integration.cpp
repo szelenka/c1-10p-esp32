@@ -23,6 +23,7 @@
 #include <cstdio>
 #include <cassert>
 #include <cstring>
+#include <limits>
 #include <memory>
 
 // Core framework
@@ -126,6 +127,40 @@ void test_motor_bridge_e2e() {
     PASS();
 }
 
+void test_motor_bridge_safe_stop_allows_stop_only() {
+    TEST(motor_bridge_safe_stop_allows_stop_only);
+
+    chopper::safety::DegradationManager degradation;
+    chopper::hal::MockMotorDriver motor("safe_stop_motor");
+    motor.set(0.6f);
+
+    auto motorNode = std::make_shared<chopper::nodes::MotorBridgeNode>(
+        "safe_stop_motor_bridge", "drive/safe_stop/cmd", &motor, 0, &degradation);
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto pub = broker.createPublisher<chopper::messages::MotorCommand>("drive/safe_stop/cmd");
+
+    ASSERT(motorNode->initialize());
+
+    chopper::messages::MotorCommand cmd;
+    cmd.motor_id = 0;
+    cmd.command_type = chopper::messages::MotorCommand::CommandType::SET_SPEED;
+    cmd.value = 0.9f;
+    pub->publish(cmd);
+    ASSERT(motor.get() == 0.6f);
+
+    cmd.command_type = chopper::messages::MotorCommand::CommandType::STOP;
+    pub->publish(cmd);
+    ASSERT(motor.get() == 0.0f);
+
+    motor.set(0.4f);
+    cmd.command_type = chopper::messages::MotorCommand::CommandType::EMERGENCY_STOP;
+    pub->publish(cmd);
+    ASSERT(motor.get() == 0.0f);
+
+    PASS();
+}
+
 // ---- Test: Servo bridge node end-to-end ----
 
 void test_servo_bridge_e2e() {
@@ -169,6 +204,78 @@ void test_servo_bridge_e2e() {
     pub->publish(disableCmd);
 
     ASSERT(!servoCtrl.isEnabled(3));
+
+    PASS();
+}
+
+void test_servo_bridge_clamps_and_rejects_unsafe_pulses() {
+    TEST(servo_bridge_clamps_and_rejects_unsafe_pulses);
+
+    chopper::hal::MockServoDriver servoCtrl("clamped_servos", 4);
+
+    auto servoNode = std::make_shared<chopper::nodes::ServoBridgeNode>(
+        "servo_bridge_clamp", "servo/clamp/cmd", &servoCtrl);
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto pub = broker.createPublisher<chopper::messages::ServoCommand>("servo/clamp/cmd");
+
+    ASSERT(servoNode->initialize());
+
+    chopper::messages::ServoCommand cmd;
+    cmd.servo_id = 1;
+    cmd.command_type = chopper::messages::ServoCommand::CommandType::SET_POSITION;
+
+    cmd.value = 399.0f;
+    pub->publish(cmd);
+    ASSERT(servoCtrl.isEnabled(1));
+    ASSERT(servoCtrl.getPosition(1) == 400);
+
+    cmd.value = 2501.0f;
+    pub->publish(cmd);
+    ASSERT(servoCtrl.getPosition(1) == 2500);
+
+    const uint32_t log_count = servoCtrl.getLogCount();
+    cmd.value = 0.0f;
+    pub->publish(cmd);
+    ASSERT(servoCtrl.getPosition(1) == 2500);
+    ASSERT(servoCtrl.getLogCount() == log_count);
+
+    cmd.value = std::numeric_limits<float>::quiet_NaN();
+    pub->publish(cmd);
+    ASSERT(servoCtrl.getPosition(1) == 2500);
+    ASSERT(servoCtrl.getLogCount() == log_count);
+
+    PASS();
+}
+
+void test_servo_bridge_safe_stop_allows_disable_only() {
+    TEST(servo_bridge_safe_stop_allows_disable_only);
+
+    chopper::safety::DegradationManager degradation;
+    chopper::hal::MockServoDriver servoCtrl("safe_stop_servos", 4);
+    servoCtrl.enable(2);
+    servoCtrl.setPosition(2, 1500);
+
+    auto servoNode = std::make_shared<chopper::nodes::ServoBridgeNode>(
+        "servo_bridge_safe_stop", "servo/safe_stop/cmd", &servoCtrl, &degradation);
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto pub = broker.createPublisher<chopper::messages::ServoCommand>("servo/safe_stop/cmd");
+
+    ASSERT(servoNode->initialize());
+
+    chopper::messages::ServoCommand cmd;
+    cmd.servo_id = 2;
+    cmd.command_type = chopper::messages::ServoCommand::CommandType::SET_POSITION;
+    cmd.value = 1700.0f;
+    pub->publish(cmd);
+    ASSERT(servoCtrl.isEnabled(2));
+    ASSERT(servoCtrl.getPosition(2) == 1500);
+
+    cmd.command_type = chopper::messages::ServoCommand::CommandType::DISABLE;
+    pub->publish(cmd);
+    ASSERT(!servoCtrl.isEnabled(2));
+    ASSERT(servoCtrl.getPosition(2) == 0);
 
     PASS();
 }
@@ -889,7 +996,10 @@ int main() {
     printf("=== Chopper Integration Tests ===\n\n");
 
     test_motor_bridge_e2e();
+    test_motor_bridge_safe_stop_allows_stop_only();
     test_servo_bridge_e2e();
+    test_servo_bridge_clamps_and_rejects_unsafe_pulses();
+    test_servo_bridge_safe_stop_allows_disable_only();
     test_servo_motion_timed_position();
     test_servo_motion_interruption_uses_current_position();
     test_audio_bridge_e2e();

@@ -52,12 +52,21 @@ public:
     [[nodiscard]] uint8_t getMotorId() const { return motor_id_; }
 
 private:
+    [[nodiscard]] bool isSafetyBlocked(const messages::MotorCommand& cmd) const {
+        if (degradation_mgr_ == nullptr || degradation_mgr_->getCurrentMode() < safety::DegradationMode::SAFE_STOP) {
+            return false;
+        }
+
+        return cmd.command_type == messages::MotorCommand::CommandType::SET_SPEED;
+    }
+
     void onCommand(const messages::MotorCommand& cmd) {
         if ((driver_ == nullptr) || cmd.motor_id != motor_id_) {
             return;
         }
 
-        if (degradation_mgr_ != nullptr && degradation_mgr_->getCurrentMode() >= safety::DegradationMode::SAFE_STOP) {
+        const bool degradation_blocks_motion = isSafetyBlocked(cmd);
+        if (degradation_blocks_motion) {
             return;
         }
 

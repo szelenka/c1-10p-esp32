@@ -6,6 +6,9 @@
 #include "chopper/messages/CommonMessages.h"
 #include "chopper/safety/DegradationManager.h"
 
+#include <cmath>
+#include <cstdint>
+
 namespace chopper::nodes {
 
 /**
@@ -47,8 +50,40 @@ public:
     [[nodiscard]] hal::IServoController* getController() const { return controller_; }
 
 private:
-    [[nodiscard]] bool isSafetyBlocked() const {
-        return degradation_mgr_ != nullptr && degradation_mgr_->getCurrentMode() >= safety::DegradationMode::SAFE_STOP;
+    static constexpr float kMinimumCommandPulseUs = 400.0f;
+    static constexpr float kMaximumCommandPulseUs = 2500.0f;
+    static constexpr float kMaximum14BitValue = 16383.0f;
+
+    [[nodiscard]] bool isSafetyBlocked(const messages::ServoCommand& cmd) const {
+        if (degradation_mgr_ == nullptr || degradation_mgr_->getCurrentMode() < safety::DegradationMode::SAFE_STOP) {
+            return false;
+        }
+
+        return cmd.command_type != messages::ServoCommand::CommandType::DISABLE;
+    }
+
+    [[nodiscard]] static bool pulseFromCommand(float value, uint16_t& pulse_us) {
+        if (!std::isfinite(value) || value <= 0.0f) {
+            return false;
+        }
+        if (value < kMinimumCommandPulseUs) {
+            value = kMinimumCommandPulseUs;
+        } else if (value > kMaximumCommandPulseUs) {
+            value = kMaximumCommandPulseUs;
+        }
+        pulse_us = static_cast<uint16_t>(value);
+        return true;
+    }
+
+    [[nodiscard]] static bool nonNegative14BitFromCommand(float value, uint16_t& out) {
+        if (!std::isfinite(value) || value < 0.0f) {
+            return false;
+        }
+        if (value > kMaximum14BitValue) {
+            value = kMaximum14BitValue;
+        }
+        out = static_cast<uint16_t>(value);
+        return true;
     }
 
     void onCommand(const messages::ServoCommand& cmd) {
@@ -59,20 +94,29 @@ private:
             return;
         }
 
-        if (degradation_mgr_ != nullptr && degradation_mgr_->getCurrentMode() >= safety::DegradationMode::SAFE_STOP) {
+        const bool degradation_blocks_motion = isSafetyBlocked(cmd);
+        if (degradation_blocks_motion) {
             return;
         }
 
         switch (cmd.command_type) {
             case messages::ServoCommand::CommandType::SET_POSITION: {
-                // Value is already in pulse-width microseconds
+                uint16_t pulse_us = 0;
+                if (!pulseFromCommand(cmd.value, pulse_us)) {
+                    return;
+                }
                 controller_->enable(cmd.servo_id);
-                controller_->setPosition(cmd.servo_id, static_cast<uint16_t>(cmd.value));
+                controller_->setPosition(cmd.servo_id, pulse_us);
                 break;
             }
-            case messages::ServoCommand::CommandType::SET_SPEED:
-                controller_->setSpeed(cmd.servo_id, static_cast<uint16_t>(cmd.value));
+            case messages::ServoCommand::CommandType::SET_SPEED: {
+                uint16_t speed = 0;
+                if (!nonNegative14BitFromCommand(cmd.value, speed)) {
+                    return;
+                }
+                controller_->setSpeed(cmd.servo_id, speed);
                 break;
+            }
             case messages::ServoCommand::CommandType::ENABLE:
                 controller_->enable(cmd.servo_id);
                 break;
