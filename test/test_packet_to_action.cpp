@@ -60,7 +60,7 @@ void test_periscope_up_intent_publishes_lift() {
     ServoCapture capture{};
     auto& broker = chopper::core::MessageBroker::getInstance();
     auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
-        "servo/dome/cmd",
+        "servo/dome/move",
         [](const chopper::messages::ServoCommand& cmd, void* ctx) {
             auto* c = static_cast<ServoCapture*>(ctx);
             c->count++;
@@ -104,7 +104,7 @@ void test_periscope_up_then_down_intent() {
 
     auto& broker = chopper::core::MessageBroker::getInstance();
     auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
-        "servo/dome/cmd",
+        "servo/dome/move",
         [](const chopper::messages::ServoCommand& cmd, void* ctx) {
             auto* last = static_cast<float*>(ctx);
             if (cmd.servo_id == chopper::config::servo_channel::DOME_PERISCOPE_LIFT) {
@@ -114,7 +114,7 @@ void test_periscope_up_then_down_intent() {
         &last_lift_value);
 
     auto count_sub = broker.createSubscription<chopper::messages::ServoCommand>(
-        "servo/dome/cmd",
+        "servo/dome/move",
         [](const chopper::messages::ServoCommand& cmd, void* ctx) {
             auto* count = static_cast<int*>(ctx);
             if (cmd.servo_id == chopper::config::servo_channel::DOME_PERISCOPE_LIFT) {

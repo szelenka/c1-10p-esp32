@@ -59,7 +59,14 @@ static int legacyPowerForSet(float speed, bool inverted) {
     if (inverted) {
         target_speed *= -1.0f;
     }
-    return static_cast<int8_t>(target_speed * static_cast<int8_t>(127));
+    int power = static_cast<int8_t>(target_speed * static_cast<int8_t>(127));
+    if (power > chopper::hal::SabertoothMotorDriver::MAX_THROTTLE_POWER) {
+        power = chopper::hal::SabertoothMotorDriver::MAX_THROTTLE_POWER;
+    }
+    if (power < -chopper::hal::SabertoothMotorDriver::MAX_THROTTLE_POWER) {
+        power = -chopper::hal::SabertoothMotorDriver::MAX_THROTTLE_POWER;
+    }
+    return power;
 }
 
 static bool verifyLegacyMotorPacket(const std::vector<uint8_t>& bytes, size_t offset,
@@ -85,6 +92,40 @@ void test_init_sends_autobaud() {
     // init() should send the autobaud byte 0xAA
     ASSERT(serial.bytes.size() >= 1);
     ASSERT(serial.bytes[0] == 0xAA);
+
+    PASS();
+}
+
+void test_init_can_skip_autobaud_for_shared_bus() {
+    TEST(sabertooth_init_can_skip_autobaud_for_shared_bus);
+
+    MockSerialPort serial;
+    chopper::hal::SabertoothMotorDriver driver(serial, 128, 1, "test", false);
+
+    auto status = driver.init();
+
+    ASSERT(status == chopper::hal::DriverStatus::kReady);
+    ASSERT(driver.getStatus() == chopper::hal::DriverStatus::kReady);
+    ASSERT(!driver.isAutobaudOnInitEnabled());
+    ASSERT(serial.bytes.empty());
+
+    PASS();
+}
+
+void test_shared_bus_sends_single_autobaud() {
+    TEST(sabertooth_shared_bus_sends_single_autobaud);
+
+    MockSerialPort serial;
+    chopper::hal::SabertoothMotorDriver left(serial, 129, 1, "left");
+    chopper::hal::SabertoothMotorDriver right(serial, 129, 2, "right", false);
+    chopper::hal::SabertoothMotorDriver dome(serial, 128, 1, "dome", false);
+
+    left.init();
+    right.init();
+    dome.init();
+
+    ASSERT(serial.bytes.size() == 1);
+    ASSERT(serial.bytes[0] == chopper::hal::SabertoothMotorDriver::AUTOBAUD_BYTE);
 
     PASS();
 }
@@ -190,9 +231,9 @@ void test_motor2_forward() {
     driver.set(1.0f);
     driver.update();
 
-    // Motor 2 forward: cmd=4, value clamped to 127
+    // Motor 2 forward: cmd=4, value clamped to 126 by the legacy library
     ASSERT(serial.bytes.size() == 4);
-    ASSERT(verifyPacket(serial.bytes, 0, 129, 4, 127));
+    ASSERT(verifyPacket(serial.bytes, 0, 129, 4, 126));
 
     PASS();
 }
@@ -208,9 +249,9 @@ void test_motor2_reverse() {
     driver.set(-1.0f);
     driver.update();
 
-    // Motor 2 reverse: cmd=5, value clamped to 127
+    // Motor 2 reverse: cmd=5, value clamped to 126 by the legacy library
     ASSERT(serial.bytes.size() == 4);
-    ASSERT(verifyPacket(serial.bytes, 0, 129, 5, 127));
+    ASSERT(verifyPacket(serial.bytes, 0, 129, 5, 126));
 
     PASS();
 }
@@ -238,8 +279,8 @@ void test_checksum_calculation() {
     PASS();
 }
 
-void test_power_clamping_to_127() {
-    TEST(sabertooth_power_clamped_to_127);
+void test_power_clamping_to_126() {
+    TEST(sabertooth_power_clamped_to_126);
 
     MockSerialPort serial;
     chopper::hal::SabertoothMotorDriver driver(serial, 128, 1, "test");
@@ -249,13 +290,13 @@ void test_power_clamping_to_127() {
     serial.clear();
     driver.set(1.0f);
     driver.update();
-    ASSERT(serial.bytes[2] == 127);  // value byte
+    ASSERT(serial.bytes[2] == 126);  // value byte
 
     // Full reverse
     serial.clear();
     driver.set(-1.0f);
     driver.update();
-    ASSERT(serial.bytes[2] == 127);  // value byte (absolute)
+    ASSERT(serial.bytes[2] == 126);  // value byte (absolute)
 
     PASS();
 }
@@ -470,6 +511,8 @@ int main() {
     printf("=== Sabertooth Motor Driver Tests ===\n\n");
 
     test_init_sends_autobaud();
+    test_init_can_skip_autobaud_for_shared_bus();
+    test_shared_bus_sends_single_autobaud();
     test_init_lifecycle();
     test_init_write_failure_sets_error();
     test_motor1_forward();
@@ -478,7 +521,7 @@ int main() {
     test_motor2_forward();
     test_motor2_reverse();
     test_checksum_calculation();
-    test_power_clamping_to_127();
+    test_power_clamping_to_126();
     test_legacy_packet_equivalence_table();
     test_zero_power();
     test_inversion();

@@ -11,6 +11,7 @@ constexpr size_t MAX_SUBSCRIBERS_PER_TOPIC = 8;
 
 // Hardware limits
 constexpr size_t MAX_MOTORS = 16;
+constexpr size_t MAX_SERVO_CHANNELS = 24;
 constexpr size_t MAX_CONTROLLERS = 4;
 constexpr size_t MAX_CONTROLLER_MAC_MAPPINGS = 8;
 constexpr size_t MAX_DRIVERS = 12;

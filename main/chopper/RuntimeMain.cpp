@@ -15,6 +15,7 @@
 #include "chopper/nodes/NeckNode.h"
 #include "chopper/nodes/OpenMvBridgeNode.h"
 #include "chopper/nodes/PeriscopeNode.h"
+#include "chopper/nodes/ServoMotionNode.h"
 #include "chopper/nodes/SoundNode.h"
 #include "chopper/hal/DriverManager.h"
 #include "chopper/hal/ChopperBluetooth.h"
@@ -198,9 +199,9 @@ extern "C" int chopper_runtime_start(void) {
     static chopper::hal::SabertoothMotorDriver drive_left(
         sabertooth_serial, chopper::config::device_id::SABERTOOTH_TANK_DRIVE, 1, "sabertooth_left");
     static chopper::hal::SabertoothMotorDriver drive_right(
-        sabertooth_serial, chopper::config::device_id::SABERTOOTH_TANK_DRIVE, 2, "sabertooth_right");
+        sabertooth_serial, chopper::config::device_id::SABERTOOTH_TANK_DRIVE, 2, "sabertooth_right", false);
     static chopper::hal::SabertoothMotorDriver dome_motor(
-        sabertooth_serial, chopper::config::device_id::SABERTOOTH_DOME_DRIVE, 1, "sabertooth_dome");
+        sabertooth_serial, chopper::config::device_id::SABERTOOTH_DOME_DRIVE, 1, "sabertooth_dome", false);
     static chopper::hal::MaestroServoDriver maestro_body(maestro_body_serial,
                                                          chopper::config::servo_channel::BODY_CHANNEL_COUNT,
                                                          "maestro_body", chopper::config::device_id::MAESTRO_BODY);
@@ -377,6 +378,13 @@ extern "C" int chopper_runtime_start(void) {
         return 1;
     }
 
+    auto body_servo_motion_node = std::make_shared<chopper::nodes::ServoMotionNode>(
+        "body_servo_motion", "servo/body/move", "servo/body/cmd", chopper::config::servo_channel::BODY_CHANNEL_COUNT);
+    if (!app.addNode(body_servo_motion_node)) {
+        ESP_LOGE(TAG, "Failed to add body ServoMotionNode");
+        return 1;
+    }
+
     auto body_utility_node = std::make_shared<chopper::nodes::BodyUtilityNode>();
     if (!app.addNode(body_utility_node)) {
         ESP_LOGE(TAG, "Failed to add BodyUtilityNode");
@@ -386,6 +394,13 @@ extern "C" int chopper_runtime_start(void) {
     auto body_led_node = std::make_shared<chopper::nodes::BodyLedNode>(&ledWriteCallback);
     if (!app.addNode(body_led_node)) {
         ESP_LOGE(TAG, "Failed to add BodyLedNode");
+        return 1;
+    }
+
+    auto dome_servo_motion_node = std::make_shared<chopper::nodes::ServoMotionNode>(
+        "dome_servo_motion", "servo/dome/move", "servo/dome/cmd", chopper::config::servo_channel::DOME_CHANNEL_COUNT);
+    if (!app.addNode(dome_servo_motion_node)) {
+        ESP_LOGE(TAG, "Failed to add dome ServoMotionNode");
         return 1;
     }
 

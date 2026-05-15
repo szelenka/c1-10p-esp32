@@ -13,14 +13,14 @@ namespace chopper::nodes {
  * - B held → extend utility arm to max position
  * - B released → retract utility arm to neutral position
  *
- * Publishes ServoCommand on "servo/body/cmd".
+ * Publishes timed ServoCommand requests on "servo/body/move".
  */
 class BodyUtilityNode : public core::PublishingNode {
 public:
     BodyUtilityNode() : PublishingNode("body_util") {}
 
     bool initialize() override {
-        servo_pub_ = createPublisher<messages::ServoCommand>("servo/body/cmd");
+        servo_pub_ = createPublisher<messages::ServoCommand>("servo/body/move");
         input_sub_ = createSubscription<messages::ControllerInput>("controller/drive",
                                                                    &BodyUtilityNode::onControllerInput, this);
 
@@ -58,10 +58,14 @@ private:
             messages::ServoCommand cmd;
             cmd.servo_id = config::servo_channel::BODY_UTILITY_ARM;
             cmd.command_type = messages::ServoCommand::CommandType::SET_POSITION;
+            cmd.duration_ms = kUtilityArmMoveMs;
+            cmd.has_start_value = true;
 
             if (pressed) {
+                cmd.start_value = static_cast<float>(neutral_);
                 cmd.value = static_cast<float>(max_pos_);
             } else {
+                cmd.start_value = static_cast<float>(max_pos_);
                 cmd.value = static_cast<float>(neutral_);
             }
             servo_pub_->publish(cmd);
@@ -85,6 +89,8 @@ private:
 
     core::TypedPublisherPtr<messages::ServoCommand> servo_pub_;
     core::TypedSubscriptionPtr<messages::ControllerInput> input_sub_;
+
+    static constexpr uint16_t kUtilityArmMoveMs = 800;
 
     bool last_b_ = false;
     int32_t neutral_ = 1500;

@@ -72,10 +72,7 @@ constexpr int DOME_POTENTIOMETER = DIN34;
 // ============================================================================
 
 namespace baud {
-// Intentional runtime setting: the branch uses a 50 Hz executor with blocking
-// serial HAL writes, so Sabertooth/SyRen devices must be configured or
-// autobauded for 38400 before powered testing.
-constexpr uint32_t SABERTOOTH = 38400;
+constexpr uint32_t SABERTOOTH = 9600;
 constexpr uint32_t MAESTRO = 9600;
 constexpr uint32_t OPENMV = 115200;
 constexpr uint32_t MP3TRIGGER = 38400;

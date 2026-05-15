@@ -56,6 +56,7 @@
 // Bridge nodes
 #include "chopper/nodes/MotorBridgeNode.h"
 #include "chopper/nodes/ServoBridgeNode.h"
+#include "chopper/nodes/ServoMotionNode.h"
 #include "chopper/nodes/AudioBridgeNode.h"
 #include "chopper/nodes/SafetyNode.h"
 
@@ -169,6 +170,107 @@ void test_servo_bridge_e2e() {
 
     ASSERT(!servoCtrl.isEnabled(3));
 
+    PASS();
+}
+
+void test_servo_motion_timed_position() {
+    TEST(servo_motion_timed_position);
+
+    mock_esp_timer_set(1'000'000);
+
+    chopper::hal::MockServoDriver servoCtrl("body_servos", 4);
+
+    auto motionNode = std::make_shared<chopper::nodes::ServoMotionNode>("servo_motion_timed", "servo/timed/move",
+                                                                        "servo/timed/cmd", 4);
+    auto servoNode = std::make_shared<chopper::nodes::ServoBridgeNode>("servo_bridge_timed", "servo/timed/cmd",
+                                                                       &servoCtrl);
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto pub = broker.createPublisher<chopper::messages::ServoCommand>("servo/timed/move");
+
+    ASSERT(motionNode->initialize());
+    ASSERT(servoNode->initialize());
+
+    chopper::messages::ServoCommand cmd;
+    cmd.servo_id = 1;
+    cmd.command_type = chopper::messages::ServoCommand::CommandType::SET_POSITION;
+    cmd.start_value = 1000.0f;
+    cmd.value = 2000.0f;
+    cmd.duration_ms = 1000;
+    cmd.has_start_value = true;
+
+    pub->publish(cmd);
+    ASSERT(servoCtrl.isEnabled(1));
+    ASSERT(servoCtrl.getPosition(1) == 1000);
+
+    mock_esp_timer_set(1'500'000);
+    motionNode->process(1'500'000);
+    ASSERT(servoCtrl.getPosition(1) == 1500);
+
+    mock_esp_timer_set(2'000'000);
+    motionNode->process(2'000'000);
+    ASSERT(servoCtrl.getPosition(1) == 2000);
+
+    const uint32_t log_count = servoCtrl.getLogCount();
+    mock_esp_timer_set(2'500'000);
+    motionNode->process(2'500'000);
+    ASSERT(servoCtrl.getLogCount() == log_count);
+
+    mock_esp_timer_reset();
+    PASS();
+}
+
+void test_servo_motion_interruption_uses_current_position() {
+    TEST(servo_motion_interruption_uses_current_position);
+
+    mock_esp_timer_set(1'000'000);
+
+    chopper::hal::MockServoDriver servoCtrl("body_servos", 4);
+
+    auto motionNode = std::make_shared<chopper::nodes::ServoMotionNode>(
+        "servo_motion_interrupt", "servo/interrupt/move", "servo/interrupt/cmd", 4);
+    auto servoNode = std::make_shared<chopper::nodes::ServoBridgeNode>(
+        "servo_bridge_interrupt", "servo/interrupt/cmd", &servoCtrl);
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto pub = broker.createPublisher<chopper::messages::ServoCommand>("servo/interrupt/move");
+
+    ASSERT(motionNode->initialize());
+    ASSERT(servoNode->initialize());
+
+    chopper::messages::ServoCommand extend;
+    extend.servo_id = 1;
+    extend.command_type = chopper::messages::ServoCommand::CommandType::SET_POSITION;
+    extend.start_value = 1000.0f;
+    extend.value = 2000.0f;
+    extend.duration_ms = 1000;
+    extend.has_start_value = true;
+
+    pub->publish(extend);
+    ASSERT(servoCtrl.getPosition(1) == 1000);
+
+    mock_esp_timer_set(1'500'000);
+
+    chopper::messages::ServoCommand retract;
+    retract.servo_id = 1;
+    retract.command_type = chopper::messages::ServoCommand::CommandType::SET_POSITION;
+    retract.start_value = 2000.0f;
+    retract.value = 1000.0f;
+    retract.duration_ms = 1000;
+    retract.has_start_value = true;
+
+    pub->publish(retract);
+    ASSERT(servoCtrl.getPosition(1) == 1500);
+
+    mock_esp_timer_set(1'750'000);
+    motionNode->process(1'750'000);
+    ASSERT(servoCtrl.getPosition(1) == 1250);
+
+    mock_esp_timer_set(2'000'000);
+    motionNode->process(2'000'000);
+    ASSERT(servoCtrl.getPosition(1) == 1000);
+
+    mock_esp_timer_reset();
     PASS();
 }
 
@@ -788,6 +890,8 @@ int main() {
 
     test_motor_bridge_e2e();
     test_servo_bridge_e2e();
+    test_servo_motion_timed_position();
+    test_servo_motion_interruption_uses_current_position();
     test_audio_bridge_e2e();
     test_safety_node_status();
     test_emergency_stop_propagation();

@@ -10,11 +10,12 @@ namespace chopper::hal {
 /**
  * HAL servo controller for Pololu Mini Maestro boards.
  *
- * Implements the Pololu compact serial protocol directly via ISerialPort,
- * removing the Arduino MiniMaestro library dependency.
+ * Implements the Pololu serial protocol directly via ISerialPort, removing
+ * the Arduino MiniMaestro library dependency.
  *
  * Protocol reference: https://www.pololu.com/docs/0J40/5.c
- *   - Compact protocol: command byte, channel, data bytes
+ *   - Pololu protocol: 0xAA, device number, 7-bit command byte, channel, data bytes
+ *   - Compact protocol omits the 0xAA and device bytes and keeps the command high bit
  *   - Targets are in quarter-microsecond units (e.g., 1500us = 6000)
  *   - Data encoded as two 7-bit bytes: low bits then high bits
  *
@@ -23,9 +24,11 @@ namespace chopper::hal {
 class MaestroServoDriver : public IServoController {
 public:
     static constexpr uint8_t kMaxChannels = 24;
+    static constexpr uint8_t kCompactProtocolDeviceNumber = 255;
+    static constexpr uint8_t CMD_POLOLU_START = 0xAA;
     static constexpr uint16_t ERROR_SERIAL_WRITE = 1;
 
-    // Pololu compact protocol command bytes
+    // Pololu protocol command bytes
     static constexpr uint8_t CMD_SET_TARGET = 0x84;
     static constexpr uint8_t CMD_SET_SPEED = 0x87;
     static constexpr uint8_t CMD_SET_ACCELERATION = 0x89;
@@ -201,65 +204,81 @@ public:
 
 private:
     /**
-     * Set Target (compact protocol command 0x84).
-     * Sends: 0x84, channel, target_low_7bits, target_high_7bits
+     * Set Target (command 0x84).
+     * Sends: [0xAA, device], command, channel, target_low_7bits, target_high_7bits
+     * Pololu protocol command byte is 0x04; compact protocol command byte is 0x84.
      * Target is in quarter-microsecond units.
      */
     [[nodiscard]] bool maestroSetTarget(uint8_t channel, uint16_t target) {
-        uint8_t buf[4];
-        buf[0] = CMD_SET_TARGET;
-        buf[1] = channel;
-        buf[2] = static_cast<uint8_t>(target & 0x7F);         // low 7 bits
-        buf[3] = static_cast<uint8_t>((target >> 7) & 0x7F);  // high 7 bits
-        return writeBytes(buf, 4, "set target");
+        uint8_t buf[6];
+        size_t offset = writeCommandPrefix(buf, CMD_SET_TARGET);
+        buf[offset++] = channel & 0x7F;
+        write14BitData(buf, offset, target);
+        return writeBytes(buf, offset, "set target");
     }
 
     /**
-     * Set Speed (compact protocol command 0x87).
-     * Sends: 0x87, channel, speed_low_7bits, speed_high_7bits
+     * Set Speed (command 0x87).
+     * Sends: [0xAA, device], command, channel, speed_low_7bits, speed_high_7bits
+     * Pololu protocol command byte is 0x07; compact protocol command byte is 0x87.
      */
     [[nodiscard]] bool maestroSetSpeed(uint8_t channel, uint16_t speed) {
-        uint8_t buf[4];
-        buf[0] = CMD_SET_SPEED;
-        buf[1] = channel;
-        buf[2] = static_cast<uint8_t>(speed & 0x7F);
-        buf[3] = static_cast<uint8_t>((speed >> 7) & 0x7F);
-        return writeBytes(buf, 4, "set speed");
+        uint8_t buf[6];
+        size_t offset = writeCommandPrefix(buf, CMD_SET_SPEED);
+        buf[offset++] = channel & 0x7F;
+        write14BitData(buf, offset, speed);
+        return writeBytes(buf, offset, "set speed");
     }
 
     /**
-     * Set Acceleration (compact protocol command 0x89).
-     * Sends: 0x89, channel, accel_low_7bits, accel_high_7bits
+     * Set Acceleration (command 0x89).
+     * Sends: [0xAA, device], command, channel, accel_low_7bits, accel_high_7bits
+     * Pololu protocol command byte is 0x09; compact protocol command byte is 0x89.
      */
     [[nodiscard]] bool maestroSetAcceleration(uint8_t channel, uint16_t accel) {
-        uint8_t buf[4];
-        buf[0] = CMD_SET_ACCELERATION;
-        buf[1] = channel;
-        buf[2] = static_cast<uint8_t>(accel & 0x7F);
-        buf[3] = static_cast<uint8_t>((accel >> 7) & 0x7F);
-        return writeBytes(buf, 4, "set acceleration");
+        uint8_t buf[6];
+        size_t offset = writeCommandPrefix(buf, CMD_SET_ACCELERATION);
+        buf[offset++] = channel & 0x7F;
+        write14BitData(buf, offset, accel);
+        return writeBytes(buf, offset, "set acceleration");
     }
 
     /**
-     * Set Multiple Targets (compact protocol command 0x9F).
-     * Sends: 0x9F, count, firstChannel, then count × (target_low, target_high) pairs.
+     * Set Multiple Targets (command 0x9F).
+     * Sends: [0xAA, device], command, count, firstChannel, then count target byte pairs.
+     * Pololu protocol command byte is 0x1F; compact protocol command byte is 0x9F.
      */
     [[nodiscard]] bool maestroSetMultiTarget(uint8_t count, uint8_t firstChannel, const uint16_t* targets) {
         if (count > kMaxChannels || targets == nullptr) {
             return false;
         }
 
-        uint8_t buf[3 + (kMaxChannels * 2)];
-        buf[0] = CMD_SET_MULTI_TARGET;
-        buf[1] = count;
-        buf[2] = firstChannel;
+        uint8_t buf[5 + (kMaxChannels * 2)];
+        size_t offset = writeCommandPrefix(buf, CMD_SET_MULTI_TARGET);
+        buf[offset++] = count & 0x7F;
+        buf[offset++] = firstChannel & 0x7F;
 
         for (uint8_t i = 0; i < count; i++) {
-            const size_t offset = 3 + (i * 2);
-            buf[offset] = static_cast<uint8_t>(targets[i] & 0x7F);
-            buf[offset + 1] = static_cast<uint8_t>((targets[i] >> 7) & 0x7F);
+            write14BitData(buf, offset, targets[i]);
         }
-        return writeBytes(buf, static_cast<size_t>(3 + (count * 2)), "multi target");
+        return writeBytes(buf, offset, "multi target");
+    }
+
+    [[nodiscard]] size_t writeCommandPrefix(uint8_t* buf, uint8_t command) const {
+        size_t offset = 0;
+        if (m_deviceNumber != kCompactProtocolDeviceNumber) {
+            buf[offset++] = CMD_POLOLU_START;
+            buf[offset++] = m_deviceNumber & 0x7F;
+            buf[offset++] = command & 0x7F;
+        } else {
+            buf[offset++] = command;
+        }
+        return offset;
+    }
+
+    static void write14BitData(uint8_t* buf, size_t& offset, uint16_t value) {
+        buf[offset++] = static_cast<uint8_t>(value & 0x7F);
+        buf[offset++] = static_cast<uint8_t>((value >> 7) & 0x7F);
     }
 
     [[nodiscard]] bool writeBytes(const uint8_t* data, size_t length, const char* operation) {

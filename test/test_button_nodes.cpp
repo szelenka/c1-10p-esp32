@@ -386,17 +386,26 @@ void test_periscope_intent_toggles_lift() {
 
     float last_position = 0.0f;
     uint8_t last_servo_id = 255;
+    uint16_t last_duration = 0;
+    bool last_has_start = false;
 
-    struct Ctx { float* pos; uint8_t* id; };
-    Ctx ctx{&last_position, &last_servo_id};
+    struct Ctx {
+        float* pos;
+        uint8_t* id;
+        uint16_t* duration;
+        bool* has_start;
+    };
+    Ctx ctx{&last_position, &last_servo_id, &last_duration, &last_has_start};
 
     auto& broker = chopper::core::MessageBroker::getInstance();
     auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
-        "servo/dome/cmd",
+        "servo/dome/move",
         [](const chopper::messages::ServoCommand& cmd, void* c) {
             auto* ctx = static_cast<Ctx*>(c);
             *ctx->pos = cmd.value;
             *ctx->id = cmd.servo_id;
+            *ctx->duration = cmd.duration_ms;
+            *ctx->has_start = cmd.has_start_value;
         },
         &ctx);
 
@@ -414,6 +423,8 @@ void test_periscope_intent_toggles_lift() {
     int32_t lift_max = 2500;
     chopper::core::ParameterServer::getInstance().get("servo.peri_lift.max", lift_max);
     ASSERT_NEAR(last_position, static_cast<float>(lift_max), 0.1f);
+    ASSERT(last_duration == 800);
+    ASSERT(last_has_start);
 
     // Release up intent
     input.intent_periscope_up = false;
@@ -428,6 +439,8 @@ void test_periscope_intent_toggles_lift() {
     int32_t lift_min = 500;
     chopper::core::ParameterServer::getInstance().get("servo.peri_lift.min", lift_min);
     ASSERT_NEAR(last_position, static_cast<float>(lift_min), 0.1f);
+    ASSERT(last_duration == 800);
+    ASSERT(last_has_start);
     PASS();
 }
 
@@ -443,17 +456,26 @@ void test_periscope_intent_spins_left() {
 
     float last_position = 0.0f;
     uint8_t last_servo_id = 255;
+    uint16_t last_duration = 0;
+    bool last_has_start = false;
 
-    struct Ctx { float* pos; uint8_t* id; };
-    Ctx ctx{&last_position, &last_servo_id};
+    struct Ctx {
+        float* pos;
+        uint8_t* id;
+        uint16_t* duration;
+        bool* has_start;
+    };
+    Ctx ctx{&last_position, &last_servo_id, &last_duration, &last_has_start};
 
     auto& broker = chopper::core::MessageBroker::getInstance();
     auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
-        "servo/dome/cmd",
+        "servo/dome/move",
         [](const chopper::messages::ServoCommand& cmd, void* c) {
             auto* ctx = static_cast<Ctx*>(c);
             *ctx->pos = cmd.value;
             *ctx->id = cmd.servo_id;
+            *ctx->duration = cmd.duration_ms;
+            *ctx->has_start = cmd.has_start_value;
         },
         &ctx);
 
@@ -480,6 +502,8 @@ void test_periscope_intent_spins_left() {
     int32_t spin_max = 2500;
     chopper::core::ParameterServer::getInstance().get("servo.peri_spin.max", spin_max);
     ASSERT_NEAR(last_position, static_cast<float>(spin_max), 0.1f);
+    ASSERT(last_duration == 400);
+    ASSERT(last_has_start);
     PASS();
 }
 
@@ -495,17 +519,26 @@ void test_periscope_intent_spins_right() {
 
     float last_position = 0.0f;
     uint8_t last_servo_id = 255;
+    uint16_t last_duration = 0;
+    bool last_has_start = false;
 
-    struct Ctx { float* pos; uint8_t* id; };
-    Ctx ctx{&last_position, &last_servo_id};
+    struct Ctx {
+        float* pos;
+        uint8_t* id;
+        uint16_t* duration;
+        bool* has_start;
+    };
+    Ctx ctx{&last_position, &last_servo_id, &last_duration, &last_has_start};
 
     auto& broker = chopper::core::MessageBroker::getInstance();
     auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
-        "servo/dome/cmd",
+        "servo/dome/move",
         [](const chopper::messages::ServoCommand& cmd, void* c) {
             auto* ctx = static_cast<Ctx*>(c);
             *ctx->pos = cmd.value;
             *ctx->id = cmd.servo_id;
+            *ctx->duration = cmd.duration_ms;
+            *ctx->has_start = cmd.has_start_value;
         },
         &ctx);
 
@@ -532,6 +565,8 @@ void test_periscope_intent_spins_right() {
     int32_t spin_min = 500;
     chopper::core::ParameterServer::getInstance().get("servo.peri_spin.min", spin_min);
     ASSERT_NEAR(last_position, static_cast<float>(spin_min), 0.1f);
+    ASSERT(last_duration == 400);
+    ASSERT(last_has_start);
     PASS();
 }
 
@@ -547,7 +582,7 @@ void test_periscope_no_spin_when_down() {
     int cmd_count = 0;
     auto& broker = chopper::core::MessageBroker::getInstance();
     auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
-        "servo/dome/cmd",
+        "servo/dome/move",
         [](const chopper::messages::ServoCommand&, void* c) {
             int* count = static_cast<int*>(c);
             (*count)++;
@@ -578,7 +613,7 @@ void test_periscope_auto_wander_activates_when_up() {
     int cmd_count = 0;
     auto& broker = chopper::core::MessageBroker::getInstance();
     auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
-        "servo/dome/cmd",
+        "servo/dome/move",
         [](const chopper::messages::ServoCommand&, void* c) {
             int* count = static_cast<int*>(c);
             (*count)++;
@@ -633,7 +668,7 @@ void test_periscope_auto_wander_publishes_position() {
 
     auto& broker = chopper::core::MessageBroker::getInstance();
     auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
-        "servo/dome/cmd",
+        "servo/dome/move",
         [](const chopper::messages::ServoCommand& cmd, void* c) {
             auto* ctx = static_cast<Ctx*>(c);
             *ctx->pos = cmd.value;
@@ -784,14 +819,42 @@ void test_dome_arms_toggle_doors() {
     ASSERT(node->isLeftDoorOpen());
 
     int cmd_count = 0;
+    float right_value = 0.0f;
+    float left_value = 0.0f;
+    uint16_t right_duration = 0;
+    uint16_t left_duration = 0;
+    bool right_has_start = false;
+    bool left_has_start = false;
+    struct Ctx {
+        int* count;
+        float* right;
+        float* left;
+        uint16_t* right_duration;
+        uint16_t* left_duration;
+        bool* right_has_start;
+        bool* left_has_start;
+    };
+    Ctx ctx{&cmd_count,        &right_value,        &left_value,        &right_duration,
+            &left_duration,    &right_has_start,    &left_has_start};
+
     auto& broker = chopper::core::MessageBroker::getInstance();
     auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
-        "servo/dome/cmd",
+        "servo/dome/move",
         [](const chopper::messages::ServoCommand& cmd, void* c) {
-            int* count = static_cast<int*>(c);
-            (*count)++;
+            auto* ctx = static_cast<Ctx*>(c);
+            (*ctx->count)++;
+            if (cmd.servo_id == chopper::config::servo_channel::DOME_DOOR_RIGHT) {
+                *ctx->right = cmd.value;
+                *ctx->right_duration = cmd.duration_ms;
+                *ctx->right_has_start = cmd.has_start_value;
+            }
+            if (cmd.servo_id == chopper::config::servo_channel::DOME_DOOR_LEFT) {
+                *ctx->left = cmd.value;
+                *ctx->left_duration = cmd.duration_ms;
+                *ctx->left_has_start = cmd.has_start_value;
+            }
         },
-        &cmd_count);
+        &ctx);
 
     auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
 
@@ -803,6 +866,17 @@ void test_dome_arms_toggle_doors() {
     ASSERT(cmd_count == 2);  // one for each door
     ASSERT(!node->isRightDoorOpen());
     ASSERT(!node->isLeftDoorOpen());
+
+    int32_t rdoor_min = 0;
+    int32_t ldoor_max = 0;
+    chopper::core::ParameterServer::getInstance().get("servo.ddoor_r.min", rdoor_min);
+    chopper::core::ParameterServer::getInstance().get("servo.ddoor_l.max", ldoor_max);
+    ASSERT_NEAR(right_value, static_cast<float>(rdoor_min), 0.1f);
+    ASSERT_NEAR(left_value, static_cast<float>(ldoor_max), 0.1f);
+    ASSERT(right_duration == 1);
+    ASSERT(left_duration == 1);
+    ASSERT(right_has_start);
+    ASSERT(left_has_start);
     PASS();
 }
 
@@ -816,7 +890,7 @@ void test_dome_arms_second_press_reverses() {
 
     auto& broker = chopper::core::MessageBroker::getInstance();
     auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
-        "servo/dome/cmd",
+        "servo/dome/move",
         [](const chopper::messages::ServoCommand&, void*) {},
         nullptr);
 
@@ -855,17 +929,26 @@ void test_body_utility_b_extends() {
 
     float last_position = 0.0f;
     uint8_t last_servo_id = 255;
+    uint16_t last_duration = 0;
+    bool last_has_start = false;
 
-    struct Ctx { float* pos; uint8_t* id; };
-    Ctx ctx{&last_position, &last_servo_id};
+    struct Ctx {
+        float* pos;
+        uint8_t* id;
+        uint16_t* duration;
+        bool* has_start;
+    };
+    Ctx ctx{&last_position, &last_servo_id, &last_duration, &last_has_start};
 
     auto& broker = chopper::core::MessageBroker::getInstance();
     auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
-        "servo/body/cmd",
+        "servo/body/move",
         [](const chopper::messages::ServoCommand& cmd, void* c) {
             auto* ctx = static_cast<Ctx*>(c);
             *ctx->pos = cmd.value;
             *ctx->id = cmd.servo_id;
+            *ctx->duration = cmd.duration_ms;
+            *ctx->has_start = cmd.has_start_value;
         },
         &ctx);
 
@@ -880,6 +963,8 @@ void test_body_utility_b_extends() {
     int32_t max_pos = 2500;
     chopper::core::ParameterServer::getInstance().get("servo.util_arm.max", max_pos);
     ASSERT_NEAR(last_position, static_cast<float>(max_pos), 0.1f);
+    ASSERT(last_duration == 800);
+    ASSERT(last_has_start);
     PASS();
 }
 
@@ -892,14 +977,25 @@ void test_body_utility_b_retracts_on_release() {
     node->activate();
 
     float last_position = 0.0f;
+    uint16_t last_duration = 0;
+    bool last_has_start = false;
+    struct Ctx {
+        float* pos;
+        uint16_t* duration;
+        bool* has_start;
+    };
+    Ctx ctx{&last_position, &last_duration, &last_has_start};
+
     auto& broker = chopper::core::MessageBroker::getInstance();
     auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
-        "servo/body/cmd",
+        "servo/body/move",
         [](const chopper::messages::ServoCommand& cmd, void* c) {
-            float* pos = static_cast<float*>(c);
-            *pos = cmd.value;
+            auto* ctx = static_cast<Ctx*>(c);
+            *ctx->pos = cmd.value;
+            *ctx->duration = cmd.duration_ms;
+            *ctx->has_start = cmd.has_start_value;
         },
-        &last_position);
+        &ctx);
 
     auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
 
@@ -915,6 +1011,8 @@ void test_body_utility_b_retracts_on_release() {
     int32_t neutral = 1500;
     chopper::core::ParameterServer::getInstance().get("servo.util_arm.neutral", neutral);
     ASSERT_NEAR(last_position, static_cast<float>(neutral), 0.1f);
+    ASSERT(last_duration == 800);
+    ASSERT(last_has_start);
     PASS();
 }
 
@@ -1028,7 +1126,7 @@ void test_dome_arms_intent_toggles_doors() {
 
     auto& broker = chopper::core::MessageBroker::getInstance();
     auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
-        "servo/dome/cmd",
+        "servo/dome/move",
         [](const chopper::messages::ServoCommand&, void*) {},
         nullptr);
 
@@ -1056,7 +1154,7 @@ void test_body_utility_intent_extends() {
     float last_position = 0.0f;
     auto& broker = chopper::core::MessageBroker::getInstance();
     auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
-        "servo/body/cmd",
+        "servo/body/move",
         [](const chopper::messages::ServoCommand& cmd, void* c) {
             float* pos = static_cast<float*>(c);
             *pos = cmd.value;

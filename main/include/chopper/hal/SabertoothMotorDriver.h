@@ -37,22 +37,25 @@ public:
 
     static constexpr uint8_t AUTOBAUD_BYTE = 0xAA;
     static constexpr uint16_t ERROR_SERIAL_WRITE = 1;
+    static constexpr int MAX_THROTTLE_POWER = 126;
 
     /**
      * @param serial    Serial port for Sabertooth communication (shared bus).
      * @param address   Packet Serial address of the controller (128-135).
      * @param motorId   Motor number on the controller (1 or 2).
      * @param name      Driver name for diagnostics (must be string literal / static).
+     * @param autobaudOnInit Whether init() sends the shared-bus autobaud byte.
      */
-    SabertoothMotorDriver(ISerialPort& serial, uint8_t address, uint8_t motorId, const char* name)
-        : m_serial(&serial), m_address(address), m_motorId(motorId), m_name(name) {}
+    SabertoothMotorDriver(ISerialPort& serial, uint8_t address, uint8_t motorId, const char* name,
+                          bool autobaudOnInit = true)
+        : m_serial(&serial), m_address(address), m_motorId(motorId), m_name(name), m_autobaudOnInit(autobaudOnInit) {}
 
     // -- IDriver interface --
 
     DriverStatus init() override {
         ESP_LOGI(m_name, "init motor %d addr %d", m_motorId, m_address);
         m_speed = 0.0f;
-        if (!sendAutobaud()) {
+        if (m_autobaudOnInit && !sendAutobaud()) {
             return m_status;
         }
         m_status = DriverStatus::kReady;
@@ -63,16 +66,10 @@ public:
         if (m_status != DriverStatus::kReady && m_status != DriverStatus::kDegraded) {
             return;
         }
-        // Apply speed to hardware — Sabertooth expects -127..127 for motor()
+        // Legacy wrapper computes -127..127; the Sabertooth library clamps
+        // throttle packets to -126..126 before writing the UART packet.
         float effective = m_inverted ? -m_speed : m_speed;
         int power = static_cast<int>(effective * 127.0f);
-        // Clamp to [-127, 127] to match legacy SabertoothController::Set().
-        if (power > 127) {
-            power = 127;
-        }
-        if (power < -127) {
-            power = -127;
-        }
         (void)sabertoothMotor(m_motorId, power);
     }
 
@@ -151,6 +148,7 @@ public:
 
     [[nodiscard]] uint8_t getAddress() const { return m_address; }
     [[nodiscard]] uint8_t getMotorId() const { return m_motorId; }
+    [[nodiscard]] bool isAutobaudOnInitEnabled() const { return m_autobaudOnInit; }
 
 private:
     /**
@@ -184,6 +182,13 @@ private:
      * Motor 2: forward=cmd 4, reverse=cmd 5
      */
     bool sabertoothMotor(uint8_t motor, int power) {
+        if (power > MAX_THROTTLE_POWER) {
+            power = MAX_THROTTLE_POWER;
+        }
+        if (power < -MAX_THROTTLE_POWER) {
+            power = -MAX_THROTTLE_POWER;
+        }
+
         uint8_t cmd = 0;
         uint8_t absValue = 0;
 
@@ -214,6 +219,7 @@ private:
     uint8_t m_address;
     uint8_t m_motorId;
     const char* m_name;
+    bool m_autobaudOnInit;
     float m_speed = 0.0f;
     bool m_inverted = false;
     DriverStatus m_status = DriverStatus::kUninitialized;

@@ -24,7 +24,7 @@ namespace chopper::nodes {
  * When up with no manual input, auto-wander picks random spin targets
  * at a slow Maestro speed for organic-looking movement.
  *
- * Publishes ServoCommand on "servo/dome/cmd".
+ * Publishes timed ServoCommand requests on "servo/dome/move".
  */
 class PeriscopeNode : public core::PublishingNode {
 public:
@@ -35,7 +35,7 @@ public:
     }
 
     bool initialize() override {
-        servo_pub_ = createPublisher<messages::ServoCommand>("servo/dome/cmd");
+        servo_pub_ = createPublisher<messages::ServoCommand>("servo/dome/move");
         input_sub_ =
             createSubscription<messages::ControllerInput>("controller/drive", &PeriscopeNode::onControllerInput, this);
 
@@ -104,21 +104,21 @@ private:
             // so the commands don't cancel each other out.
             bool handled = false;
             if (up_pressed && !last_lift_up_ && periscope_down_) {
-                moveLiftTo(static_cast<float>(lift_max_));
+                moveLiftTo(static_cast<float>(lift_min_), static_cast<float>(lift_max_));
                 periscope_down_ = false;
                 handled = true;
             }
             if (!handled && down_pressed && !last_lift_down_ && !periscope_down_) {
-                moveLiftTo(static_cast<float>(lift_min_));
+                moveLiftTo(static_cast<float>(lift_max_), static_cast<float>(lift_min_));
                 periscope_down_ = true;
             }
         } else {
             if (toggle_pressed && !last_lift_toggle_) {
                 if (periscope_down_) {
-                    moveLiftTo(static_cast<float>(lift_max_));
+                    moveLiftTo(static_cast<float>(lift_min_), static_cast<float>(lift_max_));
                     periscope_down_ = false;
                 } else {
-                    moveLiftTo(static_cast<float>(lift_min_));
+                    moveLiftTo(static_cast<float>(lift_max_), static_cast<float>(lift_min_));
                     periscope_down_ = true;
                 }
             }
@@ -151,14 +151,23 @@ private:
             cmd.command_type = messages::ServoCommand::CommandType::SET_POSITION;
 
             if (double_click) {
+                cmd.start_value = static_cast<float>(spin_min_);
                 cmd.value = static_cast<float>(spin_max_);
+                cmd.duration_ms = kPeriscopeSpinFullMoveMs;
+                cmd.has_start_value = true;
                 periscope_location_ = -1;
             } else {
                 if (periscope_location_ == 0) {
+                    cmd.start_value = static_cast<float>(spin_neutral_);
                     cmd.value = static_cast<float>(spin_max_);
+                    cmd.duration_ms = kPeriscopeSpinHalfMoveMs;
+                    cmd.has_start_value = true;
                     periscope_location_ = -1;
                 } else if (periscope_location_ == 1) {
+                    cmd.start_value = static_cast<float>(spin_min_);
                     cmd.value = static_cast<float>(spin_neutral_);
+                    cmd.duration_ms = kPeriscopeSpinHalfMoveMs;
+                    cmd.has_start_value = true;
                     periscope_location_ = 0;
                 } else {
                     last_spin_left_ = spin_left_pressed;
@@ -181,14 +190,23 @@ private:
             cmd.command_type = messages::ServoCommand::CommandType::SET_POSITION;
 
             if (double_click) {
+                cmd.start_value = static_cast<float>(spin_max_);
                 cmd.value = static_cast<float>(spin_min_);
+                cmd.duration_ms = kPeriscopeSpinFullMoveMs;
+                cmd.has_start_value = true;
                 periscope_location_ = 1;
             } else {
                 if (periscope_location_ == 0) {
+                    cmd.start_value = static_cast<float>(spin_neutral_);
                     cmd.value = static_cast<float>(spin_min_);
+                    cmd.duration_ms = kPeriscopeSpinHalfMoveMs;
+                    cmd.has_start_value = true;
                     periscope_location_ = 1;
                 } else if (periscope_location_ == -1) {
+                    cmd.start_value = static_cast<float>(spin_max_);
                     cmd.value = static_cast<float>(spin_neutral_);
+                    cmd.duration_ms = kPeriscopeSpinHalfMoveMs;
+                    cmd.has_start_value = true;
                     periscope_location_ = 0;
                 } else {
                     last_spin_right_ = spin_right_pressed;
@@ -266,11 +284,14 @@ private:
 
     // ── Helpers ─────────────────────────────────────────────────────────
 
-    void moveLiftTo(float pwm_us) {
+    void moveLiftTo(float start_pwm_us, float target_pwm_us) {
         messages::ServoCommand cmd;
         cmd.servo_id = config::servo_channel::DOME_PERISCOPE_LIFT;
         cmd.command_type = messages::ServoCommand::CommandType::SET_POSITION;
-        cmd.value = pwm_us;
+        cmd.start_value = start_pwm_us;
+        cmd.value = target_pwm_us;
+        cmd.duration_ms = kPeriscopeLiftMoveMs;
+        cmd.has_start_value = true;
         servo_pub_->publish(cmd);
     }
 
@@ -323,6 +344,9 @@ private:
     }
 
     static constexpr uint64_t kDoubleClickMs = 500;
+    static constexpr uint16_t kPeriscopeLiftMoveMs = 800;
+    static constexpr uint16_t kPeriscopeSpinHalfMoveMs = 400;
+    static constexpr uint16_t kPeriscopeSpinFullMoveMs = 800;
 
     core::TypedPublisherPtr<messages::ServoCommand> servo_pub_;
     core::TypedSubscriptionPtr<messages::ControllerInput> input_sub_;

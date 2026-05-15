@@ -1,5 +1,6 @@
 #pragma once
 
+#include "chopper/chopper_limits.h"
 #include "chopper/core/PublishingNode.h"
 #include "chopper/hal/IServoController.h"
 #include "chopper/messages/CommonMessages.h"
@@ -28,13 +29,14 @@ public:
         if (controller_ == nullptr) {
             return false;
         }
+        if (controller_->getChannelCount() > limits::MAX_SERVO_CHANNELS) {
+            return false;
+        }
         sub_ = createSubscription<messages::ServoCommand>(topic_, &ServoBridgeNode::onCommand, this);
         return sub_ != nullptr;
     }
 
-    void process(uint64_t) override {
-        // Event-driven only
-    }
+    void process(uint64_t) override {}
 
     void emergencyStop() override {
         if (controller_ != nullptr) {
@@ -45,6 +47,10 @@ public:
     [[nodiscard]] hal::IServoController* getController() const { return controller_; }
 
 private:
+    [[nodiscard]] bool isSafetyBlocked() const {
+        return degradation_mgr_ != nullptr && degradation_mgr_->getCurrentMode() >= safety::DegradationMode::SAFE_STOP;
+    }
+
     void onCommand(const messages::ServoCommand& cmd) {
         if (controller_ == nullptr) {
             return;

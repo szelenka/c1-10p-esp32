@@ -14,14 +14,14 @@ namespace chopper::nodes {
  *   - Right dome door: min ↔ max
  *   - Left dome door: neutral ↔ max
  *
- * Publishes ServoCommand on "servo/dome/cmd".
+ * Publishes timed ServoCommand requests on "servo/dome/move".
  */
 class DomeArmsNode : public core::PublishingNode {
 public:
     DomeArmsNode() : PublishingNode("dome_arms") {}
 
     bool initialize() override {
-        servo_pub_ = createPublisher<messages::ServoCommand>("servo/dome/cmd");
+        servo_pub_ = createPublisher<messages::ServoCommand>("servo/dome/move");
         input_sub_ =
             createSubscription<messages::ControllerInput>("controller/drive", &DomeArmsNode::onControllerInput, this);
 
@@ -74,10 +74,14 @@ private:
             messages::ServoCommand cmd;
             cmd.servo_id = config::servo_channel::DOME_DOOR_RIGHT;
             cmd.command_type = messages::ServoCommand::CommandType::SET_POSITION;
+            cmd.duration_ms = kDoorMoveMs;
+            cmd.has_start_value = true;
             if (right_door_open_) {
+                cmd.start_value = static_cast<float>(rdoor_max_);
                 cmd.value = static_cast<float>(rdoor_min_);
                 right_door_open_ = false;
             } else {
+                cmd.start_value = static_cast<float>(rdoor_min_);
                 cmd.value = static_cast<float>(rdoor_max_);
                 right_door_open_ = true;
             }
@@ -89,11 +93,15 @@ private:
             messages::ServoCommand cmd;
             cmd.servo_id = config::servo_channel::DOME_DOOR_LEFT;
             cmd.command_type = messages::ServoCommand::CommandType::SET_POSITION;
+            cmd.duration_ms = kDoorMoveMs;
+            cmd.has_start_value = true;
             if (left_door_open_) {
-                cmd.value = static_cast<float>(ldoor_neutral_);
+                cmd.start_value = static_cast<float>(ldoor_neutral_);
+                cmd.value = static_cast<float>(ldoor_max_);
                 left_door_open_ = false;
             } else {
-                cmd.value = static_cast<float>(ldoor_max_);
+                cmd.start_value = static_cast<float>(ldoor_max_);
+                cmd.value = static_cast<float>(ldoor_neutral_);
                 left_door_open_ = true;
             }
             servo_pub_->publish(cmd);
@@ -118,6 +126,8 @@ private:
 
     core::TypedPublisherPtr<messages::ServoCommand> servo_pub_;
     core::TypedSubscriptionPtr<messages::ControllerInput> input_sub_;
+
+    static constexpr uint16_t kDoorMoveMs = 1;
 
     bool right_door_open_ = true;
     bool left_door_open_ = true;

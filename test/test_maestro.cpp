@@ -1,5 +1,5 @@
 // Host-side tests for MaestroServoDriver.
-// Verifies the Pololu compact serial protocol encoding and
+// Verifies the Pololu serial protocol encoding and
 // the driver lifecycle (init, setPosition, update, disable, etc.).
 //
 // Compile:
@@ -46,6 +46,18 @@ static int pass_count = 0;
     do { pass_count++; printf("PASS\n"); } while(0)
 #define ASSERT(cond) \
     do { if (!(cond)) { printf("FAIL at %s:%d: %s\n", __FILE__, __LINE__, #cond); return; } } while(0)
+
+static constexpr uint8_t kDefaultMaestroDevice = 12;
+static constexpr uint8_t kDomeMaestroDevice = 13;
+static constexpr size_t kPololuHeaderSize = 3;
+
+#define ASSERT_POLOLU_PREFIX(bytes, command) \
+    do { \
+        ASSERT((bytes).size() >= kPololuHeaderSize); \
+        ASSERT((bytes)[0] == chopper::hal::MaestroServoDriver::CMD_POLOLU_START); \
+        ASSERT((bytes)[1] == kDefaultMaestroDevice); \
+        ASSERT((bytes)[2] == ((command) & 0x7F)); \
+    } while(0)
 
 // ---- Tests ----
 
@@ -129,13 +141,13 @@ void test_enable_disable() {
     ASSERT(!driver.isEnabled(0));
     ASSERT(driver.getPosition(0) == 0);
 
-    // disable() should send a setTarget(channel, 0) to hardware immediately
-    // That's 4 bytes: 0x84, channel, 0x00, 0x00
-    ASSERT(serial.bytes.size() == 4);
-    ASSERT(serial.bytes[0] == 0x84);
-    ASSERT(serial.bytes[1] == 0);
-    ASSERT(serial.bytes[2] == 0);
+    // disable() should send a setTarget(channel, 0) to hardware immediately.
+    // Main uses Pololu protocol: 0xAA, device, 0x04, channel, 0x00, 0x00.
+    ASSERT(serial.bytes.size() == 6);
+    ASSERT_POLOLU_PREFIX(serial.bytes, chopper::hal::MaestroServoDriver::CMD_SET_TARGET);
     ASSERT(serial.bytes[3] == 0);
+    ASSERT(serial.bytes[4] == 0);
+    ASSERT(serial.bytes[5] == 0);
 
     PASS();
 }
@@ -158,31 +170,31 @@ void test_update_sends_multi_target() {
     serial.clear();
     driver.update();
 
-    // Should send multi-target command: 0x9F, count=3, firstCh=0, then 3 pairs
-    // Total: 3 header + 3*2 data = 9 bytes
-    ASSERT(serial.bytes.size() == 9);
+    // Should send multi-target command: Pololu header, 0x9F, count=3, firstCh=0, then 3 pairs.
+    // Total: 5 header bytes + 3*2 data bytes = 11 bytes.
+    ASSERT(serial.bytes.size() == 11);
 
     // Header
-    ASSERT(serial.bytes[0] == 0x9F);  // CMD_SET_MULTI_TARGET
-    ASSERT(serial.bytes[1] == 3);     // count
-    ASSERT(serial.bytes[2] == 0);     // firstChannel
+    ASSERT_POLOLU_PREFIX(serial.bytes, chopper::hal::MaestroServoDriver::CMD_SET_MULTI_TARGET);
+    ASSERT(serial.bytes[3] == 3);  // count
+    ASSERT(serial.bytes[4] == 0);  // firstChannel
 
     // Channel 0: 1500us * 4 = 6000 = 0x1770
     // low 7 bits: 6000 & 0x7F = 0x70 (112)
     // high 7 bits: (6000 >> 7) & 0x7F = 46
     uint16_t target0 = 6000;
-    ASSERT(serial.bytes[3] == (target0 & 0x7F));
-    ASSERT(serial.bytes[4] == ((target0 >> 7) & 0x7F));
+    ASSERT(serial.bytes[5] == (target0 & 0x7F));
+    ASSERT(serial.bytes[6] == ((target0 >> 7) & 0x7F));
 
     // Channel 1: 1000us * 4 = 4000 = 0xFA0
     uint16_t target1 = 4000;
-    ASSERT(serial.bytes[5] == (target1 & 0x7F));
-    ASSERT(serial.bytes[6] == ((target1 >> 7) & 0x7F));
+    ASSERT(serial.bytes[7] == (target1 & 0x7F));
+    ASSERT(serial.bytes[8] == ((target1 >> 7) & 0x7F));
 
     // Channel 2: 2000us * 4 = 8000 = 0x1F40
     uint16_t target2 = 8000;
-    ASSERT(serial.bytes[7] == (target2 & 0x7F));
-    ASSERT(serial.bytes[8] == ((target2 >> 7) & 0x7F));
+    ASSERT(serial.bytes[9] == (target2 & 0x7F));
+    ASSERT(serial.bytes[10] == ((target2 >> 7) & 0x7F));
 
     PASS();
 }
@@ -246,12 +258,13 @@ void test_disabled_channel_sends_zero_target() {
     serial.clear();
     driver.update();
 
-    // Channel 1 should have target=0 (disabled)
-    // Header(3) + 2 channels * 2 bytes = 7 total
-    ASSERT(serial.bytes.size() == 7);
-    // Channel 1 target bytes (index 5,6) should be 0
-    ASSERT(serial.bytes[5] == 0);
-    ASSERT(serial.bytes[6] == 0);
+    // Channel 1 should have target=0 (disabled).
+    // Pololu header(3) + command/count/first(3) + 2 channels * 2 bytes = 9 total.
+    ASSERT(serial.bytes.size() == 9);
+    ASSERT_POLOLU_PREFIX(serial.bytes, chopper::hal::MaestroServoDriver::CMD_SET_MULTI_TARGET);
+    // Channel 1 target bytes (index 7,8) should be 0.
+    ASSERT(serial.bytes[7] == 0);
+    ASSERT(serial.bytes[8] == 0);
 
     PASS();
 }
@@ -266,12 +279,12 @@ void test_set_speed_protocol() {
     serial.clear();
     driver.setSpeed(2, 100);
 
-    // 4 bytes: 0x87, channel, speed_low, speed_high
-    ASSERT(serial.bytes.size() == 4);
-    ASSERT(serial.bytes[0] == 0x87);
-    ASSERT(serial.bytes[1] == 2);
-    ASSERT(serial.bytes[2] == (100 & 0x7F));
-    ASSERT(serial.bytes[3] == ((100 >> 7) & 0x7F));
+    // 6 bytes: 0xAA, device, 0x07, channel, speed_low, speed_high.
+    ASSERT(serial.bytes.size() == 6);
+    ASSERT_POLOLU_PREFIX(serial.bytes, chopper::hal::MaestroServoDriver::CMD_SET_SPEED);
+    ASSERT(serial.bytes[3] == 2);
+    ASSERT(serial.bytes[4] == (100 & 0x7F));
+    ASSERT(serial.bytes[5] == ((100 >> 7) & 0x7F));
 
     PASS();
 }
@@ -286,12 +299,33 @@ void test_set_acceleration_protocol() {
     serial.clear();
     driver.setAcceleration(5, 200);
 
-    // 4 bytes: 0x89, channel, accel_low, accel_high
-    ASSERT(serial.bytes.size() == 4);
-    ASSERT(serial.bytes[0] == 0x89);
-    ASSERT(serial.bytes[1] == 5);
-    ASSERT(serial.bytes[2] == (200 & 0x7F));
-    ASSERT(serial.bytes[3] == ((200 >> 7) & 0x7F));
+    // 6 bytes: 0xAA, device, 0x09, channel, accel_low, accel_high.
+    ASSERT(serial.bytes.size() == 6);
+    ASSERT_POLOLU_PREFIX(serial.bytes, chopper::hal::MaestroServoDriver::CMD_SET_ACCELERATION);
+    ASSERT(serial.bytes[3] == 5);
+    ASSERT(serial.bytes[4] == (200 & 0x7F));
+    ASSERT(serial.bytes[5] == ((200 >> 7) & 0x7F));
+
+    PASS();
+}
+
+void test_dome_device_protocol_prefix() {
+    TEST(maestro_dome_device_sends_device_13_prefix);
+
+    MockSerialPort serial;
+    chopper::hal::MaestroServoDriver driver(serial, 2, "dome", kDomeMaestroDevice);
+    driver.init();
+
+    driver.enable(0);
+    driver.setPosition(0, 1500);
+    driver.update();
+
+    ASSERT(serial.bytes.size() == 9);
+    ASSERT(serial.bytes[0] == chopper::hal::MaestroServoDriver::CMD_POLOLU_START);
+    ASSERT(serial.bytes[1] == kDomeMaestroDevice);
+    ASSERT(serial.bytes[2] == (chopper::hal::MaestroServoDriver::CMD_SET_MULTI_TARGET & 0x7F));
+    ASSERT(serial.bytes[3] == 2);
+    ASSERT(serial.bytes[4] == 0);
 
     PASS();
 }
@@ -321,11 +355,11 @@ void test_disable_all() {
 
     // disableAll() must send an immediate all-channel zero target because
     // shutdown/e-stop paths do not get another safe driver update.
-    ASSERT(serial.bytes.size() == 9);
-    ASSERT(serial.bytes[0] == 0x9F);
-    ASSERT(serial.bytes[1] == 3);
-    ASSERT(serial.bytes[2] == 0);
-    for (size_t i = 3; i < serial.bytes.size(); i++) {
+    ASSERT(serial.bytes.size() == 11);
+    ASSERT_POLOLU_PREFIX(serial.bytes, chopper::hal::MaestroServoDriver::CMD_SET_MULTI_TARGET);
+    ASSERT(serial.bytes[3] == 3);
+    ASSERT(serial.bytes[4] == 0);
+    for (size_t i = 5; i < serial.bytes.size(); i++) {
         ASSERT(serial.bytes[i] == 0);
     }
 
@@ -366,11 +400,11 @@ void test_disable_all_retries_after_error() {
     serial.clear();
     driver.disableAll();
 
-    ASSERT(serial.bytes.size() == 7);
-    ASSERT(serial.bytes[0] == 0x9F);
-    ASSERT(serial.bytes[1] == 2);
-    ASSERT(serial.bytes[2] == 0);
-    for (size_t i = 3; i < serial.bytes.size(); i++) {
+    ASSERT(serial.bytes.size() == 9);
+    ASSERT_POLOLU_PREFIX(serial.bytes, chopper::hal::MaestroServoDriver::CMD_SET_MULTI_TARGET);
+    ASSERT(serial.bytes[3] == 2);
+    ASSERT(serial.bytes[4] == 0);
+    for (size_t i = 5; i < serial.bytes.size(); i++) {
         ASSERT(serial.bytes[i] == 0);
     }
 
@@ -466,11 +500,34 @@ void test_large_target_encoding() {
     serial.clear();
     driver.update();
 
-    // Header(3) + 1 channel * 2 = 5 bytes
-    ASSERT(serial.bytes.size() == 5);
+    // Pololu header(3) + command/count/first(3) + 1 channel * 2 = 7 bytes.
+    ASSERT(serial.bytes.size() == 7);
+    ASSERT_POLOLU_PREFIX(serial.bytes, chopper::hal::MaestroServoDriver::CMD_SET_MULTI_TARGET);
     uint16_t target = 10000;
-    ASSERT(serial.bytes[3] == (target & 0x7F));
-    ASSERT(serial.bytes[4] == ((target >> 7) & 0x7F));
+    ASSERT(serial.bytes[5] == (target & 0x7F));
+    ASSERT(serial.bytes[6] == ((target >> 7) & 0x7F));
+
+    PASS();
+}
+
+void test_compact_protocol_opt_in() {
+    TEST(maestro_compact_protocol_opt_in);
+
+    MockSerialPort serial;
+    chopper::hal::MaestroServoDriver driver(serial, 1, "compact",
+                                            chopper::hal::MaestroServoDriver::kCompactProtocolDeviceNumber);
+    driver.init();
+
+    driver.enable(0);
+    driver.setPosition(0, 1500);
+
+    serial.clear();
+    driver.update();
+
+    ASSERT(serial.bytes.size() == 5);
+    ASSERT(serial.bytes[0] == chopper::hal::MaestroServoDriver::CMD_SET_MULTI_TARGET);
+    ASSERT(serial.bytes[1] == 1);
+    ASSERT(serial.bytes[2] == 0);
 
     PASS();
 }
@@ -501,6 +558,7 @@ int main() {
     test_disabled_channel_sends_zero_target();
     test_set_speed_protocol();
     test_set_acceleration_protocol();
+    test_dome_device_protocol_prefix();
     test_disable_all();
     test_update_write_failure_sets_error();
     test_disable_all_retries_after_error();
@@ -509,6 +567,7 @@ int main() {
     test_diagnostic_status();
     test_diagnostic_home();
     test_large_target_encoding();
+    test_compact_protocol_opt_in();
     test_channel_count_clamped();
 
     printf("\n=== Results: %d/%d passed ===\n", pass_count, test_count);
