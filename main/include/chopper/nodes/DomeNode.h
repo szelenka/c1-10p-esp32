@@ -124,6 +124,7 @@ public:
 
         // Update auto-dome request (sets auto_speed_)
         auto_speed_ = 0.0f;
+        expireStaleTracking(now_ms);
         processAutoDome(now_ms);
 
         // Resolve priority: manual > tracking > auto — single publish per tick
@@ -326,9 +327,7 @@ private:
     void disableAutonomousDomeMotion() {
         const bool was_tracking = tracking_enabled_;
         tracking_enabled_ = false;
-        tracking_speed_ = 0.0f;
-        tracking_last_error_ = 0.0f;
-        tracking_last_speed_ = 0.0f;
+        clearTrackingMotion();
         if (was_tracking && tracking_cmd_pub_) {
             messages::TrackingCommand cmd(false);
             tracking_cmd_pub_->publish(cmd);
@@ -349,6 +348,7 @@ private:
         const bool toggle = input.has_intents ? input.intent_face_tracking_toggle : false;
         if (toggle && !last_tracking_toggle_) {
             tracking_enabled_ = !tracking_enabled_;
+            clearTrackingMotion();
             // Notify OpenMV to start/stop sending vision results
             if (tracking_cmd_pub_) {
                 messages::TrackingCommand cmd(tracking_enabled_);
@@ -362,6 +362,8 @@ private:
         if (!tracking_enabled_ || !motor_pub_) {
             return;
         }
+
+        tracking_last_result_ms_ = static_cast<uint64_t>(esp_timer_get_time() / 1000ULL);
 
         float speed = 0.0f;
 
@@ -381,6 +383,22 @@ private:
 
         tracking_last_speed_ = speed;
         tracking_speed_ = speed;
+    }
+
+    void expireStaleTracking(uint64_t now_ms) {
+        if (!tracking_enabled_ || tracking_last_result_ms_ == 0 || now_ms < tracking_last_result_ms_) {
+            return;
+        }
+        if ((now_ms - tracking_last_result_ms_) > kTrackingVisionTimeoutMs) {
+            clearTrackingMotion();
+        }
+    }
+
+    void clearTrackingMotion() {
+        tracking_speed_ = 0.0f;
+        tracking_last_error_ = 0.0f;
+        tracking_last_speed_ = 0.0f;
+        tracking_last_result_ms_ = 0;
     }
 
     // ── Auto-dome logic (runs in process()) ─────────────────────────────
@@ -569,7 +587,7 @@ private:
         float speed = 0.0f;
         if (std::fabs(manual_speed_) > 0.001f) {
             speed = manual_speed_;
-        } else if (tracking_enabled_ && std::fabs(tracking_speed_) > 0.001f) {
+        } else if (tracking_enabled_) {
             speed = tracking_speed_;
         } else {
             speed = auto_speed_;
@@ -706,6 +724,8 @@ private:
     uint8_t tracking_min_confidence_ = 50;
     float tracking_last_error_ = 0.0f;
     float tracking_last_speed_ = 0.0f;
+    uint64_t tracking_last_result_ms_ = 0;
+    static constexpr uint64_t kTrackingVisionTimeoutMs = 500;
 };
 
 }  // namespace chopper::nodes

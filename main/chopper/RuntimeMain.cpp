@@ -40,6 +40,7 @@ static const char* const TAG = "RuntimeMain";
 static chopper::bluetooth::MacBasedPolicy g_role_policy;  // NOLINT(bugprone-throwing-static-initialization)
 static bool g_policy_initialized = false;
 static bool g_runtime_started = false;
+static chopper::bluetooth::ControllerRole g_soft_stop_required_role = chopper::bluetooth::ControllerRole::UNASSIGNED;
 // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
 constexpr ledc_timer_t LED_TIMER = LEDC_TIMER_0;
@@ -65,6 +66,10 @@ bool parseMacAddress(const char* text, chopper::bluetooth::MacAddress& out) {
         out.addr[i] = static_cast<uint8_t>(b[i] & 0xFF);
     }
     return true;
+}
+
+bool isActuatorControllerRole(chopper::bluetooth::ControllerRole role) {
+    return role == chopper::bluetooth::ControllerRole::DRIVE || role == chopper::bluetooth::ControllerRole::DOME;
 }
 
 void initRolePolicy() {
@@ -101,6 +106,9 @@ void onUnexpectedControllerDisconnect(uint8_t slot_index, chopper::bluetooth::Co
     ESP_LOGE(TAG, "Unexpected controller loss: slot=%u role=%s stale=%llu ms", static_cast<unsigned>(slot_index),
              chopper::bluetooth::roleToString(role), static_cast<unsigned long long>(stale_ms));
     if (app != nullptr) {
+        if (isActuatorControllerRole(role)) {
+            g_soft_stop_required_role = role;
+        }
         app->softStop("Unexpected controller disconnect");
     }
 }
@@ -140,13 +148,30 @@ void onControllerConnected(uint8_t slot_index, chopper::bluetooth::ControllerRol
         }
     }
 
-    ESP_LOGI(TAG, "Controller connected: slot=%u role=%s -> clear stop", static_cast<unsigned>(slot_index),
+    ESP_LOGI(TAG, "Controller connected: slot=%u role=%s", static_cast<unsigned>(slot_index),
              chopper::bluetooth::roleToString(role));
     if (app != nullptr) {
         if (app->getExecutor().isEmergencyStop()) {
-            app->clearEmergencyStop("Controller connected");
+            ESP_LOGW(TAG, "Controller connected while E-stop is latched; manual reset required");
+            return;
         }
+
+        if (!isActuatorControllerRole(role)) {
+            ESP_LOGI(TAG, "Non-actuator controller connected; safety stop remains active");
+            return;
+        }
+
+        if (app->getExecutor().isSoftStopped() &&
+            g_soft_stop_required_role != chopper::bluetooth::ControllerRole::UNASSIGNED &&
+            role != g_soft_stop_required_role) {
+            ESP_LOGW(TAG, "Controller role %s connected, waiting for lost role %s before clearing soft stop",
+                     chopper::bluetooth::roleToString(role),
+                     chopper::bluetooth::roleToString(g_soft_stop_required_role));
+            return;
+        }
+
         app->clearSoftStop("Controller connected");
+        g_soft_stop_required_role = chopper::bluetooth::ControllerRole::UNASSIGNED;
     }
 }
 }  // namespace
@@ -261,7 +286,15 @@ extern "C" int chopper_runtime_start(void) {
         ESP_LOGE(TAG, "Failed to start MP3 software serial");
         return 1;
     }
-    vTaskDelay(pdMS_TO_TICKS(chopper::config::sound::MP3TRIGGER_READY_DELAY_MS));
+    // The SyRen on the shared packet-serial bus requires a two-second delay
+    // before the 0xAA autobaud byte. Sabertooth 2x32 baud is configured in
+    // DEScribe and must match config::baud::SABERTOOTH. No motor-controller
+    // bytes are sent until DriverManager::initAll() below.
+    constexpr uint32_t actuator_uart_ready_delay_ms = chopper::config::motor_controller::SYREN_AUTOBAUD_READY_DELAY_MS;
+    constexpr uint32_t audio_ready_delay_ms = chopper::config::sound::MP3TRIGGER_READY_DELAY_MS;
+    constexpr uint32_t startup_serial_ready_delay_ms =
+        (actuator_uart_ready_delay_ms > audio_ready_delay_ms) ? actuator_uart_ready_delay_ms : audio_ready_delay_ms;
+    vTaskDelay(pdMS_TO_TICKS(startup_serial_ready_delay_ms));
     mp3.setVolume(chopper::config::sound::DEFAULT_VOLUME);
     openmv_serial.begin();
 

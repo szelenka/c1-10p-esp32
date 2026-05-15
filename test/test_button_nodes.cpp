@@ -1808,6 +1808,89 @@ void test_dome_tracking_no_face_zero_speed() {
     PASS();
 }
 
+void test_dome_tracking_stale_vision_times_out_to_zero() {
+    TEST(dome_tracking_stale_vision_times_out_to_zero);
+    resetFramework();
+    mock_esp_timer_set(1'000'000);
+
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    ASSERT(node->initialize());
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto ctrl_pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/dome");
+    auto vision_pub = broker.createPublisher<chopper::messages::VisionResult>("vision/result");
+
+    float last_speed = 0.0f;
+    auto motor_sub = broker.createSubscription<chopper::messages::MotorCommand>(
+        "dome/motor/cmd",
+        [](const chopper::messages::MotorCommand& cmd, void* c) { *static_cast<float*>(c) = cmd.value; },
+        &last_speed);
+
+    auto input = connectedControllerInput();
+    input.has_intents = true;
+    input.intent_face_tracking_toggle = true;
+    ctrl_pub->publish(input);
+    ASSERT(node->isTrackingEnabled());
+
+    chopper::messages::VisionResult v;
+    v.detected = true;
+    v.center_x = 80;
+    v.confidence = 200;
+    vision_pub->publish(v);
+    node->process(1'000'000);
+    ASSERT(std::fabs(node->getTrackingSpeed()) > 0.01f);
+    ASSERT(std::fabs(last_speed) > 0.01f);
+
+    mock_esp_timer_set(1'600'000);
+    node->process(1'600'000);
+
+    ASSERT(node->isTrackingEnabled());
+    ASSERT_NEAR(node->getTrackingSpeed(), 0.0f, 0.001f);
+    ASSERT_NEAR(last_speed, 0.0f, 0.001f);
+    mock_esp_timer_reset();
+    PASS();
+}
+
+void test_dome_tracking_enabled_suppresses_auto_motion() {
+    TEST(dome_tracking_enabled_suppresses_auto_motion);
+    resetFramework();
+
+    chopper::dome::DomePosition dome_pos;
+    dome_pos.update(180, 0);
+    dome_pos.setDomeHomePosition(0);
+
+    auto node = std::make_shared<chopper::nodes::DomeNode>(&dome_pos, 0.5f, 1.0f, 2, false, 320);
+    ASSERT(node->initialize());
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto ctrl_pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/dome");
+
+    float last_speed = 0.0f;
+    auto motor_sub = broker.createSubscription<chopper::messages::MotorCommand>(
+        "dome/motor/cmd",
+        [](const chopper::messages::MotorCommand& cmd, void* c) { *static_cast<float*>(c) = cmd.value; },
+        &last_speed);
+
+    auto input = connectedControllerInput();
+    input.has_intents = true;
+    input.intent_dome_random_toggle = true;
+    ctrl_pub->publish(input);
+    input.intent_dome_random_toggle = false;
+    ctrl_pub->publish(input);
+    ASSERT(node->isRandomModeEnabled());
+
+    input.intent_face_tracking_toggle = true;
+    ctrl_pub->publish(input);
+    ASSERT(node->isTrackingEnabled());
+
+    node->setDomeMovedManually(true);
+    dome_pos.setDomeMode(chopper::dome::DomePosition::kHome, 1'000);
+    node->process(10'000'000);
+
+    ASSERT_NEAR(last_speed, 0.0f, 0.001f);
+    PASS();
+}
+
 void test_dome_tracking_disabled_ignores_vision() {
     TEST(dome_tracking_disabled_ignores_vision);
     resetFramework();
@@ -2074,6 +2157,8 @@ int main() {
     test_dome_tracking_toggle_via_intent();
     test_dome_tracking_face_right_rotates();
     test_dome_tracking_no_face_zero_speed();
+    test_dome_tracking_stale_vision_times_out_to_zero();
+    test_dome_tracking_enabled_suppresses_auto_motion();
     test_dome_tracking_disabled_ignores_vision();
     test_dome_tracking_toggle_publishes_tracking_cmd();
 

@@ -81,6 +81,17 @@ constexpr uint32_t MP3TRIGGER = 9600;
 }  // namespace baud
 
 // ============================================================================
+// Motor Controller Startup Timing
+// ============================================================================
+
+namespace motor_controller {
+// SyRen 10 Packetized Serial requires a two-second power-up delay before
+// the shared-bus 0xAA autobaud byte. Sabertooth 2x32 baud is configured
+// separately in DEScribe and must match baud::SABERTOOTH.
+constexpr uint32_t SYREN_AUTOBAUD_READY_DELAY_MS = 2000;
+}  // namespace motor_controller
+
+// ============================================================================
 // MP3 Trigger Settings
 // ============================================================================
 

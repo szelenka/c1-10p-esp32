@@ -87,6 +87,15 @@ void test_hardware_config_baud() {
     PASS();
 }
 
+void test_hardware_config_startup_delays() {
+    TEST(hardware_config_startup_delays);
+
+    using namespace chopper::config::motor_controller;
+    ASSERT(SYREN_AUTOBAUD_READY_DELAY_MS == 2000);
+
+    PASS();
+}
+
 void test_hardware_config_device_ids() {
     TEST(hardware_config_device_ids);
 
@@ -686,6 +695,7 @@ int main() {
     // Hardware config (compile-time)
     test_hardware_config_pins();
     test_hardware_config_baud();
+    test_hardware_config_startup_delays();
     test_hardware_config_device_ids();
     test_hardware_config_servo_channels();
     test_hardware_config_joystick();

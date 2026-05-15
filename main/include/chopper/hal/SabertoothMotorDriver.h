@@ -44,7 +44,9 @@ public:
      * @param address   Packet Serial address of the controller (128-135).
      * @param motorId   Motor number on the controller (1 or 2).
      * @param name      Driver name for diagnostics (must be string literal / static).
-     * @param autobaudOnInit Whether init() sends the shared-bus autobaud byte.
+     * @param autobaudOnInit Whether init() sends the shared-bus 0xAA byte for
+     *        V1/SyRen-compatible autobaud devices. Sabertooth 2x32 baud is
+     *        configured separately in DEScribe.
      */
     SabertoothMotorDriver(ISerialPort& serial, uint8_t address, uint8_t motorId, const char* name,
                           bool autobaudOnInit = true)
@@ -152,8 +154,9 @@ public:
 
 private:
     /**
-     * Send the autobaud byte (0xAA) to synchronize the Sabertooth.
-     * Must be sent once after power-up before any commands.
+     * Send the 0xAA byte used by V1/SyRen-compatible packet serial autobaud.
+     * On a mixed SyRen/Sabertooth 2x32 bus, this trains the SyRen while the
+     * Sabertooth 2x32 relies on its DEScribe-configured baud setting.
      */
     bool sendAutobaud() {
         uint8_t byte = AUTOBAUD_BYTE;
