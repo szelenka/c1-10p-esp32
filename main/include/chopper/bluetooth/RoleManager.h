@@ -224,7 +224,7 @@ public:
             if (!isRoleTaken(prev, slotIndex)) {
                 slot.role = prev;
                 slot.state = ControllerSlot::State::ACTIVE;
-                ESP_LOGI(kTag, "Slot %d reclaimed previous role %s", slotIndex, roleToString(prev));
+                ESP_LOGD(kTag, "Slot %d reclaimed previous role %s", slotIndex, roleToString(prev));
                 return prev;
             }
         }
@@ -239,7 +239,7 @@ public:
         }
 
         slot.state = ControllerSlot::State::ACTIVE;
-        ESP_LOGI(kTag, "Slot %d assigned role %s", slotIndex, roleToString(slot.role));
+        ESP_LOGD(kTag, "Slot %d assigned role %s", slotIndex, roleToString(slot.role));
         return slot.role;
     }
 

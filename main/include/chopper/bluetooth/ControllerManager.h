@@ -192,10 +192,7 @@ public:
         slot.state = ControllerSlot::State::ASSIGNING;
         ControllerRole assigned = m_roleManager.onControllerAdded(idx, now_ms);
 
-        char macStr[18];
-        mac.format(macStr, sizeof(macStr));
-        ESP_LOGI(kTag, "Controller connected: slot=%d mac=%s type=%d role=%s", idx, macStr, ctlType,
-                 roleToString(assigned));
+        ESP_LOGD(kTag, "Controller connected: slot=%d type=%d role=%s", idx, ctlType, roleToString(assigned));
 
         if (m_connectCallback != nullptr) {
             m_connectCallback(static_cast<uint8_t>(idx), assigned, m_connectContext);

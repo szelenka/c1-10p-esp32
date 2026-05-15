@@ -205,7 +205,7 @@ void Application::softStop(const char* reason) {
 }
 
 void Application::clearSoftStop(const char* reason) {
-    ESP_LOGI(TAG, "Clear soft stop requested: %s", reason ? reason : "(none)");
+    ESP_LOGD(TAG, "Clear soft stop requested: %s", reason ? reason : "(none)");
     executor_.clearSoftStop(reason);
     if (!safetyManager_.isEmergencyStopped()) {
         safetyManager_.getDegradationManager().forceMode(safety::DegradationMode::FULL_OPERATION);

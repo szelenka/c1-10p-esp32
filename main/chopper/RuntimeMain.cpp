@@ -32,14 +32,20 @@
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 
-#include <cstdio>
-
 namespace {
 static const char* const TAG = "RuntimeMain";
+struct ConfiguredRoleMapping {
+    chopper::bluetooth::MacAddress mac;
+    chopper::bluetooth::ControllerRole role;
+};
+
+constexpr uint8_t kConfiguredRoleMappingMax = 5;
 // NOLINTBEGIN(cppcoreguidelines-avoid-non-const-global-variables)
 static chopper::bluetooth::MacBasedPolicy g_role_policy;  // NOLINT(bugprone-throwing-static-initialization)
 static bool g_policy_initialized = false;
 static bool g_runtime_started = false;
+static ConfiguredRoleMapping g_configured_role_mappings[kConfiguredRoleMappingMax] = {};
+static uint8_t g_configured_role_mapping_count = 0;
 static chopper::bluetooth::ControllerRole g_soft_stop_required_role = chopper::bluetooth::ControllerRole::UNASSIGNED;
 // NOLINTEND(cppcoreguidelines-avoid-non-const-global-variables)
 
@@ -52,19 +58,43 @@ void ledWriteCallback(uint8_t brightness, void* /*context*/) {
     ledc_update_duty(LEDC_LOW_SPEED_MODE, LED_CHANNEL);
 }
 
-bool parseMacAddress(const char* text, chopper::bluetooth::MacAddress& out) {
-    unsigned int b[6] = {0};
+int8_t hexNibble(char c) {
+    if (c >= '0' && c <= '9') {
+        return static_cast<int8_t>(c - '0');
+    }
+    if (c >= 'A' && c <= 'F') {
+        return static_cast<int8_t>((c - 'A') + 10);
+    }
+    if (c >= 'a' && c <= 'f') {
+        return static_cast<int8_t>((c - 'a') + 10);
+    }
+    return -1;
+}
+
+[[nodiscard]] bool parseMacAddress(const char* text, chopper::bluetooth::MacAddress& out) {
     if (text == nullptr) {
         return false;
     }
-    // NOLINTNEXTLINE(bugprone-unchecked-string-to-number-conversion)
-    const int n = std::sscanf(text, "%02x:%02x:%02x:%02x:%02x:%02x", &b[0], &b[1], &b[2], &b[3], &b[4], &b[5]);
-    if (n != 6) {
+    chopper::bluetooth::MacAddress parsed{};
+    for (int i = 0; i < 6; ++i) {
+        const int8_t high = hexNibble(text[0]);
+        const int8_t low = hexNibble(text[1]);
+        if (high < 0 || low < 0) {
+            return false;
+        }
+        parsed.addr[i] = static_cast<uint8_t>((static_cast<uint8_t>(high) << 4U) | static_cast<uint8_t>(low));
+        text += 2;
+        if (i < 5) {
+            if (*text != ':') {
+                return false;
+            }
+            ++text;
+        }
+    }
+    if (*text != '\0') {
         return false;
     }
-    for (int i = 0; i < 6; ++i) {
-        out.addr[i] = static_cast<uint8_t>(b[i] & 0xFF);
-    }
+    out = parsed;
     return true;
 }
 
@@ -91,7 +121,16 @@ void initRolePolicy() {
     for (const auto& mapping : mappings) {
         chopper::bluetooth::MacAddress mac{};
         if (parseMacAddress(mapping.mac, mac)) {
-            g_role_policy.addMapping(mac, mapping.role);
+            if (g_configured_role_mapping_count >= kConfiguredRoleMappingMax) {
+                ESP_LOGW(TAG, "Role mapping table full, ignoring configured MAC: %s",
+                         mapping.mac ? mapping.mac : "(null)");
+            } else if (g_role_policy.addMapping(mac, mapping.role)) {
+                g_configured_role_mappings[g_configured_role_mapping_count] = ConfiguredRoleMapping{mac, mapping.role};
+                ++g_configured_role_mapping_count;
+            } else {
+                ESP_LOGW(TAG, "Role policy table full, ignoring configured MAC: %s",
+                         mapping.mac ? mapping.mac : "(null)");
+            }
         } else {
             ESP_LOGW(TAG, "Invalid configured MAC: %s", mapping.mac ? mapping.mac : "(null)");
         }
@@ -119,22 +158,10 @@ void onControllerConnected(uint8_t slot_index, chopper::bluetooth::ControllerRol
         auto& cm = app->getControllerManager();
         const auto& slot = cm.getSlot(slot_index);
 
-        const struct {
-            const char* mac;
-            chopper::bluetooth::ControllerRole role;
-        } mappings[] = {
-            {chopper::config::bluetooth::DRIVE_MAC, chopper::bluetooth::ControllerRole::DRIVE},
-            {chopper::config::bluetooth::DOME_MAC, chopper::bluetooth::ControllerRole::DOME},
-            {chopper::config::bluetooth::ANIMATE_MAC, chopper::bluetooth::ControllerRole::ANIMATION},
-            {chopper::config::bluetooth::CAMERA_MAC, chopper::bluetooth::ControllerRole::CAMERA},
-            {chopper::config::bluetooth::TEMBED_MAC, chopper::bluetooth::ControllerRole::DRIVE},
-        };
-
         chopper::bluetooth::ControllerRole expected = chopper::bluetooth::ControllerRole::UNASSIGNED;
-        for (const auto& m : mappings) {
-            chopper::bluetooth::MacAddress cfg{};
-            if (parseMacAddress(m.mac, cfg) && cfg == slot.mac) {
-                expected = m.role;
+        for (uint8_t i = 0; i < g_configured_role_mapping_count; ++i) {
+            if (g_configured_role_mappings[i].mac == slot.mac) {
+                expected = g_configured_role_mappings[i].role;
                 break;
             }
         }
@@ -189,8 +216,9 @@ extern "C" int chopper_runtime_start(void) {
     // execution can exceed 25 ms under normal command load.
     exec_cfg.max_loop_time_us = 100000;
     exec_cfg.loop_timeout_triggers_estop = false;
-    // BT controller connect/disconnect can cause one-time spikes >160 ms
-    // in BluepadInputNode.  Warn but do not kill the system for transients.
+    // BT controller connect/disconnect can still cause short one-time spikes
+    // from stack transitions and serial logging. Warn, but do not kill the
+    // system for a transient connection event.
     exec_cfg.node_timeout_triggers_estop = false;
 #if defined(CONFIG_FREERTOS_UNICORE) && CONFIG_FREERTOS_UNICORE
     exec_cfg.executor_task_core = 0;
