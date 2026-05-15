@@ -7,6 +7,7 @@
 #include "chopper/math/MathUtil.h"
 #include "chopper/math/SlewRateLimiter.h"
 #include "chopper/messages/CommonMessages.h"
+#include "esp_timer.h"
 #include <cmath>
 
 namespace chopper::nodes {
@@ -38,6 +39,8 @@ public:
         // Params are declared in DefaultParameters.h (single source of truth).
         // Just read current values and register for change notifications.
         refreshCachedParams();
+        slew_rate_current_ = drive_slew_rate_;
+        resetSlewToZero(static_cast<uint64_t>(esp_timer_get_time() / 1000ULL));
         bool listeners_ok = true;
         listeners_ok &= ps.onChange("drive.system", &DriveNode::onParameterChanged, this);
         listeners_ok &= ps.onChange("drive.deadband", &DriveNode::onParameterChanged, this);
@@ -72,6 +75,13 @@ private:
             return;
         }
 
+        const auto now_ms = static_cast<uint64_t>(esp_timer_get_time() / 1000ULL);
+        if (isControllerUnavailable(input)) {
+            resetSlewToZero(now_ms);
+            publishSpeeds(0.0f, 0.0f);
+            return;
+        }
+
         // Carpet mode toggle: thumbL double-click
         handleCarpetToggle(input);
 
@@ -93,7 +103,6 @@ private:
             axis_y = input.axis_y_normalized;
         }
 
-        auto now_ms = static_cast<uint64_t>(esp_timer_get_time() / 1000ULL);
         float x_limited = slew_x_.Calculate(axis_x, now_ms);
         float z_limited = slew_z_.Calculate(axis_y, now_ms);
         float x = math::ApplyDeadband(x_limited, deadband_);
@@ -121,18 +130,31 @@ private:
         speeds.left = math::ApplySpeedLimit(speeds.left, effective_max);
         speeds.right = math::ApplySpeedLimit(speeds.right, effective_max);
 
-        // Publish left motor (id=0)
+        publishSpeeds(speeds.left, speeds.right);
+    }
+
+    static bool isControllerUnavailable(const messages::ControllerInput& input) {
+        return !input.is_connected && !input.has_data;
+    }
+
+    void resetSlewToZero(uint64_t now_ms) {
+        slew_x_.Reset(slew_rate_current_, -slew_rate_current_, 0.0f);
+        slew_z_.Reset(slew_rate_current_, -slew_rate_current_, 0.0f);
+        (void)slew_x_.Calculate(0.0f, now_ms);
+        (void)slew_z_.Calculate(0.0f, now_ms);
+    }
+
+    void publishSpeeds(float left, float right) {
         messages::MotorCommand left_cmd;
         left_cmd.motor_id = 0;
         left_cmd.command_type = messages::MotorCommand::CommandType::SET_SPEED;
-        left_cmd.value = speeds.left;
+        left_cmd.value = left;
         motor_pub_->publish(left_cmd);
 
-        // Publish right motor (id=1)
         messages::MotorCommand right_cmd;
         right_cmd.motor_id = 1;
         right_cmd.command_type = messages::MotorCommand::CommandType::SET_SPEED;
-        right_cmd.value = speeds.right;
+        right_cmd.value = right;
         motor_pub_->publish(right_cmd);
     }
 

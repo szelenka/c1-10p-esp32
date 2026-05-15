@@ -69,6 +69,8 @@ public:
         // Params are declared in DefaultParameters.h (single source of truth).
         // Just read current values and register for change notifications.
         refreshCachedParams();
+        slew_rate_current_ = spin_slew_rate_;
+        resetManualSpinToZero(static_cast<uint64_t>(esp_timer_get_time() / 1000ULL));
         bool listeners_ok = true;
         listeners_ok &= ps.onChange("dome.max_speed", &DomeNode::onParameterChanged, this);
         listeners_ok &= ps.onChange("dome.deadband", &DomeNode::onParameterChanged, this);
@@ -173,6 +175,18 @@ private:
     // ── Manual input handling ───────────────────────────────────────────
 
     void onDriveControllerInput(const messages::ControllerInput& input) {
+        const auto now_ms = static_cast<uint64_t>(esp_timer_get_time() / 1000ULL);
+        last_time_ms_ = now_ms;
+        if (isControllerUnavailable(input)) {
+            drive_rotate_left_ = false;
+            if (!dome_rotate_right_ && std::fabs(dome_analog_rotate_) <= 0.001f) {
+                resetManualSpinToZero(now_ms);
+            } else {
+                updateDomeSpin();
+            }
+            return;
+        }
+
         drive_rotate_left_ = input.has_intents ? input.intent_dome_rotate_left : input.button_l2;
         updateDomeSpin();
     }
@@ -184,6 +198,21 @@ private:
 
         auto now_ms = static_cast<uint64_t>(esp_timer_get_time() / 1000ULL);
         last_time_ms_ = now_ms;
+
+        if (isControllerUnavailable(input)) {
+            dome_rotate_right_ = false;
+            dome_analog_rotate_ = 0.0f;
+            last_random_toggle_ = false;
+            last_eye_toggle_ = false;
+            last_tracking_toggle_ = false;
+            disableAutonomousDomeMotion();
+            if (!drive_rotate_left_) {
+                resetManualSpinToZero(now_ms);
+            } else {
+                updateDomeSpin();
+            }
+            return;
+        }
 
         // Face tracking toggle: one-shot from BluepadInputNode after 2s hold
         handleTrackingToggle(input);
@@ -280,6 +309,38 @@ private:
             }
         }
         last_eye_toggle_ = pressed;
+    }
+
+    static bool isControllerUnavailable(const messages::ControllerInput& input) {
+        return !input.is_connected && !input.has_data;
+    }
+
+    void resetManualSpinToZero(uint64_t now_ms) {
+        last_time_ms_ = now_ms;
+        manual_speed_ = 0.0f;
+        dome_analog_rotate_ = 0.0f;
+        slew_.Reset(slew_rate_current_, -slew_rate_current_, 0.0f);
+        (void)slew_.Calculate(0.0f, now_ms);
+    }
+
+    void disableAutonomousDomeMotion() {
+        const bool was_tracking = tracking_enabled_;
+        tracking_enabled_ = false;
+        tracking_speed_ = 0.0f;
+        tracking_last_error_ = 0.0f;
+        tracking_last_speed_ = 0.0f;
+        if (was_tracking && tracking_cmd_pub_) {
+            messages::TrackingCommand cmd(false);
+            tracking_cmd_pub_->publish(cmd);
+        }
+        random_mode_enabled_ = false;
+        auto_speed_ = 0.0f;
+        auto_target_valid_ = false;
+        auto_movement_started_ = false;
+        auto_go_home_ = false;
+        if (dome_position_ != nullptr) {
+            dome_position_->setDomeDefaultMode(dome::DomePosition::kOff, last_time_ms_);
+        }
     }
 
     // ── Face tracking ────────────────────────────────────────────────────

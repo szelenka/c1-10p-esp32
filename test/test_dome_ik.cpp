@@ -829,6 +829,7 @@ void test_dome_node_publishes_position() {
 void test_dome_node_spin_control() {
     TEST(dome_node_spin_control);
     setup_dome_node_test();
+    mock_esp_timer_set(1'000'000);
 
     chopper::dome::DomePosition domePos;
     auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 100.0f, 2, false);
@@ -847,7 +848,7 @@ void test_dome_node_spin_control() {
         &last_speed);
 
     // Drive R2 only → positive spin
-    node->setDomeSpin(true, false, 1000);
+    node->setDomeSpin(true, false, 1020);
     ASSERT(last_speed > 0.0f);
 
     // Both pressed → target is 0 (but slew-limited)
@@ -855,6 +856,7 @@ void test_dome_node_spin_control() {
     node->setDomeSpin(true, true, 2000);
     // Speed should be decreasing toward 0
     ASSERT(std::fabs(last_speed) <= std::fabs(prev_speed) + 0.01f);
+    mock_esp_timer_reset();
     PASS();
 }
 
@@ -906,6 +908,8 @@ void test_dome_node_random_toggle() {
 
     // Single press toggles ON
     chopper::messages::ControllerInput input;
+    input.is_connected = true;
+    input.has_data = true;
     input.has_intents = true;
 
     input.intent_dome_random_toggle = true;
@@ -987,6 +991,8 @@ void test_dome_node_idle_transition() {
     auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/dome");
 
     chopper::messages::ControllerInput input;
+    input.is_connected = true;
+    input.has_data = true;
     input.has_intents = true;
     input.intent_dome_rotate_right = true;
     pub->publish(input);
