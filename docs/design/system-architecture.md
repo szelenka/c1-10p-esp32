@@ -446,7 +446,7 @@ This is tight. If 4 controllers are rarely connected simultaneously, typical wor
 
 Runtime SoftwareSerial TX is blocking and executes on the caller core. For actuator/audio command paths, the caller is normally the CPU1 executor. It is not a background TX ISR.
 
-At 9600 baud, a Sabertooth or MP3 Trigger 8N1 byte takes about 1.04 ms and a four-byte Sabertooth packet takes about 4.17 ms. Powered testing should measure loop-time impact during multi-device command bursts.
+At 38400 baud, a Sabertooth/SyRen 8N1 byte takes about 0.26 ms and a four-byte Sabertooth packet takes about 1.04 ms. MP3 Trigger remains at 9600 baud. Powered testing should measure loop-time impact during multi-device command bursts.
 
 If SoftwareSerial cannot be made non-blocking, use a dedicated low-priority FreeRTOS task on Core 1 with a 2 KB stack for serial TX. Nodes enqueue commands (lock-free ring buffer); the TX task sends them.
 

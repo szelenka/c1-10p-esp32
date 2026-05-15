@@ -562,7 +562,7 @@ void test_uart_bus_acquire() {
     cfg0.portId = 0;
     cfg0.txPin = 16;
     cfg0.rxPin = -1;  // TX-only
-    cfg0.baudRate = 9600;
+    cfg0.baudRate = 38400;
     cfg0.isSoftwareSerial = true;
     cfg0.isHalfDuplex = true;
     cfg0.ownerName = "sabertooth";
@@ -576,7 +576,7 @@ void test_uart_bus_acquire() {
     const auto* retrieved = uart.getPortConfig(0);
     ASSERT(retrieved != nullptr);
     ASSERT(strcmp(retrieved->ownerName, "sabertooth") == 0);
-    ASSERT_EQ(retrieved->baudRate, (uint32_t)9600);
+    ASSERT_EQ(retrieved->baudRate, (uint32_t)38400);
 
     PASS();
 }
