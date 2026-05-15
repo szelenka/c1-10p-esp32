@@ -43,13 +43,32 @@ void test_hardware_config_pins() {
     using namespace chopper::config::pins;
     ASSERT(SERIAL1_RX == 3);
     ASSERT(SERIAL1_TX == 1);
+    ASSERT(SERIAL2_RX == 33);
+    ASSERT(SERIAL2_TX == 25);
     ASSERT(SERIAL3_RX == 16);
     ASSERT(SERIAL3_TX == 17);
+    ASSERT(SERIAL4_RX == 32);
+    ASSERT(SERIAL4_TX == 4);
+    ASSERT(SCL == 22);
+    ASSERT(SDA == 21);
+    ASSERT(OUTPUT_ENABLE == 27);
+    ASSERT(RS485_RTS == 26);
+    ASSERT(DOUT13 == 13);
+    ASSERT(DOUT14 == 14);
+    ASSERT(DIN35 == 35);
+    ASSERT(DIN34 == 34);
     ASSERT(SABERTOOTH_TX == SERIAL3_RX);
+    ASSERT(MP3TRIGGER_RX == SCL);
+    ASSERT(MP3TRIGGER_TX == SDA);
+    ASSERT(MAESTRO_DOME_RX == DOUT13);
+    ASSERT(MAESTRO_DOME_TX == DOUT14);
     ASSERT(MAESTRO_BODY_RX == SERIAL4_RX);
     ASSERT(MAESTRO_BODY_TX == SERIAL4_TX);
+    ASSERT(OPENMV_RX == SERIAL2_RX);
+    ASSERT(OPENMV_TX == SERIAL2_TX);
+    ASSERT(LED_FRONT == OUTPUT_ENABLE);
+    ASSERT(LED_BACK == OUTPUT_ENABLE);
     ASSERT(DOME_POTENTIOMETER == DIN34);
-    ASSERT(DIN34 == 34);
 
     PASS();
 }
@@ -121,8 +140,27 @@ void test_hardware_config_bluetooth_macs() {
 void test_hardware_config_sound_tracks() {
     TEST(hardware_config_sound_tracks);
 
+    using namespace chopper::config::sound;
+    ASSERT(DEFAULT_VOLUME == 0);
+    ASSERT(MP3TRIGGER_READY_DELAY_MS == 1500);
+
     using namespace chopper::config::sound_track;
     ASSERT(GRUMBLY01 == 2);
+    ASSERT(OKAYOKAY == 3);
+    ASSERT(OKAYFOLLOWME == 4);
+    ASSERT(GRUMBLY02 == 5);
+    ASSERT(YESIWOULD == 6);
+    ASSERT(GRUMPY03 == 8);
+    ASSERT(NOW == 12);
+    ASSERT(WHATGROAN == 14);
+    ASSERT(WAH3 == 15);
+    ASSERT(TADA == 16);
+    ASSERT(CHATTY == 17);
+    ASSERT(EXTENDEDGRUMBLE == 20);
+    ASSERT(GRUMBLY1 == 21);
+    ASSERT(UHOH == 24);
+    ASSERT(SWRSTINGER == 32);
+    ASSERT(PURR3 == 33);
     ASSERT(MANDOLORIAN == 254);
     ASSERT(IMPERIALCAROLBELLS == 255);
 

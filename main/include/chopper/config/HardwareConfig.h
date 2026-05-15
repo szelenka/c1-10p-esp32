@@ -79,6 +79,15 @@ constexpr uint32_t MP3TRIGGER = 38400;
 }  // namespace baud
 
 // ============================================================================
+// MP3 Trigger Settings
+// ============================================================================
+
+namespace sound {
+constexpr uint8_t DEFAULT_VOLUME = 0;
+constexpr uint32_t MP3TRIGGER_READY_DELAY_MS = 1500;
+}  // namespace sound
+
+// ============================================================================
 // Device IDs (Sabertooth address, Maestro mini-SSC device number)
 // ============================================================================
 

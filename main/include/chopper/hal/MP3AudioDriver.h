@@ -151,6 +151,11 @@ private:
                 case 'X':                          // Track finished
                     m_playing = false;
                     break;
+                case 'x':
+                    if (!m_playing) {
+                        m_playing = false;
+                    }
+                    break;
                 case 'E':  // Error
                     m_playing = false;
                     break;
@@ -182,6 +187,9 @@ private:
     }
 
     void mp3Stop() {
+        if (!m_playing) {
+            return;
+        }
         uint8_t byte = 'O';
         m_serial->write(&byte, 1);
     }

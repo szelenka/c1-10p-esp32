@@ -136,6 +136,21 @@ void test_stop_sends_correct_byte() {
     PASS();
 }
 
+void test_stop_when_idle_sends_no_bytes() {
+    TEST(mp3_stop_when_idle_sends_no_bytes);
+
+    MockBidirectionalSerialPort serial;
+    chopper::hal::MP3AudioDriver driver(serial, "test");
+    driver.init();
+
+    serial.clearWritten();
+    driver.stop();
+
+    ASSERT(serial.writtenBytes.empty());
+
+    PASS();
+}
+
 void test_trigger_sets_playing() {
     TEST(mp3_trigger_sets_playing_true);
 
@@ -163,6 +178,23 @@ void test_update_processes_track_end() {
 
     // Inject 'X' (track finished) response
     serial.injectResponse('X');
+    driver.update();
+
+    ASSERT(!driver.isPlaying());
+
+    PASS();
+}
+
+void test_update_processes_lowercase_idle_track_end() {
+    TEST(mp3_update_processes_x_response_when_idle);
+
+    MockBidirectionalSerialPort serial;
+    chopper::hal::MP3AudioDriver driver(serial, "test");
+    driver.init();
+
+    ASSERT(!driver.isPlaying());
+
+    serial.injectResponse('x');
     driver.update();
 
     ASSERT(!driver.isPlaying());
@@ -346,8 +378,10 @@ int main() {
     test_trigger_sends_correct_bytes();
     test_set_volume_sends_correct_bytes();
     test_stop_sends_correct_byte();
+    test_stop_when_idle_sends_no_bytes();
     test_trigger_sets_playing();
     test_update_processes_track_end();
+    test_update_processes_lowercase_idle_track_end();
     test_update_processes_error();
     test_update_processes_trigger_input();
     test_random_track_selection();

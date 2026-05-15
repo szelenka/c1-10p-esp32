@@ -28,6 +28,7 @@
 
 #include "esp_log.h"
 #include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 
@@ -251,6 +252,8 @@ extern "C" int chopper_runtime_start(void) {
     maestro_body_serial.begin();
     maestro_dome_serial.begin();
     mp3_serial.begin();
+    vTaskDelay(pdMS_TO_TICKS(chopper::config::sound::MP3TRIGGER_READY_DELAY_MS));
+    mp3.setVolume(chopper::config::sound::DEFAULT_VOLUME);
     openmv_serial.begin();
 
     // Configure LEDC PWM for body LED fading (replaces legacy analogWrite).
@@ -473,9 +476,6 @@ extern "C" int chopper_runtime_start(void) {
         ESP_LOGE(TAG, "Application init failed");
         return 1;
     }
-
-    // Legacy setupMp3Trigger() set initial volume during setup.
-    mp3.setVolume(20);
 
     if (!app.start()) {
         ESP_LOGE(TAG, "Application start failed");
