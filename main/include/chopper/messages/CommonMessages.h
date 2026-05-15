@@ -93,6 +93,8 @@ public:
     bool intent_body_utility_toggle = false;
     bool intent_carpet_mode_toggle = false;
     bool intent_dome_rotate_left = false;
+    bool intent_volume_down = false;
+    bool intent_volume_up = false;
 
     // Dome-controller intents (populated for DOME role)
     bool intent_neck_toggle = false;

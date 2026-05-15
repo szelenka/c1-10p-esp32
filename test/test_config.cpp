@@ -142,6 +142,9 @@ void test_hardware_config_sound_tracks() {
 
     using namespace chopper::config::sound;
     ASSERT(DEFAULT_VOLUME == 0);
+    ASSERT(VOLUME_LOUDEST == 0);
+    ASSERT(VOLUME_QUIETEST == 64);
+    ASSERT(VOLUME_STEP == 8);
     ASSERT(MP3TRIGGER_READY_DELAY_MS == 1500);
 
     using namespace chopper::config::sound_track;

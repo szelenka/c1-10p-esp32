@@ -84,6 +84,9 @@ constexpr uint32_t MP3TRIGGER = 38400;
 
 namespace sound {
 constexpr uint8_t DEFAULT_VOLUME = 0;
+constexpr uint8_t VOLUME_LOUDEST = 0;
+constexpr uint8_t VOLUME_QUIETEST = 64;
+constexpr uint8_t VOLUME_STEP = 8;
 constexpr uint32_t MP3TRIGGER_READY_DELAY_MS = 1500;
 }  // namespace sound
 

@@ -1111,6 +1111,59 @@ void test_sound_misc_start_plays_track() {
     PASS();
 }
 
+void test_sound_drive_sl_sr_changes_volume() {
+    TEST(sound_drive_sl_sr_changes_volume);
+    resetFramework();
+
+    auto node = std::make_shared<chopper::nodes::SoundNode>();
+    ASSERT(node->initialize());
+    node->activate();
+
+    uint8_t last_volume = 255;
+    uint8_t last_type = 255;
+    int command_count = 0;
+
+    struct Ctx {
+        uint8_t* volume;
+        uint8_t* type;
+        int* count;
+    };
+    Ctx ctx{&last_volume, &last_type, &command_count};
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto sub = broker.createSubscription<chopper::messages::AudioCommand>(
+        "audio/cmd",
+        [](const chopper::messages::AudioCommand& cmd, void* c) {
+            auto* ctx = static_cast<Ctx*>(c);
+            *ctx->volume = cmd.volume;
+            *ctx->type = static_cast<uint8_t>(cmd.command_type);
+            (*ctx->count)++;
+        },
+        &ctx);
+
+    auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
+
+    chopper::messages::ControllerInput input;
+    input.button_r1 = true;  // SR: volume down, MP3 value increases.
+    pub->publish(input);
+
+    ASSERT(command_count == 1);
+    ASSERT(last_type == static_cast<uint8_t>(chopper::messages::AudioCommand::CommandType::SET_VOLUME));
+    ASSERT(last_volume == chopper::config::sound::VOLUME_STEP);
+
+    input.button_r1 = false;
+    pub->publish(input);
+    ASSERT(command_count == 1);
+
+    input.button_l1 = true;  // SL: volume up, MP3 value decreases.
+    pub->publish(input);
+
+    ASSERT(command_count == 2);
+    ASSERT(last_type == static_cast<uint8_t>(chopper::messages::AudioCommand::CommandType::SET_VOLUME));
+    ASSERT(last_volume == chopper::config::sound::VOLUME_LOUDEST);
+    PASS();
+}
+
 // ============================================================
 // Intent-path tests (has_intents = true)
 // ============================================================
@@ -1242,6 +1295,46 @@ void test_sound_a_via_intent() {
     pub->publish(input);
 
     ASSERT(last_track == static_cast<uint16_t>(chopper::config::sound_track::IMPERIALCAROLBELLS));
+    PASS();
+}
+
+void test_sound_volume_via_drive_intent() {
+    TEST(sound_volume_via_drive_intent);
+    resetFramework();
+
+    auto node = std::make_shared<chopper::nodes::SoundNode>();
+    ASSERT(node->initialize());
+    node->activate();
+
+    uint8_t last_volume = 255;
+    uint8_t last_type = 255;
+
+    struct Ctx {
+        uint8_t* volume;
+        uint8_t* type;
+    };
+    Ctx ctx{&last_volume, &last_type};
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto sub = broker.createSubscription<chopper::messages::AudioCommand>(
+        "audio/cmd",
+        [](const chopper::messages::AudioCommand& cmd, void* c) {
+            auto* ctx = static_cast<Ctx*>(c);
+            *ctx->volume = cmd.volume;
+            *ctx->type = static_cast<uint8_t>(cmd.command_type);
+        },
+        &ctx);
+
+    auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
+
+    auto input = connectedControllerInput();
+    input.has_intents = true;
+    input.intent_volume_down = true;
+    input.button_r1 = false;
+    pub->publish(input);
+
+    ASSERT(last_type == static_cast<uint8_t>(chopper::messages::AudioCommand::CommandType::SET_VOLUME));
+    ASSERT(last_volume == chopper::config::sound::VOLUME_STEP);
     PASS();
 }
 
@@ -1958,12 +2051,14 @@ int main() {
     test_sound_a_plays_correct_track();
     test_sound_b_plays_correct_track();
     test_sound_misc_start_plays_track();
+    test_sound_drive_sl_sr_changes_volume();
 
     // Intent-path tests
     test_dome_arms_intent_toggles_doors();
     test_body_utility_intent_extends();
     test_drive_node_carpet_mode_via_intent();
     test_sound_a_via_intent();
+    test_sound_volume_via_drive_intent();
 
     // DomeNode button rotation
     test_dome_drive_l2_publishes_positive_speed();

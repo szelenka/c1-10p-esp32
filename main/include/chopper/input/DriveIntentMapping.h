@@ -66,12 +66,15 @@ enum class UserIntent {
     BODY_UTILITY_TOGGLE,
     CARPET_MODE_TOGGLE,
     DOME_ROTATE_LEFT,
+    VOLUME_DOWN,
+    VOLUME_UP,
     DOME_ROTATE_RIGHT,
     EYE_COLOR_TOGGLE,
     DOME_RANDOM_TOGGLE,
 };
 
 enum class ControlField {
+    NONE,
     BUTTON_A,
     BUTTON_B,
     BUTTON_X,
@@ -97,6 +100,8 @@ struct DriveIntentMap {
     ControlField body_utility_toggle = ControlField::BUTTON_B;
     ControlField carpet_mode_toggle = ControlField::BUTTON_THUMB_L;
     ControlField dome_rotate_left = ControlField::BUTTON_L2;
+    ControlField volume_up = ControlField::BUTTON_L1;
+    ControlField volume_down = ControlField::BUTTON_R1;
 };
 
 inline DriveIntentMap defaultDriveIntentMap() {
@@ -105,6 +110,8 @@ inline DriveIntentMap defaultDriveIntentMap() {
 
 inline bool isControlPressed(const messages::ControllerInput& input, ControlField control) {
     switch (control) {
+        case ControlField::NONE:
+            return false;
         case ControlField::BUTTON_A:
             return input.button_a;
         case ControlField::BUTTON_B:
@@ -139,6 +146,8 @@ inline bool isControlPressed(const messages::ControllerInput& input, ControlFiel
 
 inline void applyControlPress(messages::ControllerInput& input, ControlField control) {
     switch (control) {
+        case ControlField::NONE:
+            break;
         case ControlField::BUTTON_A:
             input.button_a = true;
             break;
@@ -186,6 +195,8 @@ inline void applyControlPress(messages::ControllerInput& input, ControlField con
 
 inline void applyControlRelease(messages::ControllerInput& input, ControlField control) {
     switch (control) {
+        case ControlField::NONE:
+            break;
         case ControlField::BUTTON_A:
             input.button_a = false;
             break;
@@ -249,14 +260,18 @@ inline ControlField resolveControl(UserIntent intent, const DriveIntentMap& map)
             return map.carpet_mode_toggle;
         case UserIntent::DOME_ROTATE_LEFT:
             return map.dome_rotate_left;
+        case UserIntent::VOLUME_DOWN:
+            return map.volume_down;
+        case UserIntent::VOLUME_UP:
+            return map.volume_up;
         case UserIntent::DOME_ROTATE_RIGHT:
-            return map.dome_rotate_left;  // N/A for drive controller
+            return ControlField::NONE;  // N/A for drive controller
         case UserIntent::EYE_COLOR_TOGGLE:
-            return map.dome_rotate_left;  // N/A for drive controller
+            return ControlField::NONE;  // N/A for drive controller
         case UserIntent::DOME_RANDOM_TOGGLE:
-            return map.periscope_up;  // N/A for drive controller
+            return ControlField::NONE;  // N/A for drive controller
     }
-    return map.periscope_up;
+    return ControlField::NONE;
 }
 
 inline void applyIntentPress(messages::ControllerInput& input, UserIntent intent, const DriveIntentMap& map) {
@@ -277,6 +292,8 @@ inline void setDriveIntentsFromRaw(messages::ControllerInput& input, const Drive
     input.intent_body_utility_toggle = isControlPressed(input, map.body_utility_toggle);
     input.intent_carpet_mode_toggle = isControlPressed(input, map.carpet_mode_toggle);
     input.intent_dome_rotate_left = isControlPressed(input, map.dome_rotate_left);
+    input.intent_volume_down = isControlPressed(input, map.volume_down);
+    input.intent_volume_up = isControlPressed(input, map.volume_up);
 }
 
 // ── Dome controller intent mapping ──────────────────────────────────

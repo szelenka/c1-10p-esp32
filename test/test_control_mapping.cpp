@@ -30,6 +30,8 @@ TEST_CASE("default_drive_mapping") {
     CHECK(map.body_utility_toggle == ControlField::BUTTON_B);
     CHECK(map.carpet_mode_toggle == ControlField::BUTTON_THUMB_L);
     CHECK(map.dome_rotate_left == ControlField::BUTTON_L2);
+    CHECK(map.volume_up == ControlField::BUTTON_L1);
+    CHECK(map.volume_down == ControlField::BUTTON_R1);
 }
 
 TEST_CASE("apply_intent_press_and_release") {
@@ -54,6 +56,26 @@ TEST_CASE("override_mapping") {
     CHECK_FALSE(input.button_x);
 }
 
+TEST_CASE("unsupported_drive_intents_are_noop") {
+    const DriveIntentMap map = chopper::input::defaultDriveIntentMap();
+    chopper::messages::ControllerInput input;
+
+    chopper::input::applyIntentPress(input, UserIntent::DOME_ROTATE_RIGHT, map);
+    chopper::input::applyIntentPress(input, UserIntent::EYE_COLOR_TOGGLE, map);
+    chopper::input::applyIntentPress(input, UserIntent::DOME_RANDOM_TOGGLE, map);
+
+    CHECK_FALSE(input.button_a);
+    CHECK_FALSE(input.button_b);
+    CHECK_FALSE(input.button_x);
+    CHECK_FALSE(input.button_y);
+    CHECK_FALSE(input.button_l1);
+    CHECK_FALSE(input.button_l2);
+    CHECK_FALSE(input.button_r1);
+    CHECK_FALSE(input.button_r2);
+    CHECK_FALSE(input.misc_select);
+    CHECK_FALSE(input.misc_start);
+}
+
 TEST_CASE("set_drive_intents_from_raw") {
     const DriveIntentMap map = chopper::input::defaultDriveIntentMap();
     chopper::messages::ControllerInput input;
@@ -67,6 +89,22 @@ TEST_CASE("set_drive_intents_from_raw") {
     CHECK(input.intent_periscope_spin_left);
     CHECK_FALSE(input.intent_periscope_spin_right);
     CHECK_FALSE(input.intent_dome_rotate_left);
+    CHECK_FALSE(input.intent_volume_up);
+    CHECK_FALSE(input.intent_volume_down);
+}
+
+TEST_CASE("set_drive_intents_volume") {
+    const DriveIntentMap map = chopper::input::defaultDriveIntentMap();
+    chopper::messages::ControllerInput input;
+    input.button_l1 = true;
+    input.button_r1 = true;
+
+    chopper::input::setDriveIntentsFromRaw(input, map);
+    CHECK(input.has_intents);
+    CHECK(input.intent_volume_up);
+    CHECK(input.intent_volume_down);
+    CHECK_FALSE(input.intent_neck_height_up);
+    CHECK_FALSE(input.intent_neck_height_down);
 }
 
 TEST_CASE("set_drive_intents_dome_rotate_left") {
