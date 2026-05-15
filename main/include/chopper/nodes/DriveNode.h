@@ -103,6 +103,12 @@ private:
             axis_y = input.axis_y_normalized;
         }
 
+        if (isNeutralDriveInput(axis_x, axis_y)) {
+            resetSlewToZero(now_ms);
+            publishSpeeds(0.0f, 0.0f);
+            return;
+        }
+
         float x_limited = slew_x_.Calculate(axis_x, now_ms);
         float z_limited = slew_z_.Calculate(axis_y, now_ms);
         float x = math::ApplyDeadband(x_limited, deadband_);
@@ -135,6 +141,10 @@ private:
 
     static bool isControllerUnavailable(const messages::ControllerInput& input) {
         return !input.is_connected && !input.has_data;
+    }
+
+    [[nodiscard]] bool isNeutralDriveInput(float axis_x, float axis_y) const {
+        return std::fabs(axis_x) <= deadband_ && std::fabs(axis_y) <= deadband_;
     }
 
     void resetSlewToZero(uint64_t now_ms) {

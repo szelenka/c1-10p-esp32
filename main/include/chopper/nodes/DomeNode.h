@@ -250,18 +250,19 @@ private:
             slew_rate_current_ = spin_slew_rate_;
             slew_.Reset(slew_rate_current_, -slew_rate_current_, slew_.LastValue());
         }
+        if (std::fabs(target) <= 0.001f) {
+            resetManualSpinToZero(now_ms);
+            return;
+        }
         manual_speed_ = slew_.Calculate(target, now_ms);
 
-        bool has_manual_input = std::fabs(target) > 0.001f;
-        if (has_manual_input) {
-            last_manual_input_ms_ = now_ms;
-            dome_has_moved_manually_ = true;
-            if (idle_) {
-                idle_ = false;
-                auto_target_valid_ = false;
-                if (dome_position_ != nullptr) {
-                    dome_position_->resetDefaultMode(now_ms);
-                }
+        last_manual_input_ms_ = now_ms;
+        dome_has_moved_manually_ = true;
+        if (idle_) {
+            idle_ = false;
+            auto_target_valid_ = false;
+            if (dome_position_ != nullptr) {
+                dome_position_->resetDefaultMode(now_ms);
             }
         }
     }

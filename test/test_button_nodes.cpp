@@ -319,6 +319,56 @@ void test_drive_node_disconnect_zero_bypasses_slew() {
     PASS();
 }
 
+void test_drive_node_connected_neutral_zero_bypasses_slew() {
+    TEST(drive_node_connected_neutral_zero_bypasses_slew);
+    resetFramework();
+    mock_esp_timer_set(1'000'000);
+
+    auto node = std::make_shared<chopper::nodes::DriveNode>();
+    ASSERT(node->initialize());
+    node->activate();
+
+    float left_speed = 0.0f;
+    float right_speed = 0.0f;
+
+    struct Ctx {
+        float* left;
+        float* right;
+    };
+    Ctx ctx{&left_speed, &right_speed};
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto sub = broker.createSubscription<chopper::messages::MotorCommand>(
+        "drive/cmd",
+        [](const chopper::messages::MotorCommand& cmd, void* c) {
+            auto* ctx = static_cast<Ctx*>(c);
+            if (cmd.motor_id == 0) *ctx->left = cmd.value;
+            if (cmd.motor_id == 1) *ctx->right = cmd.value;
+        },
+        &ctx);
+
+    auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
+
+    auto input = connectedControllerInput();
+    input.axis_x_slew = 1.0f;
+    mock_esp_timer_set(1'500'000);
+    pub->publish(input);
+    ASSERT(left_speed > 0.0f);
+    ASSERT(right_speed > 0.0f);
+
+    input.axis_x_slew = 0.0f;
+    input.axis_y_slew = 0.0f;
+    input.axis_x_normalized = 0.0f;
+    input.axis_y_normalized = 0.0f;
+    mock_esp_timer_set(1'520'000);
+    pub->publish(input);
+
+    ASSERT_NEAR(left_speed, 0.0f, 0.001f);
+    ASSERT_NEAR(right_speed, 0.0f, 0.001f);
+    mock_esp_timer_reset();
+    PASS();
+}
+
 void test_drive_node_carpet_mode_toggle() {
     TEST(drive_node_carpet_mode_toggle);
     resetFramework();
@@ -1602,6 +1652,130 @@ void test_dome_disconnect_zero_bypasses_spin_slew() {
     PASS();
 }
 
+void test_dome_connected_neutral_zero_bypasses_spin_slew() {
+    TEST(dome_connected_neutral_zero_bypasses_spin_slew);
+    resetFramework();
+    mock_esp_timer_set(1'000'000);
+
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    ASSERT(node->initialize());
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto dome_pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/dome");
+
+    float last_speed = 0.0f;
+    int motor_count = 0;
+    struct Ctx {
+        float* speed;
+        int* count;
+    };
+    Ctx ctx{&last_speed, &motor_count};
+    auto motor_sub = broker.createSubscription<chopper::messages::MotorCommand>(
+        "dome/motor/cmd",
+        [](const chopper::messages::MotorCommand& cmd, void* c) {
+            auto* x = static_cast<Ctx*>(c);
+            (*x->count)++;
+            *x->speed = cmd.value;
+        },
+        &ctx);
+
+    auto input = connectedControllerInput();
+    input.has_intents = true;
+    input.axis_rx_normalized = 0.5f;
+    mock_esp_timer_set(1'500'000);
+    dome_pub->publish(input);
+    node->process(1'500'000);
+    ASSERT(motor_count > 0);
+    ASSERT(std::fabs(last_speed) > 0.01f);
+
+    input.axis_rx_normalized = 0.0f;
+    mock_esp_timer_set(1'520'000);
+    dome_pub->publish(input);
+    node->process(1'520'000);
+
+    ASSERT_NEAR(last_speed, 0.0f, 0.001f);
+    mock_esp_timer_reset();
+    PASS();
+}
+
+void test_dome_connected_neutral_preserves_tracking() {
+    TEST(dome_connected_neutral_preserves_tracking);
+    resetFramework();
+    mock_esp_timer_set(1'000'000);
+
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    ASSERT(node->initialize());
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto ctrl_pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/dome");
+    auto vision_pub = broker.createPublisher<chopper::messages::VisionResult>("vision/result");
+
+    float last_speed = 0.0f;
+    auto motor_sub = broker.createSubscription<chopper::messages::MotorCommand>(
+        "dome/motor/cmd",
+        [](const chopper::messages::MotorCommand& cmd, void* c) { *static_cast<float*>(c) = cmd.value; },
+        &last_speed);
+
+    auto input = connectedControllerInput();
+    input.has_intents = true;
+    input.intent_face_tracking_toggle = true;
+    ctrl_pub->publish(input);
+    ASSERT(node->isTrackingEnabled());
+
+    chopper::messages::VisionResult v;
+    v.detected = true;
+    v.center_x = 80;
+    v.confidence = 200;
+    vision_pub->publish(v);
+    node->process(1'000'000);
+    ASSERT(std::fabs(node->getTrackingSpeed()) > 0.01f);
+    ASSERT(std::fabs(last_speed) > 0.01f);
+
+    input.intent_face_tracking_toggle = false;
+    input.axis_rx_normalized = 0.0f;
+    mock_esp_timer_set(1'020'000);
+    ctrl_pub->publish(input);
+    node->process(1'020'000);
+
+    ASSERT(node->isTrackingEnabled());
+    ASSERT(std::fabs(node->getTrackingSpeed()) > 0.01f);
+    ASSERT(std::fabs(last_speed) > 0.01f);
+    mock_esp_timer_reset();
+    PASS();
+}
+
+void test_dome_connected_neutral_preserves_random_mode() {
+    TEST(dome_connected_neutral_preserves_random_mode);
+    resetFramework();
+    mock_esp_timer_set(1'000'000);
+
+    chopper::dome::DomePosition dome_pos;
+    dome_pos.update(180, 1'000);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(&dome_pos, 0.5f, 1.0f, 2, false, 320);
+    ASSERT(node->initialize());
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto ctrl_pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/dome");
+
+    auto input = connectedControllerInput();
+    input.has_intents = true;
+    input.intent_dome_random_toggle = true;
+    ctrl_pub->publish(input);
+    input.intent_dome_random_toggle = false;
+    ctrl_pub->publish(input);
+
+    ASSERT(node->isRandomModeEnabled());
+    ASSERT(dome_pos.getDomeDefaultMode() == chopper::dome::DomePosition::kRandom);
+
+    mock_esp_timer_set(1'020'000);
+    ctrl_pub->publish(input);
+
+    ASSERT(node->isRandomModeEnabled());
+    ASSERT(dome_pos.getDomeDefaultMode() == chopper::dome::DomePosition::kRandom);
+    mock_esp_timer_reset();
+    PASS();
+}
+
 void test_dome_disconnect_zero_clears_tracking_speed() {
     TEST(dome_disconnect_zero_clears_tracking_speed);
     resetFramework();
@@ -2110,6 +2284,7 @@ int main() {
     test_drive_node_turn_asymmetric();
     test_drive_node_zero_publishes_zero();
     test_drive_node_disconnect_zero_bypasses_slew();
+    test_drive_node_connected_neutral_zero_bypasses_slew();
     test_drive_node_carpet_mode_toggle();
 
     // PeriscopeNode
@@ -2150,6 +2325,9 @@ int main() {
     test_dome_analog_rx_publishes_proportional_speed();
     test_dome_first_manual_command_slews_from_zero();
     test_dome_disconnect_zero_bypasses_spin_slew();
+    test_dome_connected_neutral_zero_bypasses_spin_slew();
+    test_dome_connected_neutral_preserves_tracking();
+    test_dome_connected_neutral_preserves_random_mode();
     test_dome_disconnect_zero_clears_tracking_speed();
     test_dome_disconnect_zero_disables_random_mode();
 

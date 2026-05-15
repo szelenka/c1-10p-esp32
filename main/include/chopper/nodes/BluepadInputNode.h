@@ -221,10 +221,13 @@ private:
         out.is_gamepad = true;
         formatMac(data.btaddr, out.mac_address);
         const auto calibration = calibrationForSlot(bt_slot);
-        out.axis_x_normalized = input::normalizeCalibratedAxis(out.axis_x, calibration.offset_x, calibration.invert_x);
-        out.axis_y_normalized = input::normalizeCalibratedAxis(out.axis_y, calibration.offset_y, calibration.invert_y);
-        out.axis_rx_normalized = input::normalizeControllerAxis(out.axis_rx);
-        out.axis_ry_normalized = input::normalizeControllerAxis(out.axis_ry);
+        const auto* profile = profileForSlot(bt_slot);
+        out.axis_x_normalized =
+            normalizeCalibratedAxisWithProfile(out.axis_x, calibration.offset_x, calibration.invert_x, profile);
+        out.axis_y_normalized =
+            normalizeCalibratedAxisWithProfile(out.axis_y, calibration.offset_y, calibration.invert_y, profile);
+        out.axis_rx_normalized = normalizeAxisWithProfile(out.axis_rx, profile);
+        out.axis_ry_normalized = normalizeAxisWithProfile(out.axis_ry, profile);
         // Runtime currently has no separate slew-filter node; feed DriveNode
         // with normalized axes so input maps to motor commands as expected.
         out.axis_x_slew = out.axis_x_normalized;
@@ -330,6 +333,29 @@ private:
             return dome_axis_cal_;
         }
         return {};
+    }
+
+    const bluetooth::ButtonMappingProfile* profileForSlot(int bt_slot) const {
+        if (bt_slot < 0 || bt_slot >= CHOPPER_BT_MAX_DEVICES) {
+            return nullptr;
+        }
+        const int8_t slot = mapped_slot_[bt_slot];
+        if (slot < 0 || slot >= bluetooth::ControllerManager::kMaxSlots) {
+            return nullptr;
+        }
+        return controller_manager_->getProfileForSlot(static_cast<uint8_t>(slot));
+    }
+
+    static float normalizeAxisWithProfile(int32_t raw, const bluetooth::ButtonMappingProfile* profile) {
+        if (profile != nullptr) {
+            return profile->normalizeAxis(raw);
+        }
+        return input::normalizeControllerAxis(raw);
+    }
+
+    static float normalizeCalibratedAxisWithProfile(int32_t raw, int32_t offset, bool inverted,
+                                                    const bluetooth::ButtonMappingProfile* profile) {
+        return normalizeAxisWithProfile(input::applyAxisCalibrationRaw(raw, offset, inverted), profile);
     }
 
     bool refreshControllerCalibration() {
