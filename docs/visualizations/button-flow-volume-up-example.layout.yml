@@ -1,0 +1,273 @@
+output: docs/visualizations/button-flow-volume-up-example.svg
+registry: docs/registry.md
+canvas:
+  width: 1790
+  height: 625
+title: Drive SL Volume Flow
+desc: A single example showing the drive Joy-Con SL button flowing through input mapping, SoundNode, AudioBridgeNode, and the MP3 Trigger UART.
+
+items:
+  - kind: text
+    class: title
+    x: 55
+    y: 56
+    text: "Drive SL: input to MP3 volume"
+  - kind: text
+    class: subtitle
+    x: 55
+    y: 88
+    text: Raw Joy-Con button state becomes a volume intent, then an audio command, then one MP3 Trigger UART command.
+
+  - kind: text
+    class: band-title
+    x: 55
+    y: 142
+    text: 1. Input
+  - kind: text
+    class: band-title
+    x: 275
+    y: 142
+    text: 2. Input mapping
+  - kind: text
+    class: band-title
+    x: 555
+    y: 142
+    text: 3. Mailboxes
+  - kind: text
+    class: band-title
+    x: 805
+    y: 142
+    text: 4. Decide action
+  - kind: text
+    class: band-title
+    x: 1060
+    y: 142
+    text: 5. Command mailboxes
+  - kind: text
+    class: band-title
+    x: 1305
+    y: 142
+    text: 6. Safety gates
+  - kind: text
+    class: band-title
+    x: 1555
+    y: 142
+    text: 7. Hardware
+
+  - kind: path
+    class: joycon-body
+    transform: translate(70 244) scale(0.86)
+    d: "M 78,5 C 45,5 5,5 5,50 L 5,150 C 5,195 45,195 78,195 Z"
+  - kind: path
+    class: joycon-rail
+    transform: translate(70 244) scale(0.86)
+    d: "M 76,24 L 84,24 L 84,176 L 76,176 Z"
+  - kind: path
+    class: joycon-button
+    transform: translate(70 244) scale(0.86)
+    d: "M 76,-6 C 54,-6 28,-6 15,6 L 19,11 C 34,1 58,1 76,1 Z"
+  - kind: text
+    class: joycon-label
+    transform: translate(70 244) scale(0.86)
+    x: 46
+    y: -1
+    text: ZL
+  - kind: path
+    class: joycon-button
+    transform: translate(70 244) scale(0.86)
+    d: "M 76,5 C 46,5 36,7 22,14 L 25,21 C 38,15 54,13 76,13 Z"
+  - kind: text
+    class: joycon-label
+    transform: translate(70 244) scale(0.86)
+    x: 48
+    y: 11
+    text: L
+  - kind: circle
+    class: joycon-stick-well
+    transform: translate(70 244) scale(0.86)
+    cx: 41
+    cy: 65
+    r: 18
+  - kind: circle
+    class: joycon-stick-dot
+    transform: translate(70 244) scale(0.86)
+    cx: 41
+    cy: 65
+    r: 8
+  - kind: circle
+    class: joycon-button
+    transform: translate(70 244) scale(0.86)
+    cx: 41
+    cy: 105
+    r: 6.5
+  - kind: circle
+    class: joycon-button
+    transform: translate(70 244) scale(0.86)
+    cx: 41
+    cy: 131
+    r: 6.5
+  - kind: circle
+    class: joycon-button
+    transform: translate(70 244) scale(0.86)
+    cx: 28
+    cy: 118
+    r: 6.5
+  - kind: circle
+    class: joycon-button
+    transform: translate(70 244) scale(0.86)
+    cx: 54
+    cy: 118
+    r: 6.5
+  - kind: path
+    class: joycon-button
+    transform: translate(70 244) scale(0.86)
+    d: "M 42,162 L 54,162 L 54,174 L 42,174 Z"
+  - kind: path
+    class: joycon-input
+    transform: translate(70 244) scale(0.86)
+    d: "M 81,47 L 87,47 L 87,61 L 81,61 Z"
+  - kind: text
+    class: joycon-label
+    transform: translate(70 244) scale(0.86)
+    x: 84
+    y: 56
+    text: SL
+  - kind: path
+    class: joycon-button
+    transform: translate(70 244) scale(0.86)
+    d: "M 81,139 L 87,139 L 87,153 L 81,153 Z"
+  - kind: text
+    class: joycon-label
+    transform: translate(70 244) scale(0.86)
+    x: 84
+    y: 148
+    text: SR
+
+  - kind: path
+    class: thin dash
+    fill: none
+    stroke: "#98a2b3"
+    d: M 208 238 L 208 326
+  - kind: text
+    class: small
+    x: 208
+    y: 228
+    text_anchor: middle
+    text: "button_l1: true"
+
+  - kind: box
+    class: input
+    x: 270
+    y: 270
+    width: 210
+    height: 120
+    refs:
+      nodes: [BluepadInputNode]
+    title: {x: 290, y: 306, text: BluepadInputNode}
+    lines:
+      - {x: 290, y: 334, text: reads SL press}
+      - {x: 290, y: 356, text: maps drive role}
+      - {x: 290, y: 378, text: sets intents}
+
+  - kind: box
+    class: topic
+    x: 555
+    y: 290
+    width: 175
+    height: 80
+    refs:
+      topics: [controller/drive]
+    title: {x: 575, y: 324, text: controller/drive}
+    lines:
+      - {class: small, x: 575, y: 350, text: ControllerInput mail}
+
+  - kind: box
+    class: action
+    x: 805
+    y: 270
+    width: 180
+    height: 120
+    refs:
+      nodes: [SoundNode]
+    title: {x: 825, y: 306, text: SoundNode}
+    lines:
+      - {x: 825, y: 334, text: rising edge only}
+      - {x: 825, y: 356, text: steps volume}
+      - {x: 825, y: 378, text: publishes command}
+
+  - kind: box
+    class: topic
+    x: 1060
+    y: 290
+    width: 170
+    height: 80
+    refs:
+      topics: [audio/cmd]
+    title: {x: 1080, y: 324, text: audio/cmd}
+    lines:
+      - {class: small, x: 1080, y: 350, text: SET_VOLUME mail}
+
+  - kind: box
+    class: bridge
+    x: 1305
+    y: 270
+    width: 175
+    height: 120
+    refs:
+      nodes: [AudioBridgeNode]
+    title: {x: 1325, y: 306, text: AudioBridgeNode}
+    lines:
+      - {x: 1325, y: 334, text: checks safety}
+      - {x: 1325, y: 356, text: calls setVolume}
+      - {x: 1325, y: 378, text: if allowed}
+
+  - kind: box
+    class: hardware
+    x: 1555
+    y: 270
+    width: 180
+    height: 120
+    title: {x: 1575, y: 306, text: MP3 Trigger}
+    lines:
+      - {x: 1575, y: 334, text: one UART command}
+      - {x: 1575, y: 356, text: "'v' + volume"}
+      - {class: small, x: 1575, y: 378, text: 9600 baud}
+
+  - kind: path
+    class: line
+    d: M 145 330 L 270 330
+  - kind: path
+    class: line
+    d: M 480 330 L 555 330
+  - kind: path
+    class: thin dash
+    fill: none
+    stroke: "#98a2b3"
+    d: M 518 246 L 518 326
+  - kind: text
+    class: small
+    x: 518
+    y: 238
+    text_anchor: middle
+    text: volume_up
+  - kind: path
+    class: line
+    d: M 730 330 L 805 330
+  - kind: path
+    class: line
+    d: M 985 330 L 1060 330
+  - kind: path
+    class: red-line
+    d: M 1230 330 L 1305 330
+  - kind: path
+    class: line
+    d: M 1480 330 L 1555 330
+
+  - kind: box
+    class: note
+    x: 55
+    y: 530
+    width: 1680
+    height: 56
+    lines:
+      - {x: 77, y: 564, text: "Simple version: drive SL maps to volume_up; SoundNode turns that into one MP3 Trigger volume command."}
