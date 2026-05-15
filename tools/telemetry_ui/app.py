@@ -55,6 +55,12 @@ RIGHT_MISC_LABELS = {
 
 class TelemetryParser:
     KEYVAL_RE = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)=([^\s]+)")
+    SERVO_COMMANDS = {
+        0: "position",
+        1: "speed",
+        2: "disable",
+        3: "enable",
+    }
 
     def parse_line(self, line: str) -> Optional[Dict[str, Any]]:
         idx = line.find("TEL:")
@@ -192,11 +198,13 @@ class TelemetryParser:
             if s and value is not None:
                 group_char = s.group(1)
                 group_map = {"a": "any", "b": "body", "d": "dome"}
+                command_type = None
                 servos.append(
                     {
                         "id": int(s.group(2)),
                         "value": float(value),
-                        "type": None,
+                        "type": command_type,
+                        "command": self._servo_command_name(command_type),
                         "dur_ms": None,
                         "group": group_map.get(group_char) if group_char else None,
                     }
@@ -281,11 +289,13 @@ class TelemetryParser:
             servo_id = self._pick_int(item, ["id", "servo_id"])
             if servo_id is None:
                 continue
+            command_type = self._pick_int(item, ["type", "command_type"])
             out.append(
                 {
                     "id": servo_id,
                     "value": self._pick_float(item, ["value", "position", "pulse"]),
-                    "type": self._pick_int(item, ["type", "command_type"]),
+                    "type": command_type,
+                    "command": self._servo_command_name(command_type),
                     "dur_ms": self._pick_int(item, ["dur_ms", "duration_ms"]),
                     "group": item.get("group") or item.get("cluster") or item.get("bank"),
                     "name": item.get("name") or item.get("label"),
@@ -385,6 +395,11 @@ class TelemetryParser:
                 if parsed is not None:
                     return float(parsed)
         return None
+
+    def _servo_command_name(self, command_type: Optional[int]) -> str:
+        if command_type is None:
+            return "position"
+        return self.SERVO_COMMANDS.get(command_type, "unknown")
 
     def _extract_axes(self, input_obj: Dict[str, Any]) -> Optional[List[float]]:
         axes = input_obj.get("axes")
@@ -773,7 +788,16 @@ def parse_servo_calibration() -> Dict[str, Dict[str, int]]:
 
 
 def build_app(bridge: TelemetryBridge, description_dir: Optional[Path] = None) -> web.Application:
-    app = web.Application()
+    @web.middleware
+    async def no_cache_static(request: web.Request, handler):
+        response = await handler(request)
+        if request.path == "/" or request.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+            response.headers["Pragma"] = "no-cache"
+            response.headers["Expires"] = "0"
+        return response
+
+    app = web.Application(middlewares=[no_cache_static])
 
     async def on_startup(_: web.Application) -> None:
         await bridge.start()

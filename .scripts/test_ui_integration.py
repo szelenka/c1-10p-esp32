@@ -39,6 +39,7 @@ parser = TelemetryParser()
 # --- JSON format ---
 test("json_telemetry_basic")
 result = parser.parse_line('TEL:{"inputs":{"drive":{"connected":1,"buttons":0,"axes":[0,0,0,0]}},"outputs":{"motors":[{"id":0,"value":0.5}],"servos":[{"id":1,"value":1500,"group":"body"}]}}')
+basic_result = result
 if result is None:
     failed("parse returned None")
 elif result.get("kind") != "telemetry":
@@ -72,9 +73,20 @@ if result and result.get("servos"):
 else:
     failed("no servos in result")
 
+test("json_servo_command_name")
+result = parser.parse_line('TEL:{"outputs":{"servos":[{"id":1,"type":1,"value":20,"group":"dome"}]}}')
+if result and result.get("servos"):
+    s = result["servos"][0]
+    if s.get("type") == 1 and s.get("command") == "speed":
+        passed()
+    else:
+        failed(f"servo={s}, expected type=1 command=speed")
+else:
+    failed("no servos in result")
+
 test("json_controller_connected")
-if result and result.get("controllers"):
-    drive_ctrl = next((c for c in result["controllers"] if c.get("role") == "drive"), None)
+if basic_result and basic_result.get("controllers"):
+    drive_ctrl = next((c for c in basic_result["controllers"] if c.get("role") == "drive"), None)
     if drive_ctrl and drive_ctrl.get("connected"):
         passed()
     else:

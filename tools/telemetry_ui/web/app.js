@@ -20,6 +20,13 @@ const AUDIO_TYPE = {
   LOOP_TRACK: 5,
 };
 
+const SERVO_TYPE = {
+  SET_POSITION: 0,
+  SET_SPEED: 1,
+  DISABLE: 2,
+  ENABLE: 3,
+};
+
 const SOUND_TRACK_LABELS = {
   2: "grumbly01",
   3: "okay okay",
@@ -503,10 +510,7 @@ function renderDebugOverlay(msg) {
   }
 
   if (debugSections.servos && msg.servos) {
-    const lines = msg.servos.map((s) => {
-      const g = s.group ? `${s.group}:` : "";
-      return `${g}${s.id}: ${s.value !== null && s.value !== undefined ? Number(s.value).toFixed(0) : "--"}`;
-    });
+    const lines = msg.servos.map(formatServoDebug);
     debugServosEl.textContent = lines.length ? lines.join("  ") : "--";
   }
 
@@ -536,6 +540,22 @@ function renderDebugOverlay(msg) {
 function toFiniteNumber(value) {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
+}
+
+function servoCommandName(servo) {
+  if (servo?.command) return servo.command;
+  const type = toFiniteNumber(servo?.type);
+  if (type === SERVO_TYPE.SET_SPEED) return "speed";
+  if (type === SERVO_TYPE.DISABLE) return "disable";
+  if (type === SERVO_TYPE.ENABLE) return "enable";
+  return "position";
+}
+
+function formatServoDebug(servo) {
+  const g = servo.group ? `${servo.group}:` : "";
+  const value = toFiniteNumber(servo.value);
+  const valueText = value === null ? "--" : value.toFixed(0);
+  return `${g}${servo.id} ${servoCommandName(servo)}=${valueText}`;
 }
 
 function toOptionalBool(value) {

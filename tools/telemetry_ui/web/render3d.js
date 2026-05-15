@@ -72,9 +72,21 @@ let URDF_UP_AXIS = "Z";    // "Z" for hand-written, "Y" for Fusion
 // ── State ──────────────────────────────────────────────────────────────
 
 const SERVO_SMOOTH_RATE = 8.0; // exponential decay rate (higher = faster)
+const SERVO_TYPE = {
+  SET_POSITION: 0,
+  SET_SPEED: 1,
+  DISABLE: 2,
+  ENABLE: 3,
+};
+
+const SERVO_VISUAL_OVERRIDES = {
+  "dome:2": { openAt: "max", closedAt: "min", openNorm: -1, closedNorm: 0 },
+  "dome:6": { openAt: "neutral", closedAt: "max", openNorm: 0, closedNorm: 1 },
+};
 
 const state = {
   servoValues: new Map(),
+  servoTelemetry: new Map(),
   servoCurrentNorm: new Map(), // smoothed normalized servo values
   motorValues: new Map(),
   motorAngles: new Map(),
@@ -220,9 +232,34 @@ function toServoNorm(rawValue, servoKey) {
   return clamp(v / 1000, -1, 1);
 }
 
+function calibrationPoint(cal, point) {
+  if (!cal) return null;
+  if (point === "min") return cal.min;
+  if (point === "max") return cal.max;
+  if (point === "neutral") return cal.neutral;
+  return null;
+}
+
+function normalizedBetween(value, from, to) {
+  const v = Number(value);
+  if (!Number.isFinite(v) || !Number.isFinite(from) || !Number.isFinite(to) || from === to) {
+    return 0;
+  }
+  return clamp((v - from) / (to - from), 0, 1);
+}
+
 function servoNormTarget(group, id) {
   const key = `${group}:${id}`;
-  return toServoNorm(state.servoValues.get(key), key);
+  const override = SERVO_VISUAL_OVERRIDES[key];
+  if (!override) {
+    return toServoNorm(state.servoValues.get(key), key);
+  }
+
+  const cal = SERVO_CALIBRATION[key];
+  const closedValue = calibrationPoint(cal, override.closedAt);
+  const openValue = calibrationPoint(cal, override.openAt);
+  const amountOpen = normalizedBetween(state.servoValues.get(key), closedValue, openValue);
+  return override.closedNorm + (override.openNorm - override.closedNorm) * amountOpen;
 }
 
 /**
@@ -241,6 +278,36 @@ function updateServoSmoothing(dt) {
 function servoNorm(group, id) {
   const key = `${group}:${id}`;
   return state.servoCurrentNorm.get(key) ?? servoNormTarget(group, id);
+}
+
+function servoOpenAmount(group, id) {
+  const key = `${group}:${id}`;
+  const override = SERVO_VISUAL_OVERRIDES[key];
+  if (!override) {
+    return clamp(Math.abs(servoNorm(group, id)), 0, 1);
+  }
+
+  return normalizedBetween(servoNorm(group, id), override.closedNorm, override.openNorm);
+}
+
+function servoValueFromNorm(key, norm) {
+  const cal = SERVO_CALIBRATION[key];
+  if (!cal) {
+    return state.servoValues.get(key);
+  }
+
+  const override = SERVO_VISUAL_OVERRIDES[key];
+  if (override) {
+    const amountOpen = normalizedBetween(norm, override.closedNorm, override.openNorm);
+    const closedValue = calibrationPoint(cal, override.closedAt);
+    const openValue = calibrationPoint(cal, override.openAt);
+    return closedValue + ((openValue - closedValue) * amountOpen);
+  }
+
+  if (norm <= 0) {
+    return cal.neutral + (norm * (cal.neutral - cal.min));
+  }
+  return cal.neutral + (norm * (cal.max - cal.neutral));
 }
 
 function mapToJointRange(norm, joint) {
@@ -265,8 +332,26 @@ function mapToJointRange(norm, joint) {
 function recordServoTelemetry(msg) {
   for (const servo of msg.servos || []) {
     const group = servo.group || "other";
-    state.servoValues.set(`${group}:${servo.id}`, servo.value);
+    const key = `${group}:${servo.id}`;
+    state.servoTelemetry.set(key, { ...servo, group });
+    if (!isServoPositionCommand(servo)) {
+      continue;
+    }
+    state.servoValues.set(key, servo.value);
   }
+}
+
+function servoCommandName(servo) {
+  if (servo?.command) return servo.command;
+  const type = Number(servo?.type);
+  if (type === SERVO_TYPE.SET_SPEED) return "speed";
+  if (type === SERVO_TYPE.DISABLE) return "disable";
+  if (type === SERVO_TYPE.ENABLE) return "enable";
+  return "position";
+}
+
+function isServoPositionCommand(servo) {
+  return servoCommandName(servo) === "position";
 }
 
 function recordMotorTelemetry(msg) {
@@ -325,8 +410,8 @@ function applyFallbackPose(parts) {
 
   parts.periscope.position.y = 1.25 + clamp(servoNorm("dome", 0), 0, 1) * 0.32;
 
-  parts.domeDoorR.rotation.z = clamp(servoNorm("dome", 2), 0, 1) * 1.0;
-  parts.domeDoorL.rotation.z = -clamp(servoNorm("dome", 6), 0, 1) * 1.0;
+  parts.domeDoorR.rotation.z = servoOpenAmount("dome", 2) * 1.0;
+  parts.domeDoorL.rotation.z = -servoOpenAmount("dome", 6) * 1.0;
   parts.bodyDoorR.rotation.y = -clamp(servoNorm("body", 4), 0, 1) * 1.2;
   parts.bodyDoorL.rotation.y = clamp(servoNorm("body", 5), 0, 1) * 1.2;
 }
@@ -589,15 +674,6 @@ function updateLabelContent(msg) {
     el.textContent = val;
   }
 
-  // Servos
-  for (const servo of msg.servos || []) {
-    const group = servo.group || "other";
-    const el = labelLayer.querySelector(`[data-key="servo:${group}:${servo.id}"]`);
-    if (!el) continue;
-    const val = servo.value === null || servo.value === undefined ? "--" : Number(servo.value).toFixed(3);
-    el.textContent = val;
-  }
-
   // LEDs
   for (const led of msg.leds || []) {
     const swatch = labelLayer.querySelector(`.pin-label-swatch[data-led-id="${led.id}"]`);
@@ -614,6 +690,48 @@ function updateLabelContent(msg) {
       valEl.textContent = onOff;
     }
   }
+}
+
+function updateServoLabelContent() {
+  for (const [servoKey] of Object.entries(SERVO_JOINT_MAP)) {
+    if (!state.servoValues.has(servoKey)) {
+      continue;
+    }
+    const [group, idStr] = servoKey.split(":");
+    const id = Number(idStr);
+    const el = labelLayer.querySelector(`[data-key="servo:${group}:${id}"]`);
+    if (!el) continue;
+    const value = servoValueFromNorm(servoKey, servoNorm(group, id));
+    el.textContent = Number.isFinite(value) ? Number(value).toFixed(3) : "--";
+  }
+}
+
+function updateServoDebugPanel() {
+  const sections = window.debugSections || {};
+  if (!sections.servos) {
+    return;
+  }
+
+  const el = document.getElementById("debugServos");
+  if (!el) {
+    return;
+  }
+
+  const lines = [];
+  for (const [servoKey, servo] of state.servoTelemetry) {
+    const command = servoCommandName(servo);
+    if (command !== "position") {
+      const value = Number(servo.value);
+      lines.push(`${servoKey} ${command}=${Number.isFinite(value) ? value.toFixed(0) : "--"}`);
+      continue;
+    }
+
+    const [group, idStr] = servoKey.split(":");
+    const id = Number(idStr);
+    const value = servoValueFromNorm(servoKey, servoNorm(group, id));
+    lines.push(`${servoKey} position=${Number.isFinite(value) ? Number(value).toFixed(0) : "--"}`);
+  }
+  el.textContent = lines.length ? lines.join("  ") : "--";
 }
 
 // ── Bootstrap ──────────────────────────────────────────────────────────
@@ -679,7 +797,7 @@ async function bootstrap() {
   const GRID_SIZE = 8;
   const GRID_DIVS = 32;
   const GRID_CELL = GRID_SIZE / GRID_DIVS; // 0.25 — exact in float64
-  const GROUND_SPEED = 1.0;
+  const GROUND_SPEED = 4.0;
   const gridPivot = new THREE.Group();
   scene.add(gridPivot);
   const grid = new THREE.GridHelper(GRID_SIZE, GRID_DIVS, 0xc8d2dc, 0xc8d2dc);
@@ -905,10 +1023,14 @@ async function bootstrap() {
     }
 
     updateServoSmoothing(dt);
+    updateServoLabelContent();
+    updateServoDebugPanel();
 
     const leftSpeed = state.motorValues.get(0) || 0;
     const rightSpeed = state.motorValues.get(1) || 0;
-    const forward = (leftSpeed + rightSpeed) * 0.5;
+    // Telemetry carries logical drive commands before HAL motor inversion.
+    // Positive logical drive means robot-forward, so the ground scrolls backward.
+    const forward = -((leftSpeed + rightSpeed) * 0.5);
     const turnRate = (rightSpeed - leftSpeed) * 2.0;
 
     // groundX/groundZ track displacement in grid-local space so
