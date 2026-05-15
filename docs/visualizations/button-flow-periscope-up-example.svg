@@ -79,6 +79,7 @@
   <text class="joycon-label" x="46" y="-1" transform="translate(70 244) scale(0.86)">ZL</text>
   <path class="joycon-button" d="M 76,5 C 46,5 36,7 22,14 L 25,21 C 38,15 54,13 76,13 Z" transform="translate(70 244) scale(0.86)"/>
   <text class="joycon-label" x="48" y="11" transform="translate(70 244) scale(0.86)">L</text>
+  <path class="joycon-button" d="M 56,33 L 68,33 L 68,37 L 56,37 Z" transform="translate(70 244) scale(0.86)"/>
   <circle class="joycon-stick-well" cx="41" cy="65" r="18" transform="translate(70 244) scale(0.86)"/>
   <circle class="joycon-stick-dot" cx="41" cy="65" r="8" transform="translate(70 244) scale(0.86)"/>
   <circle class="joycon-input" cx="41" cy="105" r="6.5" transform="translate(70 244) scale(0.86)"/>

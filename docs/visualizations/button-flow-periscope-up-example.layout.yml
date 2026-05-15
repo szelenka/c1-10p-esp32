@@ -92,6 +92,10 @@ items:
     x: 48
     y: 11
     text: L
+  - kind: path
+    class: joycon-button
+    transform: translate(70 244) scale(0.86)
+    d: "M 56,33 L 68,33 L 68,37 L 56,37 Z"
   - kind: circle
     class: joycon-stick-well
     transform: translate(70 244) scale(0.86)
