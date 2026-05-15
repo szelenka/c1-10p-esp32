@@ -57,6 +57,8 @@ void test_hardware_config_pins() {
     ASSERT(DOUT14 == 14);
     ASSERT(DIN35 == 35);
     ASSERT(DIN34 == 34);
+    ASSERT(UNUSED_PIN == -1);
+    ASSERT(SABERTOOTH_RX == UNUSED_PIN);
     ASSERT(SABERTOOTH_TX == SERIAL3_RX);
     ASSERT(MP3TRIGGER_RX == SCL);
     ASSERT(MP3TRIGGER_TX == SDA);
@@ -80,7 +82,7 @@ void test_hardware_config_baud() {
     ASSERT(SABERTOOTH == 9600);
     ASSERT(MAESTRO == 9600);
     ASSERT(OPENMV == 115200);
-    ASSERT(MP3TRIGGER == 38400);
+    ASSERT(MP3TRIGGER == 9600);
 
     PASS();
 }

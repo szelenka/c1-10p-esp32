@@ -178,13 +178,10 @@ extern "C" int chopper_runtime_start(void) {
     // Runtime HAL wiring (equivalent to legacy sketch setup functions).
     //
     // Notes:
-    // - sw_serial requires an RX pin even for TX-only buses. We assign a
-    //   dummy input pin for Sabertooth RX to satisfy that requirement.
+    // - Sabertooth is TX-only from the ESP32 side, matching legacy NOT_A_PIN RX.
     // - All HAL objects are static to preserve lifetime across executor tasks.
-    static constexpr gpio_num_t kSabertoothDummyRxPin = GPIO_NUM_35;
     static chopper::hal::SoftwareSerialPort sabertooth_serial(
-        static_cast<gpio_num_t>(chopper::config::pins::SABERTOOTH_TX), kSabertoothDummyRxPin,
-        chopper::config::baud::SABERTOOTH);
+        static_cast<gpio_num_t>(chopper::config::pins::SABERTOOTH_TX), chopper::config::baud::SABERTOOTH);
     static chopper::hal::SoftwareSerialPort maestro_body_serial(
         static_cast<gpio_num_t>(chopper::config::pins::MAESTRO_BODY_TX),
         static_cast<gpio_num_t>(chopper::config::pins::MAESTRO_BODY_RX), chopper::config::baud::MAESTRO);
@@ -212,7 +209,7 @@ extern "C" int chopper_runtime_start(void) {
     static chopper::hal::MP3AudioDriver mp3(mp3_serial, "mp3");
 
     auto& uart_bus = chopper::hal::UartBusManager::getInstance();
-    if (!uart_bus.acquirePort({0, static_cast<int8_t>(kSabertoothDummyRxPin),
+    if (!uart_bus.acquirePort({0, static_cast<int8_t>(chopper::config::pins::SABERTOOTH_RX),
                                static_cast<int8_t>(chopper::config::pins::SABERTOOTH_TX),
                                chopper::config::baud::SABERTOOTH, true, true, "sabertooth_bus"})) {
         ESP_LOGE(TAG, "Failed to acquire Sabertooth UART bus");
@@ -248,10 +245,22 @@ extern "C" int chopper_runtime_start(void) {
     }
     uart_bus.printAllocations();
 
-    sabertooth_serial.begin();
-    maestro_body_serial.begin();
-    maestro_dome_serial.begin();
-    mp3_serial.begin();
+    if (!sabertooth_serial.begin()) {
+        ESP_LOGE(TAG, "Failed to start Sabertooth software serial");
+        return 1;
+    }
+    if (!maestro_body_serial.begin()) {
+        ESP_LOGE(TAG, "Failed to start body Maestro software serial");
+        return 1;
+    }
+    if (!maestro_dome_serial.begin()) {
+        ESP_LOGE(TAG, "Failed to start dome Maestro software serial");
+        return 1;
+    }
+    if (!mp3_serial.begin()) {
+        ESP_LOGE(TAG, "Failed to start MP3 software serial");
+        return 1;
+    }
     vTaskDelay(pdMS_TO_TICKS(chopper::config::sound::MP3TRIGGER_READY_DELAY_MS));
     mp3.setVolume(chopper::config::sound::DEFAULT_VOLUME);
     openmv_serial.begin();

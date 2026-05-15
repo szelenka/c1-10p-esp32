@@ -16,11 +16,11 @@ This document defines the Hardware Abstraction Layer for the chopper ESP32 astro
 
 | Device                        | Bus       | Protocol          | Direction  | Baud Rate | Notes                                      |
 |-------------------------------|-----------|-------------------|------------|-----------|--------------------------------------------|
-| Sabertooth 2x32 (addr 129)   | UART (SW) | Packet Serial     | TX-only    | 38400     | Differential drive, 2 motors; device must match/autobaud |
-| SyRen 10 (addr 128)          | UART (SW) | Packet Serial     | TX-only    | 38400     | Dome rotation, 1 motor; device must match/autobaud |
+| Sabertooth 2x32 (addr 129)   | UART (SW) | Packet Serial     | TX-only    | 9600      | Differential drive, 2 motors; legacy-compatible baud |
+| SyRen 10 (addr 128)          | UART (SW) | Packet Serial     | TX-only    | 9600      | Dome rotation, 1 motor; legacy-compatible baud |
 | Pololu Maestro Body (id 12)  | UART (SW) | Pololu Protocol   | Bidi       | 9600      | 6 channels: neck servos, utility arm, doors|
 | Pololu Maestro Dome (id 13)  | UART (SW) | Pololu Protocol   | Bidi       | 9600      | 11 channels: periscope, doors, arms        |
-| SparkFun MP3 Trigger          | UART (SW) | Serial commands   | Bidi       | 38400     | Audio playback                             |
+| SparkFun MP3 Trigger          | UART (SW) | Serial commands   | Bidi       | 9600      | Audio playback; SD card init file must match |
 | OpenMV Camera                 | UART (HW) | Custom/Serial     | Bidi       | 115200    | Vision processing (Serial2)                |
 | Dome Potentiometer            | ADC       | Analog            | Input      | N/A       | GPIO34, 12-bit ADC                         |
 | Penumbra Board                | UART      | MessageHandler     | Bidi       | TBD       | LED commands, inter-board messaging         |
@@ -197,14 +197,16 @@ The ESP32-WROOM-32D has 3 hardware UARTs. The project uses SoftwareSerial (EspSo
 UART Port      | Pins (RX/TX)   | Device             | Baud   | Mode
 ---------------|----------------|--------------------|--------|----------
 HW UART0       | GPIO3/GPIO1    | USB Console/BP32   | 115200 | Reserved
-HW UART2       | GPIO16/GPIO17  | OpenMV Camera      | 115200 | Bidi
-SW UART-A      | N/A/GPIO16     | Sabertooth bus     | 38400  | TX-only
+HW UART2       | GPIO33/GPIO25  | OpenMV Camera      | 115200 | Bidi
+SW UART-A      | N/A/GPIO16     | Sabertooth bus     | 9600   | TX-only
 SW UART-B      | GPIO32/GPIO4   | Maestro Body       | 9600   | Bidi
 SW UART-C      | GPIO13/GPIO14  | Maestro Dome       | 9600   | Bidi
-SW UART-D      | GPIO22/GPIO21  | MP3 Trigger        | 38400  | Bidi
+SW UART-D      | GPIO22/GPIO21  | MP3 Trigger        | 9600   | Bidi
 ```
 
-**Critical observation**: GPIO16 is shared between HW UART2 RX (OpenMV) and the Sabertooth TX line. The current PinMap.h defines `PIN_SABERTOOTH_TX` as `PIN_SERIAL3_RX` (GPIO16). This is valid because Sabertooth is TX-only from the ESP32 side and uses SoftwareSerial, but it creates a pin conflict if OpenMV and Sabertooth are both active. This must be resolved in the HAL by enforcing mutual exclusion or remapping.
+Sabertooth is TX-only from the ESP32 side and uses `SABERTOOTH_RX = UNUSED_PIN` / `SABERTOOTH_TX = GPIO16`, matching the legacy `NOT_A_PIN` receive mapping. OpenMV uses the separate GPIO33/GPIO25 hardware UART allocation.
+
+The SparkFun MP3 Trigger defaults to 38400 baud when no initialization file is present. This runtime uses 9600 baud to improve SoftwareSerial RX/TX timing margin. The microSD card must include `MP3TRIGR.INI` in the root directory with `#BAUD 9600` before the end-of-command marker so the board and firmware agree. See `docs/reference/MP3TRIGR.INI` for the project reference file.
 
 ### 3.2 UART Bus Manager
 
@@ -396,7 +398,7 @@ NVS keys are organized by driver namespace. Each driver has a dedicated NVS name
 
 ```
 Namespace: "hal_uart"
-  Key: "saber_baud"    Type: u32    Default: 38400
+  Key: "saber_baud"    Type: u32    Default: 9600
   Key: "saber_tx_pin"  Type: u8     Default: 16
   Key: "maestb_baud"   Type: u32    Default: 9600
   Key: "maestb_rx"     Type: u8     Default: 32
@@ -404,7 +406,7 @@ Namespace: "hal_uart"
   Key: "maestd_baud"   Type: u32    Default: 9600
   Key: "maestd_rx"     Type: u8     Default: 13
   Key: "maestd_tx"     Type: u8     Default: 14
-  Key: "mp3_baud"      Type: u32    Default: 38400
+  Key: "mp3_baud"      Type: u32    Default: 9600
   Key: "mp3_rx"        Type: u8     Default: 22
   Key: "mp3_tx"        Type: u8     Default: 21
   Key: "omv_baud"      Type: u32    Default: 115200
@@ -694,7 +696,7 @@ Timing budget for `DriverManager::updateAll()`: **4 ms maximum** (leaving 6 ms f
 
 | Driver                        | Budget   | Expected | Notes                                     |
 |-------------------------------|----------|----------|-------------------------------------------|
-| SabertoothMotorDriver (x3)    | 3.5 ms   | 3.1 ms   | 3x blocking packet serial TX at 38400 baud |
+| SabertoothMotorDriver (x3)    | 13 ms    | 12.6 ms  | 3x blocking 4-byte packet serial TX at 9600 baud |
 | MaestroServoDriver (body)     | 600 us   | 400 us   | setMultiTarget for 6 channels             |
 | MaestroServoDriver (dome)     | 800 us   | 500 us   | setMultiTarget for 11 channels            |
 | MP3TriggerDriver              | 200 us   | 50 us    | MP3Trigger::update() polling              |
@@ -811,14 +813,12 @@ The Executor monitors controller activity and transitions power modes:
 
 ## 11. Open Questions and Risks
 
-1. **GPIO16 conflict**: Sabertooth TX and OpenMV RX both claim GPIO16. If both are active simultaneously, data corruption will occur. Resolution: remap Sabertooth TX to an available GPIO (GPIO26 via RS485 RTS pin is a candidate if RS485 is unused) or time-multiplex the pin.
+1. **MP3 Trigger baud agreement**: The MP3 Trigger board defaults to 38400 baud unless `MP3TRIGR.INI` sets a different value. Runtime firmware uses 9600 baud for SoftwareSerial margin, so the SD card must contain `#BAUD 9600` or MP3 serial control will not work.
 
-2. **SoftwareSerial reliability at 38400**: The MP3 Trigger runs at 38400 baud on SoftwareSerial, which is near the practical limit for bit-banged UART on ESP32. If reliability issues arise, consider dedicating HW UART1 (by remapping pins from the flash-connected defaults) or reducing baud rate.
+2. **Heap fragmentation from std::vector**: The current `ServoDispatch` uses `std::vector` for channel targets and servo states. The HAL design replaces these with fixed-size arrays sized at compile time. This requires knowing the maximum channel count at compile time, which is acceptable for this application.
 
-3. **Heap fragmentation from std::vector**: The current `ServoDispatch` uses `std::vector` for channel targets and servo states. The HAL design replaces these with fixed-size arrays sized at compile time. This requires knowing the maximum channel count at compile time, which is acceptable for this application.
+3. **RingBuffer memory**: The `PenumbraCommDriver` (wrapping `MessageHandler`) consumes ~13 KB for its dual ring buffers. If memory pressure becomes an issue, reduce `BUFFER_SIZE` from 25 to 10 and `BUFFER_DATA_MAX_SIZE` from 256 to 128.
 
-4. **RingBuffer memory**: The `PenumbraCommDriver` (wrapping `MessageHandler`) consumes ~13 KB for its dual ring buffers. If memory pressure becomes an issue, reduce `BUFFER_SIZE` from 25 to 10 and `BUFFER_DATA_MAX_SIZE` from 256 to 128.
+4. **Sabertooth shared bus timing**: Multiple Sabertooth/SyRen devices on one TX line require sequential writes. The runtime uses legacy-compatible 9600 baud, so a typical 4-byte packet takes about 4.2 ms. Three motor updates in one cycle are a meaningful blocking cost; bench validation must confirm loop margin before powered testing.
 
-5. **Sabertooth shared bus timing**: Multiple Sabertooth/SyRen devices on one TX line require sequential writes. The runtime uses 38400 baud to keep a typical 4-byte packet near ~1.0 ms instead of ~4.2 ms at the legacy 9600 baud. Three motor updates in one cycle are still a meaningful blocking cost, so bench validation must confirm both device baud/autobaud and loop margin before powered testing.
-
-6. **NVS write endurance**: ESP32 NVS uses flash, which has limited write cycles (~100K). Configuration saves should be rate-limited (no more than once per minute) and only written when values actually change.
+5. **NVS write endurance**: ESP32 NVS uses flash, which has limited write cycles (~100K). Configuration saves should be rate-limited (no more than once per minute) and only written when values actually change.

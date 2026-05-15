@@ -153,24 +153,32 @@ BatteryMonitorNode --> reads ControllerRegistry battery levels
 
 ---
 
-## 3. Thread/Task Model
+## 3. Thread/Task and Interrupt Model
 
 ### 3.1 FreeRTOS Task Assignment
 
-| Task | Core | Priority | Stack Size | Purpose |
-|------|------|----------|------------|---------|
-| `main` (Arduino loop) | 1 | `configMAX_PRIORITIES - 1` | 8192 B | Executor: all node processing, safety, message dispatch |
-| `btstack` | 0 | `configMAX_PRIORITIES - 2` | 4096 B | Bluetooth Classic + BLE stack (managed by ESP-IDF/Bluepad32) |
+Runtime source of truth: `main/main.c`, `main/chopper/RuntimeMain.cpp`, and generated `sdkconfig`.
+
+| Task / ISR | Core | Priority | Stack Size | Purpose |
+|------------|------|----------|------------|---------|
+| `app_main` / `btstack_run_loop_execute()` | 0 | ESP-IDF main task default | `CONFIG_ESP_MAIN_TASK_STACK_SIZE` | Startup, Bluepad32 setup, BTstack run loop |
+| BT controller | 0 | ESP-IDF managed | ESP-IDF managed | Bluetooth Classic + BLE controller (`CONFIG_BTDM_CTRL_PINNED_TO_CORE_0`) |
+| `chopper_exec` | 1 | `configMAX_PRIORITIES - 1` | 8192 B | Executor: all node processing, safety, message dispatch, driver calls |
+| `telemetry_pub` | 0 | telemetry config | 4096 B default | Async serial telemetry publishing |
+| GPIO ISR service / SoftwareSerial RX | 0 expected | ESP-IDF interrupt allocator | ISR stack | SoftwareSerial start-bit interrupt and RX bit sampling |
+| SoftwareSerial TX writes | caller core, normally 1 | caller task priority | caller task stack | Blocking bit-banged UART TX for actuator/audio drivers |
 | `wifi` (optional) | 0 | `tskIDLE_PRIORITY + 2` | 4096 B | WiFi stack for web dashboard (only when enabled) |
 | `httpd` (optional) | 0 | `tskIDLE_PRIORITY + 1` | 8192 B | Web server for configuration/telemetry |
 | `idle0` | 0 | 0 | minimal | FreeRTOS idle (feeds TWDT) |
 | `idle1` | 1 | 0 | minimal | FreeRTOS idle |
 
+SoftwareSerial RX core placement depends on where `gpio_install_isr_service(0)` first succeeds. In this runtime, SoftwareSerial `begin()` happens during `app_main` startup before the executor is created, so the GPIO ISR service is expected on CPU0. If another component installs the GPIO ISR service earlier from a different core, per-pin SoftwareSerial handlers will attach to that existing service instead.
+
 ### 3.2 Core Affinity Rationale
 
-- **Core 0**: All wireless protocol stacks (BT, WiFi). These are interrupt-heavy and managed by ESP-IDF. Bluepad32 runs its btstack event loop here. WiFi/HTTP runs here if enabled.
-- **Core 1**: All application logic. The executor runs as a single task at highest priority. This ensures deterministic timing for robot control without interference from BT/WiFi interrupts.
-- **Cross-core boundary**: Only the ControllerRegistry connect/disconnect queue and (optionally) HTTP API parameter writes cross the core boundary. Both use lock-free data structures.
+- **Core 0**: Wireless protocol stacks, Bluepad32/BTstack run loop, telemetry publishing, and the expected SoftwareSerial RX GPIO ISR service.
+- **Core 1**: Application executor, bridge nodes, driver calls, and blocking SoftwareSerial TX writes for motor, servo, and MP3 commands.
+- **Cross-core boundary**: ControllerRegistry state crosses from BT callbacks on CPU0 to `BluepadInputNode` on CPU1. Telemetry observations are made from CPU1 node callbacks and published by `telemetry_pub` on CPU0.
 
 ### 3.3 Synchronization Points
 
@@ -434,21 +442,13 @@ Total worst case:       930 us  (70 us margin)
 
 This is tight. If 4 controllers are rarely connected simultaneously, typical worst case is ~530 us (1 controller). The 930 us scenario is an edge case that may occasionally trigger a soft overrun. The safety system allows 3 consecutive soft overruns before taking action.
 
-### 7.5 Serial TX Stagger Strategy
+### 7.5 Runtime SoftwareSerial TX Behavior
 
-Sabertooth commands at the runtime baud of 38400 take ~1.0 ms to transmit. With SoftwareSerial (blocking), multi-motor bursts still need loop-margin validation:
+Runtime SoftwareSerial TX is blocking and executes on the caller core. For actuator/audio command paths, the caller is normally the CPU1 executor. It is not a background TX ISR.
 
-```
-Tick N:   MotorDriverNode (foot L) enqueues command in TX buffer
-Tick N+1: SoftwareSerial TX ISR transmits foot L command (background)
-Tick N+2: MotorDriverNode (foot R) enqueues command
-Tick N+3: SoftwareSerial TX ISR transmits foot R command (background)
-...
-```
+At 9600 baud, a Sabertooth or MP3 Trigger 8N1 byte takes about 1.04 ms and a four-byte Sabertooth packet takes about 4.17 ms. Powered testing should measure loop-time impact during multi-device command bursts.
 
 If SoftwareSerial cannot be made non-blocking, use a dedicated low-priority FreeRTOS task on Core 1 with a 2 KB stack for serial TX. Nodes enqueue commands (lock-free ring buffer); the TX task sends them.
-
-The 38400 baud setting is now the runtime default; powered testing must confirm both the Sabertooth 2x32 and SyRen accept the autobaud/configured rate.
 
 ---
 
@@ -955,7 +955,7 @@ This enables:
 
 | # | Decision | Options | Recommendation | Owner |
 |---|----------|---------|---------------|-------|
-| 1 | SoftwareSerial replacement | (a) Keep SoftwareSerial + stagger, (b) Non-blocking TX task, (c) Increase baud beyond 38400 if validated | Runtime uses 38400 now; measure loop margin before further changes | HAL implementer |
+| 1 | SoftwareSerial replacement | (a) Keep SoftwareSerial + stagger, (b) Non-blocking TX task, (c) Use dedicated hardware UARTs where pins allow | Runtime keeps actuator/audio SoftwareSerial at 9600 for compatibility and timing margin; measure loop margin before further changes | HAL implementer |
 | 2 | WiFi: always-on vs on-demand | (a) Always-on, (b) Enable via parameter, (c) Physical switch | (b) Parameter-controlled, default off | Systems implementer |
 | 3 | Physical E-STOP button | (a) Software only, (b) GPIO-wired kill switch on motor enable pins | (b) Recommended for safety but not required for indoor use | Hardware decision |
 | 4 | Exception handling | (a) Keep try/catch, (b) Compile with `-fno-exceptions` | (b) Disable exceptions, use error codes/ErrorLog | Core implementer |

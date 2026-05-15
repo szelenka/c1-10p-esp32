@@ -569,6 +569,8 @@ void test_uart_bus_acquire() {
 
     ASSERT(uart.acquirePort(cfg0));
     ASSERT_EQ(uart.getAllocatedCount(), (uint8_t)1);
+    ASSERT(!uart.isPinClaimed(chopper::hal::UartBusManager::kPinUnused));
+    ASSERT(!uart.isPinClaimed(35));
 
     // Verify config retrieval
     const auto* retrieved = uart.getPortConfig(0);

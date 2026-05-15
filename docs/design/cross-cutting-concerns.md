@@ -33,11 +33,11 @@ Recommendation: Option 2 (multi-rate) aligns with the node frequency concept alr
 
 The HAL design (Section 11, Open Question #5) identified that transmitting 3 Sabertooth motor commands at the legacy 9600 baud takes ~12.6 ms. This exceeds even the 10 ms loop assumed by the HAL design, and grossly exceeds the 1 ms loop assumed by the other three designs.
 
-**This is a hard physical constraint**: At 9600 baud, one 4-byte packet takes ~4.2 ms to transmit. The runtime now uses 38400 baud, reducing a 4-byte packet to ~1.0 ms, but only if the Sabertooth/SyRen devices are configured or autobauded to match.
+**This is a hard physical constraint**: At the runtime 9600 baud, one 4-byte packet takes ~4.2 ms to transmit. This preserves legacy UART compatibility but means multi-motor command bursts can exceed tight loop budgets unless unchanged commands are suppressed, updates are staggered, or serial TX is moved out of the executor path.
 
-**Impact on timing budget**: If motors update at 50 Hz (every 20 ms), each cycle usually sends 1 motor command (~1.0 ms at 38400 baud), which fits within a 10 ms HAL update slot. But this must be explicitly modeled in the executor's timing analysis.
+**Impact on timing budget**: If motors update at 50 Hz (every 20 ms), each changed motor command costs about 4.2 ms at 9600 baud. Two drive packets cost about 8.4 ms; drive plus dome can cost about 12.6 ms. This must be explicitly modeled in the executor's timing analysis.
 
-The safety/RT design's rate-monotonic analysis (Section 8.4) gives the DriveNode a WCET of 80 us at 50 Hz. But this budget does not include the blocking serial TX time of ~1.0 ms per motor command at 38400 baud. If the serial TX is blocking (which SoftwareSerial is), the actual WCET is ~1000 us, not 80 us.
+The safety/RT design's rate-monotonic analysis (Section 8.4) gives the DriveNode a WCET of 80 us at 50 Hz. But this budget does not include the blocking serial TX time of ~4.2 ms per motor command at 9600 baud. If the serial TX is blocking (which SoftwareSerial is), the actual WCET is milliseconds, not 80 us.
 
 **Resolution needed**: The DriveNode WCET must account for serial TX time, OR serial TX must be made non-blocking (buffer + ISR/DMA), OR the timing analysis must acknowledge that DriveNode is a special case that spans multiple loop iterations.
 
@@ -270,10 +270,10 @@ The safety design's per-node WCETs (Section 8.2) assume non-blocking operations:
 |------|------------|------------------------|
 | SafetyMonitorNode | 30 us | 30 us (no I/O) |
 | ControllerInputNode | 50 us | 50 us (reads cached BT data) |
-| DriveNode | 80 us | **1000-2100 us** (1-2 Sabertooth packets at 38400 baud) |
-| DomeNode | 60 us | **1000 us** (1 Sabertooth packet at 38400 baud) |
+| DriveNode | 80 us | **4200-8400 us** (1-2 Sabertooth packets at 9600 baud) |
+| DomeNode | 60 us | **4200 us** (1 Sabertooth packet at 9600 baud) |
 | ServoNode | 40 us | **400-500 us** (Maestro batched command) |
-| AudioNode | 30 us | **50-200 us** (MP3Trigger serial) |
+| AudioNode | 30 us | **1000-2000 us** (MP3 Trigger serial at 9600 baud) |
 
 **Critical finding**: DriveNode and DomeNode serial TX times vastly exceed both their WCET budgets and the entire 1000 us loop period. The rate-monotonic analysis in the safety design (Section 8.4) shows 3.9% CPU utilization, but this is based on the incorrect 80 us WCET for DriveNode.
 

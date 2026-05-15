@@ -53,6 +53,8 @@ constexpr int DIN35 = 35;  // input only
 constexpr int DIN34 = 34;  // input only
 
 // Device-level pin assignments (C1-10P wiring)
+constexpr int UNUSED_PIN = -1;
+constexpr int SABERTOOTH_RX = UNUSED_PIN;  // TX-only, matches legacy NOT_A_PIN
 constexpr int SABERTOOTH_TX = SERIAL3_RX;  // TX-only via half-duplex
 constexpr int MP3TRIGGER_RX = SCL;
 constexpr int MP3TRIGGER_TX = SDA;
@@ -75,7 +77,7 @@ namespace baud {
 constexpr uint32_t SABERTOOTH = 9600;
 constexpr uint32_t MAESTRO = 9600;
 constexpr uint32_t OPENMV = 115200;
-constexpr uint32_t MP3TRIGGER = 38400;
+constexpr uint32_t MP3TRIGGER = 9600;
 }  // namespace baud
 
 // ============================================================================
