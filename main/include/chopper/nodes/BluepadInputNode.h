@@ -90,6 +90,13 @@ public:
                         const auto role = controller_manager_->getSlot(static_cast<uint8_t>(slot)).role;
                         publishByRole(role, last_input_cache_[bt_slot]);
                     }
+                } else if (have_last_input_[bt_slot] && isIdleInput(last_input_cache_[bt_slot])) {
+                    // Joy-Cons may stop sending duplicate neutral reports when
+                    // untouched. Bluepad still reports the link as connected,
+                    // so keep the connection watchdog alive only for a known
+                    // neutral state. A stale non-neutral command still times
+                    // out into the disconnect safety path.
+                    controller_manager_->feedSlotWatchdog(static_cast<uint8_t>(slot), now_ms);
                 } else if (now_ms - connect_time_ms_[bt_slot] < kConnectGraceMs) {
                     // Time-based grace period after BT connect.  JoyCons can
                     // send one early report then go quiet for >500 ms while
@@ -235,6 +242,16 @@ private:
         }
 
         return out;
+    }
+
+    static bool isIdleInput(const messages::ControllerInput& input) {
+        constexpr float kIdleAxisThreshold = 0.05f;
+        const bool axes_idle = std::fabs(input.axis_x_normalized) <= kIdleAxisThreshold &&
+                               std::fabs(input.axis_y_normalized) <= kIdleAxisThreshold &&
+                               std::fabs(input.axis_rx_normalized) <= kIdleAxisThreshold &&
+                               std::fabs(input.axis_ry_normalized) <= kIdleAxisThreshold;
+        return axes_idle && input.dpad == 0 && input.buttons == 0 && input.misc_buttons == 0 && input.brake == 0 &&
+               input.throttle == 0;
     }
 
     void publishByRole(bluetooth::ControllerRole role, const messages::ControllerInput& input) {
