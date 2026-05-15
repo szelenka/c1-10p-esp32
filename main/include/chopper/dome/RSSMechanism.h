@@ -1,15 +1,14 @@
 #pragma once
 
+#include "chopper/math/MathUtil.h"
 #include "chopper/math/MathConstants.h"
 #include "chopper/math/RSSMachine.h"
-#include "chopper/math/MathUtil.h"
 #include <algorithm>
 #include <array>
 #include <cmath>
 #include <tuple>
 
-namespace chopper {
-namespace dome {
+namespace chopper::dome {
 
 /**
  * Higher-level wrapper over RSSMachine that adds:
@@ -34,14 +33,15 @@ public:
 
     ~RSSMechanism() = default;
 
-    bool isEnabled() const { return _isEnabled; }
+    [[nodiscard]] bool isEnabled() const { return _isEnabled; }
 
     /**
      * Enable/disable with debounce.  Caller provides current time in ms.
      */
     void setEnabled(bool enabled, uint64_t now_ms) {
-        if (_hasBeenToggled && now_ms - _lastEnabledChange < _debounceTimeout)
+        if (_hasBeenToggled && now_ms - _lastEnabledChange < _debounceTimeout) {
             return;
+        }
         _hasBeenToggled = true;
         _isEnabled = enabled;
         _lastEnabledChange = now_ms;
@@ -53,7 +53,11 @@ public:
     }
 
     void setRotationAngleOffset(float angle) {
-        _rotationRadianOffset = std::clamp(angle, 0.0f, 160.0f) * (math::kPi / 180.0f);
+        // This is a coordinate-frame calibration, not a servo travel limit.
+        // Legacy code clamped it to [0,160], which made the configured -30 deg
+        // RSS B/front alignment behave as 0 deg. Restore that clamp only if
+        // powered-test equivalence to the legacy bug is explicitly needed.
+        _rotationRadianOffset = normalizeDegrees(angle) * (math::kPi / 180.0f);
     }
 
     void setActuationRange(uint16_t actuationRange) {
@@ -101,7 +105,7 @@ public:
         _platformCurrentHeight = std::clamp(height, _platformMinHeight, _platformMaxHeight);
     }
 
-    float getCurrentHeight() const { return _platformCurrentHeight; }
+    [[nodiscard]] float getCurrentHeight() const { return _platformCurrentHeight; }
 
     void calculateLegOffsets() {
         uint16_t platformMinHeightPWM = mapAngleToPWM(_platformMinHeightAngle);
@@ -130,7 +134,7 @@ public:
         }
     }
 
-    std::tuple<float, float> adjustJoystickToAngleOffset(float& x, float& y) {
+    std::tuple<float, float> adjustJoystickToAngleOffset(float& x, float& y) const {
         x = std::round(math::ApplyDeadband(x, m_deadband) * 100.0f) / 100.0f;
         y = std::round(math::ApplyDeadband(y, m_deadband) * 100.0f) / 100.0f;
         float rotatedX = x * std::cos(_rotationRadianOffset) - y * std::sin(_rotationRadianOffset);
@@ -142,7 +146,7 @@ public:
      * Compute servo angles from joystick input.
      * Returns {0, 0, 0} if disabled (past debounce window).
      */
-    std::array<float, 3> getLegAnglesFromJoystick(float x, float y, uint64_t now_ms) {
+    [[nodiscard]] std::array<float, 3> getLegAnglesFromJoystick(float x, float y, uint64_t now_ms) const {
         if (!_isEnabled) {
             if (now_ms - _lastEnabledChange < _debounceTimeout) {
                 x = 0.0f;
@@ -163,7 +167,7 @@ public:
      * Compute servo PWM values from joystick input.
      * Returns {0, 0, 0} if disabled (past debounce window).
      */
-    std::array<uint16_t, 3> getLegPWMFromJoystick(float x, float y, uint64_t now_ms) {
+    [[nodiscard]] std::array<uint16_t, 3> getLegPWMFromJoystick(float x, float y, uint64_t now_ms) const {
         if (!_isEnabled) {
             if (now_ms - _lastEnabledChange < _debounceTimeout) {
                 x = 0.0f;
@@ -181,7 +185,7 @@ public:
         return leg_pwm;
     }
 
-    float getDeadband() const { return m_deadband; }
+    [[nodiscard]] float getDeadband() const { return m_deadband; }
     void setDeadband(float db) { m_deadband = db; }
 
 protected:
@@ -189,12 +193,23 @@ protected:
     float m_deadband = kDefaultDeadband;
 
 private:
-    float mapPWMToAngle(uint16_t pulseWidth) {
+    static float normalizeDegrees(float angle) {
+        float normalized = std::fmod(angle, 360.0f);
+        if (normalized > 180.0f) {
+            normalized -= 360.0f;
+        }
+        if (normalized < -180.0f) {
+            normalized += 360.0f;
+        }
+        return normalized;
+    }
+
+    float mapPWMToAngle(uint16_t pulseWidth) const {
         return static_cast<float>(
             math::mapValue(pulseWidth, _servoTheoreticalMinPulse, _servoTheoreticalMaxPulse, 0, _servoActuationRange));
     }
 
-    uint16_t mapAngleToPWM(float angle) {
+    uint16_t mapAngleToPWM(float angle) const {
         return static_cast<uint16_t>(math::mapValue(static_cast<long>(std::round(angle)), 0, _servoActuationRange,
                                                     _servoTheoreticalMinPulse, _servoTheoreticalMaxPulse));
     }
@@ -217,5 +232,4 @@ private:
     float _platformPreviousHeight = 0.0f;
 };
 
-}  // namespace dome
-}  // namespace chopper
+}  // namespace chopper::dome

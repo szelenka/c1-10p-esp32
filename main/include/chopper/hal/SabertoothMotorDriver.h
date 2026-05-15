@@ -66,12 +66,12 @@ public:
         // Apply speed to hardware — Sabertooth expects -127..127 for motor()
         float effective = m_inverted ? -m_speed : m_speed;
         int power = static_cast<int>(effective * 127.0f);
-        // Clamp to [-126, 126] (matches Sabertooth library behavior)
-        if (power > 126) {
-            power = 126;
+        // Clamp to [-127, 127] to match legacy SabertoothController::Set().
+        if (power > 127) {
+            power = 127;
         }
-        if (power < -126) {
-            power = -126;
+        if (power < -127) {
+            power = -127;
         }
         (void)sabertoothMotor(m_motorId, power);
     }

@@ -348,6 +348,35 @@ void test_mechanism_joystick_rotation() {
     PASS();
 }
 
+void test_mechanism_signed_rotation_offset() {
+    TEST(mechanism_signed_rotation_offset);
+    chopper::dome::RSSMechanism mech(kBaseAlt, kEffAlt, kBottomLink, kTopLink,
+                                      kMinHeight, kLimitNV, kBendOut);
+
+    float x = 1.0f;
+    float y = 0.0f;
+    mech.setRotationAngleOffset(-30.0f);
+    auto [rx_neg, ry_neg] = mech.adjustJoystickToAngleOffset(x, y);
+
+    x = 1.0f;
+    y = 0.0f;
+    mech.setRotationAngleOffset(390.0f);
+    auto [rx_wrap_pos, ry_wrap_pos] = mech.adjustJoystickToAngleOffset(x, y);
+
+    x = 1.0f;
+    y = 0.0f;
+    mech.setRotationAngleOffset(-390.0f);
+    auto [rx_wrap_neg, ry_wrap_neg] = mech.adjustJoystickToAngleOffset(x, y);
+
+    ASSERT_NEAR(rx_neg, 0.866f, 0.01f);
+    ASSERT_NEAR(ry_neg, -0.5f, 0.01f);
+    ASSERT_NEAR(rx_wrap_pos, 0.866f, 0.01f);
+    ASSERT_NEAR(ry_wrap_pos, 0.5f, 0.01f);
+    ASSERT_NEAR(rx_wrap_neg, rx_neg, 0.01f);
+    ASSERT_NEAR(ry_wrap_neg, ry_neg, 0.01f);
+    PASS();
+}
+
 // ============================================================
 // DomePosition tests
 // ============================================================
@@ -791,6 +820,53 @@ void test_neck_node_emergency_stop() {
     PASS();
 }
 
+void test_neck_node_disable_toggle_disables_servos() {
+    TEST(neck_node_disable_toggle_disables_servos);
+
+    chopper::dome::RSSMechanism mech(kBaseAlt, kEffAlt, kBottomLink, kTopLink, kMinHeight, kLimitNV, kBendOut);
+    mech.setActuationRange(270);
+    mech.setLegMinPulse(800, 800, 800);
+    mech.setLegMaxPulse(2200, 2200, 2200);
+
+    auto node = std::make_shared<chopper::nodes::NeckNode>(&mech, "controller/dome", "servo/body/cmd", 0, 1, 2);
+    ASSERT(node->initialize());
+    node->activate();
+
+    int disable_count = 0;
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
+        "servo/body/cmd",
+        [](const chopper::messages::ServoCommand& cmd, void* ctx) {
+            if (cmd.command_type == chopper::messages::ServoCommand::CommandType::DISABLE) {
+                int* count = static_cast<int*>(ctx);
+                (*count)++;
+            }
+        },
+        &disable_count);
+
+    auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/dome");
+    chopper::messages::ControllerInput input;
+    input.is_connected = true;
+    input.has_data = true;
+    input.button_thumb_l = true;
+
+    node->setTime(2000);
+    pub->publish(input);
+    ASSERT(mech.isEnabled());
+
+    input.button_thumb_l = false;
+    node->setTime(2100);
+    pub->publish(input);
+
+    input.button_thumb_l = true;
+    node->setTime(3200);
+    pub->publish(input);
+
+    ASSERT(!mech.isEnabled());
+    ASSERT(disable_count == 3);
+    PASS();
+}
+
 // ============================================================
 // DomeNode integration test
 // ============================================================
@@ -1095,6 +1171,7 @@ int main() {
     test_mechanism_enabled_produces_pwm();
     test_mechanism_height_adjustment();
     test_mechanism_joystick_rotation();
+    test_mechanism_signed_rotation_offset();
 
     // DomePosition
     test_dome_position_initial();
@@ -1125,6 +1202,7 @@ int main() {
     // NeckNode integration
     test_neck_node_publishes_commands();
     test_neck_node_emergency_stop();
+    test_neck_node_disable_toggle_disables_servos();
 
     // DomeNode integration
     test_dome_node_publishes_position();

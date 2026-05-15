@@ -1,14 +1,13 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cmath>
-#include <algorithm>
 #include <tuple>
 
 #include "chopper/math/MathConstants.h"
 
-namespace chopper {
-namespace math {
+namespace chopper::math {
 
 /**
  * 3-RSS parallel manipulator inverse kinematics solver.
@@ -49,15 +48,15 @@ public:
 
     ~RSSMachine() = default;
 
-    float getMinHeight() const { return _platformMinHeight; }
-    float getMaxHeight() const { return _platformMaxHeight; }
-    float getMinHeightAngle() const { return _platformMinHeightAngle; }
-    float getMaxHeightAngle() const { return _platformMaxHeightAngle; }
+    [[nodiscard]] float getMinHeight() const { return _platformMinHeight; }
+    [[nodiscard]] float getMaxHeight() const { return _platformMaxHeight; }
+    [[nodiscard]] float getMinHeightAngle() const { return _platformMinHeightAngle; }
+    [[nodiscard]] float getMaxHeightAngle() const { return _platformMaxHeightAngle; }
 
     /**
      * Calculate servo angle when links are fully extended (maximum height).
      */
-    float calculateStraightAngle() {
+    float calculateStraightAngle() const {
         float theta = 0.0f;
         if (d > e) {
             theta = std::acos((d - e) / (g + f));
@@ -72,7 +71,7 @@ public:
     /**
      * Calculate servo angle at minimum height.
      */
-    float calculateMinHeightAngle() {
+    float calculateMinHeightAngle() const {
         float ref_hypot = std::sqrt(std::pow(d - e, 2) + std::pow(_platformMinHeight, 2));
 
         float theta2 = std::acos((std::pow(ref_hypot, 2) + std::pow(f, 2) - std::pow(g, 2)) / (2 * ref_hypot * f));
@@ -81,20 +80,22 @@ public:
         float angle = 0.0f;
 
         if (_jointIsBentOut) {
-            if (d > e)
+            if (d > e) {
                 theta1 = std::acos((d - e) / ref_hypot);
-            else if (d < e)
+            } else if (d < e) {
                 theta1 = std::acos(_platformMinHeight / ref_hypot) + _90degRad;
-            else
+            } else {
                 theta1 = _90degRad;
+            }
             angle = (theta1 + theta2) * _rad2deg;
         } else {
-            if (d > e)
+            if (d > e) {
                 theta1 = std::acos((d - e) / ref_hypot);
-            else if (d < e)
+            } else if (d < e) {
                 theta1 = std::acos(_platformMinHeight / ref_hypot) + _90degRad;
-            else
+            } else {
                 theta1 = _90degRad;
+            }
             angle = (theta1 - theta2) * _rad2deg;
         }
         return angle;
@@ -104,7 +105,7 @@ public:
      * Normalize and clamp a tilt vector (nx, ny) into a unit normal.
      * Returns (nx, ny, nz).
      */
-    std::tuple<float, float, float> unitNormalVector(float nx, float ny) {
+    std::tuple<float, float, float> unitNormalVector(float nx, float ny) const {
         float nmag = std::sqrt(nx * nx + ny * ny + 1.0f);
         nx /= nmag;
         ny /= nmag;
@@ -121,11 +122,14 @@ public:
      * @param hz   Desired platform height
      * @return Array of 3 servo angles in degrees
      */
-    std::array<float, 3> getLegAngles(float nx, float ny, float hz) {
+    [[nodiscard]] std::array<float, 3> getLegAngles(float nx, float ny, float hz) const {
         float nz = 0.0f;
-        float x = 0.0f, y = 0.0f, z = 0.0f;
+        float x = 0.0f;
+        float y = 0.0f;
+        float z = 0.0f;
         float mag = 0.0f;
-        float theta1 = 0.0f, theta2 = 0.0f;
+        float theta1 = 0.0f;
+        float theta2 = 0.0f;
 
         std::tie(nx, ny, nz) = unitNormalVector(nx, ny);
         hz = std::clamp(hz, _platformMinHeight, _platformMaxHeight);
@@ -184,5 +188,4 @@ private:
     bool _jointIsBentOut;
 };
 
-}  // namespace math
-}  // namespace chopper
+}  // namespace chopper::math

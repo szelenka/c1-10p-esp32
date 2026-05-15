@@ -6,6 +6,7 @@
 //       test/test_sabertooth.cpp -o build/test/test_sabertooth -pthread
 
 #include <cstdio>
+#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <vector>
@@ -51,6 +52,24 @@ static bool verifyPacket(const std::vector<uint8_t>& bytes, size_t offset,
            bytes[offset+1] == cmd &&
            bytes[offset+2] == value &&
            bytes[offset+3] == checksum;
+}
+
+static int legacyPowerForSet(float speed, bool inverted) {
+    float target_speed = std::clamp(speed, -1.0f, 1.0f);
+    if (inverted) {
+        target_speed *= -1.0f;
+    }
+    return static_cast<int8_t>(target_speed * static_cast<int8_t>(127));
+}
+
+static bool verifyLegacyMotorPacket(const std::vector<uint8_t>& bytes, size_t offset,
+                                    uint8_t addr, uint8_t motor_id, float speed,
+                                    bool inverted) {
+    const int power = legacyPowerForSet(speed, inverted);
+    const uint8_t cmd_base = (motor_id == 2) ? 4 : 0;
+    const uint8_t cmd = static_cast<uint8_t>(cmd_base + ((power < 0) ? 1 : 0));
+    const uint8_t value = static_cast<uint8_t>((power < 0) ? -power : power);
+    return verifyPacket(bytes, offset, addr, cmd, value);
 }
 
 // ---- Tests ----
@@ -171,9 +190,9 @@ void test_motor2_forward() {
     driver.set(1.0f);
     driver.update();
 
-    // Motor 2 forward: cmd=4, value clamped to 126
+    // Motor 2 forward: cmd=4, value clamped to 127
     ASSERT(serial.bytes.size() == 4);
-    ASSERT(verifyPacket(serial.bytes, 0, 129, 4, 126));
+    ASSERT(verifyPacket(serial.bytes, 0, 129, 4, 127));
 
     PASS();
 }
@@ -189,9 +208,9 @@ void test_motor2_reverse() {
     driver.set(-1.0f);
     driver.update();
 
-    // Motor 2 reverse: cmd=5, value clamped to 126
+    // Motor 2 reverse: cmd=5, value clamped to 127
     ASSERT(serial.bytes.size() == 4);
-    ASSERT(verifyPacket(serial.bytes, 0, 129, 5, 126));
+    ASSERT(verifyPacket(serial.bytes, 0, 129, 5, 127));
 
     PASS();
 }
@@ -219,8 +238,8 @@ void test_checksum_calculation() {
     PASS();
 }
 
-void test_power_clamping_to_126() {
-    TEST(sabertooth_power_clamped_to_126);
+void test_power_clamping_to_127() {
+    TEST(sabertooth_power_clamped_to_127);
 
     MockSerialPort serial;
     chopper::hal::SabertoothMotorDriver driver(serial, 128, 1, "test");
@@ -230,13 +249,39 @@ void test_power_clamping_to_126() {
     serial.clear();
     driver.set(1.0f);
     driver.update();
-    ASSERT(serial.bytes[2] == 126);  // value byte
+    ASSERT(serial.bytes[2] == 127);  // value byte
 
     // Full reverse
     serial.clear();
     driver.set(-1.0f);
     driver.update();
-    ASSERT(serial.bytes[2] == 126);  // value byte (absolute)
+    ASSERT(serial.bytes[2] == 127);  // value byte (absolute)
+
+    PASS();
+}
+
+void test_legacy_packet_equivalence_table() {
+    TEST(sabertooth_legacy_packet_equivalence_table);
+
+    constexpr float speeds[] = {-1.25f, -1.0f, -0.8f, -0.5f, -0.25f, 0.0f, 0.25f, 0.5f, 0.8f, 1.0f, 1.25f};
+
+    for (const bool inverted : {false, true}) {
+        for (const uint8_t motor_id : {static_cast<uint8_t>(1), static_cast<uint8_t>(2)}) {
+            MockSerialPort serial;
+            chopper::hal::SabertoothMotorDriver driver(serial, 129, motor_id, "test");
+            driver.init();
+            driver.setInverted(inverted);
+
+            for (const float speed : speeds) {
+                serial.clear();
+                driver.set(speed);
+                driver.update();
+
+                ASSERT(serial.bytes.size() == 4);
+                ASSERT(verifyLegacyMotorPacket(serial.bytes, 0, 129, motor_id, speed, inverted));
+            }
+        }
+    }
 
     PASS();
 }
@@ -433,7 +478,8 @@ int main() {
     test_motor2_forward();
     test_motor2_reverse();
     test_checksum_calculation();
-    test_power_clamping_to_126();
+    test_power_clamping_to_127();
+    test_legacy_packet_equivalence_table();
     test_zero_power();
     test_inversion();
     test_stop_sends_zero();

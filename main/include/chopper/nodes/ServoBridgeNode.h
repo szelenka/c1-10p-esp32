@@ -60,6 +60,7 @@ private:
         switch (cmd.command_type) {
             case messages::ServoCommand::CommandType::SET_POSITION: {
                 // Value is already in pulse-width microseconds
+                controller_->enable(cmd.servo_id);
                 controller_->setPosition(cmd.servo_id, static_cast<uint16_t>(cmd.value));
                 break;
             }

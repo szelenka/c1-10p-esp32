@@ -140,21 +140,15 @@ void test_servo_bridge_e2e() {
 
     ASSERT(servoNode->initialize());
 
-    // Enable a channel
-    chopper::messages::ServoCommand enableCmd;
-    enableCmd.servo_id = 3;
-    enableCmd.command_type = chopper::messages::ServoCommand::CommandType::ENABLE;
-    pub->publish(enableCmd);
-
-    ASSERT(servoCtrl.isEnabled(3));
-
-    // Set position (value is raw pulse-width microseconds)
+    // Set position (value is raw pulse-width microseconds). Runtime action
+    // nodes publish positions directly, so the bridge enables PWM on target.
     chopper::messages::ServoCommand posCmd;
     posCmd.servo_id = 3;
     posCmd.command_type = chopper::messages::ServoCommand::CommandType::SET_POSITION;
     posCmd.value = 1500.0f;
     pub->publish(posCmd);
 
+    ASSERT(servoCtrl.isEnabled(3));
     ASSERT(servoCtrl.getPosition(3) == 1500);
 
     // Set position at min

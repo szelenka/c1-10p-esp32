@@ -7,10 +7,12 @@
 #include "chopper/nodes/BodyUtilityNode.h"
 #include "chopper/nodes/BluepadInputNode.h"
 #include "chopper/dome/DomePosition.h"
+#include "chopper/dome/RSSMechanism.h"
 #include "chopper/nodes/DomeNode.h"
 #include "chopper/nodes/DomeArmsNode.h"
 #include "chopper/nodes/DriveNode.h"
 #include "chopper/nodes/DriverUpdateNode.h"
+#include "chopper/nodes/NeckNode.h"
 #include "chopper/nodes/OpenMvBridgeNode.h"
 #include "chopper/nodes/PeriscopeNode.h"
 #include "chopper/nodes/SoundNode.h"
@@ -299,6 +301,45 @@ extern "C" int chopper_runtime_start(void) {
     drive_right.setInverted(drive_right_inverted);
     dome_motor.setInverted(dome_inverted);
 
+    float rss_base_altitude = 149.053f;
+    float rss_effector_altitude = 193.350f;
+    float rss_bottom_link = 45.0f;
+    float rss_top_link = 31.0f;
+    float rss_min_height = 28.621f;
+    float rss_limit_normal = 0.25f;
+    bool rss_bend_out = true;
+    int32_t rss_actuation_range = 270;
+    float rss_rotation_offset = -30.0f;
+    int32_t neck_a_min = 2032;
+    int32_t neck_b_min = 1952;
+    int32_t neck_c_min = 2048;
+    int32_t neck_a_max = 2256;
+    int32_t neck_b_max = 2176;
+    int32_t neck_c_max = 2272;
+    (void)params.get("rss.base_altitude", rss_base_altitude);
+    (void)params.get("rss.effector_altitude", rss_effector_altitude);
+    (void)params.get("rss.bottom_link", rss_bottom_link);
+    (void)params.get("rss.top_link", rss_top_link);
+    (void)params.get("rss.min_height", rss_min_height);
+    (void)params.get("rss.limit_normal", rss_limit_normal);
+    (void)params.get("rss.bend_out", rss_bend_out);
+    (void)params.get("rss.actuation_range", rss_actuation_range);
+    (void)params.get("rss.rotation_offset", rss_rotation_offset);
+    (void)params.get("servo.neck_a.min", neck_a_min);
+    (void)params.get("servo.neck_b.min", neck_b_min);
+    (void)params.get("servo.neck_c.min", neck_c_min);
+    (void)params.get("servo.neck_a.max", neck_a_max);
+    (void)params.get("servo.neck_b.max", neck_b_max);
+    (void)params.get("servo.neck_c.max", neck_c_max);
+    static chopper::dome::RSSMechanism rss_machine(rss_base_altitude, rss_effector_altitude, rss_bottom_link,
+                                                   rss_top_link, rss_min_height, rss_limit_normal, rss_bend_out);
+    rss_machine.setRotationAngleOffset(rss_rotation_offset);
+    rss_machine.setActuationRange(static_cast<uint16_t>(rss_actuation_range));
+    rss_machine.setLegMinPulse(static_cast<uint16_t>(neck_a_min), static_cast<uint16_t>(neck_b_min),
+                               static_cast<uint16_t>(neck_c_min));
+    rss_machine.setLegMaxPulse(static_cast<uint16_t>(neck_a_max), static_cast<uint16_t>(neck_b_max),
+                               static_cast<uint16_t>(neck_c_max));
+
     initRolePolicy();
     app.getControllerManager().getRoleManager().setPolicy(g_role_policy.getPolicy());
     app.getControllerManager().setConnectCallback(&onControllerConnected, &app);
@@ -357,6 +398,14 @@ extern "C" int chopper_runtime_start(void) {
     auto periscope_node = std::make_shared<chopper::nodes::PeriscopeNode>();
     if (!app.addNode(periscope_node)) {
         ESP_LOGE(TAG, "Failed to add PeriscopeNode");
+        return 1;
+    }
+
+    auto neck_node = std::make_shared<chopper::nodes::NeckNode>(
+        &rss_machine, "controller/dome", "servo/body/cmd", chopper::config::servo_channel::BODY_NECK_A,
+        chopper::config::servo_channel::BODY_NECK_B, chopper::config::servo_channel::BODY_NECK_C);
+    if (!app.addNode(neck_node)) {
+        ESP_LOGE(TAG, "Failed to add NeckNode");
         return 1;
     }
 
