@@ -16,8 +16,8 @@ This document defines the Hardware Abstraction Layer for the chopper ESP32 astro
 
 | Device                        | Bus       | Protocol          | Direction  | Baud Rate | Notes                                      |
 |-------------------------------|-----------|-------------------|------------|-----------|--------------------------------------------|
-| Sabertooth 2x32 (addr 129)   | UART (SW) | Packet Serial     | TX-only    | 9600      | Differential drive, 2 motors               |
-| SyRen 10 (addr 128)          | UART (SW) | Packet Serial     | TX-only    | 9600      | Dome rotation, 1 motor                     |
+| Sabertooth 2x32 (addr 129)   | UART (SW) | Packet Serial     | TX-only    | 38400     | Differential drive, 2 motors; device must match/autobaud |
+| SyRen 10 (addr 128)          | UART (SW) | Packet Serial     | TX-only    | 38400     | Dome rotation, 1 motor; device must match/autobaud |
 | Pololu Maestro Body (id 12)  | UART (SW) | Pololu Protocol   | Bidi       | 9600      | 6 channels: neck servos, utility arm, doors|
 | Pololu Maestro Dome (id 13)  | UART (SW) | Pololu Protocol   | Bidi       | 9600      | 11 channels: periscope, doors, arms        |
 | SparkFun MP3 Trigger          | UART (SW) | Serial commands   | Bidi       | 38400     | Audio playback                             |
@@ -198,7 +198,7 @@ UART Port      | Pins (RX/TX)   | Device             | Baud   | Mode
 ---------------|----------------|--------------------|--------|----------
 HW UART0       | GPIO3/GPIO1    | USB Console/BP32   | 115200 | Reserved
 HW UART2       | GPIO16/GPIO17  | OpenMV Camera      | 115200 | Bidi
-SW UART-A      | N/A/GPIO16     | Sabertooth bus     | 9600   | TX-only
+SW UART-A      | N/A/GPIO16     | Sabertooth bus     | 38400  | TX-only
 SW UART-B      | GPIO32/GPIO4   | Maestro Body       | 9600   | Bidi
 SW UART-C      | GPIO13/GPIO14  | Maestro Dome       | 9600   | Bidi
 SW UART-D      | GPIO22/GPIO21  | MP3 Trigger        | 38400  | Bidi
@@ -396,7 +396,7 @@ NVS keys are organized by driver namespace. Each driver has a dedicated NVS name
 
 ```
 Namespace: "hal_uart"
-  Key: "saber_baud"    Type: u32    Default: 9600
+  Key: "saber_baud"    Type: u32    Default: 38400
   Key: "saber_tx_pin"  Type: u8     Default: 16
   Key: "maestb_baud"   Type: u32    Default: 9600
   Key: "maestb_rx"     Type: u8     Default: 32
@@ -694,7 +694,7 @@ Timing budget for `DriverManager::updateAll()`: **4 ms maximum** (leaving 6 ms f
 
 | Driver                        | Budget   | Expected | Notes                                     |
 |-------------------------------|----------|----------|-------------------------------------------|
-| SabertoothMotorDriver (x3)    | 300 us   | 150 us   | 3x packet serial TX at 9600 baud          |
+| SabertoothMotorDriver (x3)    | 3.5 ms   | 3.1 ms   | 3x blocking packet serial TX at 38400 baud |
 | MaestroServoDriver (body)     | 600 us   | 400 us   | setMultiTarget for 6 channels             |
 | MaestroServoDriver (dome)     | 800 us   | 500 us   | setMultiTarget for 11 channels            |
 | MP3TriggerDriver              | 200 us   | 50 us    | MP3Trigger::update() polling              |
@@ -819,6 +819,6 @@ The Executor monitors controller activity and transitions power modes:
 
 4. **RingBuffer memory**: The `PenumbraCommDriver` (wrapping `MessageHandler`) consumes ~13 KB for its dual ring buffers. If memory pressure becomes an issue, reduce `BUFFER_SIZE` from 25 to 10 and `BUFFER_DATA_MAX_SIZE` from 256 to 128.
 
-5. **Sabertooth shared bus timing**: Multiple Sabertooth/SyRen devices on one TX line require sequential writes. At 9600 baud, a typical command packet (4 bytes) takes ~4.2 ms to transmit. Three motor updates per cycle would take ~12.6 ms, exceeding the 10 ms loop budget. Mitigation: stagger motor updates across cycles (update foot motors on even ticks, dome motor on odd ticks) or increase baud rate to 19200/38400 if hardware supports it.
+5. **Sabertooth shared bus timing**: Multiple Sabertooth/SyRen devices on one TX line require sequential writes. The runtime uses 38400 baud to keep a typical 4-byte packet near ~1.0 ms instead of ~4.2 ms at the legacy 9600 baud. Three motor updates in one cycle are still a meaningful blocking cost, so bench validation must confirm both device baud/autobaud and loop margin before powered testing.
 
 6. **NVS write endurance**: ESP32 NVS uses flash, which has limited write cycles (~100K). Configuration saves should be rate-limited (no more than once per minute) and only written when values actually change.

@@ -10,7 +10,7 @@ Canonical source. All other files reference here.
 - DegradationManager starts at SAFE_STOP; requires explicit activation to FULL_OPERATION — `safety/DegradationManager.h:109`
 - Executor runs safety checks every tick after node processing — `core/Executor.cpp:280` (`checkSafety`), loop at `:264`
 - EmergencyStopChain: every actuator must be registered — `safety/EmergencyStopChain.h:27` (6-step chain)
-- BT disconnect triggers immediate motor stop (not reduced speed) — `bluetooth/ControllerManager.h:209` → `BluepadInputNode.h:148`
+- BT disconnect triggers immediate motor stop (not reduced speed) — `bluetooth/ControllerManager.h:213` one-cycle zero fallback plus `BluepadInputNode.h:156` direct zero publish
 
 ### Degradation State Machine
 
@@ -64,7 +64,7 @@ From `chopper_limits.h`:
 | Services | 8 | `MAX_SERVICES` |
 | Parameters | 128 | `MAX_PARAMETERS` |
 
-Sabertooth: ~4.2ms per 4-byte packet at 9600 baud. Stagger multi-motor commands.
+Sabertooth/SyRen: runtime uses 38400 baud, ~1.0ms per 4-byte packet. Confirm device autobaud/config before powered tests.
 Dual-core: Core 0 = BT/WiFi, Core 1 = application executor.
 
 ### Architect Decision Table
@@ -83,8 +83,8 @@ Dual-core: Core 0 = BT/WiFi, Core 1 = application executor.
 
 | Device | Protocol | Constraint |
 |--------|----------|------------|
-| Sabertooth 2x32 | UART 9600, 4B packets | ~4.2ms/pkt, stagger |
-| SyRen 10 | UART (shared/separate) | dome rotation |
+| Sabertooth 2x32 | UART 38400, 4B packets | ~1.0ms/pkt, device must match/autobaud |
+| SyRen 10 | UART 38400 (shared/separate) | dome rotation, device must match/autobaud |
 | Pololu Maestro x2 | serial compact | body ch0-5, dome ch0-9, 500-2500us |
 | SparkFun MP3 | serial 38400 | on-demand, <1ms TX |
 | Bluepad32 | BT (Core 0) | 4 controllers, axes -512..+512 |
@@ -273,7 +273,7 @@ For dedicated review phases in multi-agent pipelines only. In single-agent mode,
 
 **Embedded Constraints** (beyond CLAUDE.md §Constraints):
 - Resource counts within `chopper_limits.h`
-- No unaccounted blocking calls in executor (serial TX ~4.2ms at 9600 baud)
+- No unaccounted blocking calls in executor (Sabertooth serial TX ~1.0ms at 38400 baud)
 - Deterministic WCET for new public functions
 - const correctness (messages by const-ref)
 - No unbounded loops, uninitialized memory, stack overflow risk
@@ -284,4 +284,3 @@ Severity: `[BLOCKING] > [ERROR] > [WARNING] > [NOTE]` — format: `[SEVERITY] fi
 **Done When** (CLAUDE.md §Done items 1-8, plus):
 - [ ] `make lint-tidy`, `make lint-embedded`, `make check-format` pass **[run them]**
 - [ ] All findings emitted with `file:line` and severity **[list them, or "no findings" with reasoning]**
-

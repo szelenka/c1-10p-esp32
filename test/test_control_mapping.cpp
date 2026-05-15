@@ -11,6 +11,7 @@
 #include <cstring>
 
 #include "chopper/messages/CommonMessages.h"
+#include "chopper/input/ControllerCalibration.h"
 #include "chopper/input/DriveIntentMapping.h"
 #include "chopper/input/TEmbedInputAdapter.h"
 
@@ -253,6 +254,13 @@ TEST_CASE("new_control_fields_round_trip") {
 
     chopper::input::applyControlRelease(input, ControlField::BUTTON_L2);
     CHECK_FALSE(chopper::input::isControlPressed(input, ControlField::BUTTON_L2));
+}
+
+TEST_CASE("controller_axis_calibration_matches_legacy_order") {
+    CHECK(chopper::input::applyAxisCalibrationRaw(100, -30, true) == -130);
+    CHECK(chopper::input::normalizeCalibratedAxis(100, -30, true) == doctest::Approx(-130.0f / 512.0f));
+    CHECK(chopper::input::normalizeCalibratedAxis(-800, 0, false) == doctest::Approx(-1.0f));
+    CHECK(chopper::input::normalizeCalibratedAxis(800, 0, false) == doctest::Approx(1.0f));
 }
 
 TEST_CASE("tembed_mac_detection_matches_expected_controller") {

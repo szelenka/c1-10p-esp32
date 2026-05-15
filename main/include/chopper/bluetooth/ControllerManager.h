@@ -34,7 +34,7 @@ struct DisconnectBehavior {
 
 /**
  * Default disconnect handler per the design doc:
- *   DRIVE     -> immediate zero (safety stop)
+ *   DRIVE     -> publish one zero fallback cycle (safety stop)
  *   DOME      -> hold last position
  *   ANIMATION -> copy last state (animation node handles timeout)
  *   CAMERA    -> hold last position
@@ -78,7 +78,7 @@ private:
     static uint32_t durationImpl(ControllerRole role, void* /*ctx*/) {
         switch (role) {  // NOLINT(bugprone-branch-clone)
             case ControllerRole::DRIVE:
-                return 0;
+                return 1;
             case ControllerRole::DOME:
                 return 0;
             case ControllerRole::ANIMATION:

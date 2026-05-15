@@ -348,6 +348,8 @@ void test_controller_disconnect_fallback() {
     TEST(controller_disconnect_fallback_behavior);
 
     chopper::bluetooth::ControllerManager ctlMgr;
+    chopper::bluetooth::FirstAvailablePolicy policy;
+    ctlMgr.getRoleManager().setPolicy(policy.getPolicy());
     chopper::bluetooth::DefaultDisconnectHandler handler;
     ctlMgr.setDisconnectBehavior(handler.getBehavior());
 
@@ -372,8 +374,15 @@ void test_controller_disconnect_fallback() {
     // Disconnect
     ctlMgr.onDisconnect(slot, 1200);
 
-    // For DRIVE role, fallback should be immediate zero (no duration)
-    // So disconnect should complete immediately
+    // For DRIVE role, fallback should publish one zero cycle before clearing.
+    ASSERT(!ctlMgr.getSlot(slot).isEmpty());
+    chopper::messages::ControllerInput fallback{};
+    ASSERT(ctlMgr.getFallbackInput(slot, fallback));
+    ASSERT(!fallback.is_connected);
+    ASSERT(fallback.axis_x == 0);
+    ASSERT(fallback.axis_y == 0);
+
+    ctlMgr.update(1201);
     ASSERT(ctlMgr.getSlot(slot).isEmpty());
 
     PASS();

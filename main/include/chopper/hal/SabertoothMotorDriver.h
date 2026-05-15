@@ -36,6 +36,7 @@ public:
     static constexpr uint8_t CMD_SET_DEADBAND = 17;
 
     static constexpr uint8_t AUTOBAUD_BYTE = 0xAA;
+    static constexpr uint16_t ERROR_SERIAL_WRITE = 1;
 
     /**
      * @param serial    Serial port for Sabertooth communication (shared bus).
@@ -50,8 +51,10 @@ public:
 
     DriverStatus init() override {
         ESP_LOGI(m_name, "init motor %d addr %d", m_motorId, m_address);
-        sendAutobaud();
         m_speed = 0.0f;
+        if (!sendAutobaud()) {
+            return m_status;
+        }
         m_status = DriverStatus::kReady;
         return m_status;
     }
@@ -70,7 +73,7 @@ public:
         if (power < -126) {
             power = -126;
         }
-        sabertoothMotor(m_motorId, power);
+        (void)sabertoothMotor(m_motorId, power);
     }
 
     [[nodiscard]] DriverStatus getStatus() const override { return m_status; }
@@ -88,7 +91,7 @@ public:
 
     void shutdown() override {
         m_speed = 0.0f;
-        sabertoothMotor(m_motorId, 0);
+        (void)sabertoothMotor(m_motorId, 0);
         m_status = DriverStatus::kDisabled;
     }
 
@@ -112,12 +115,12 @@ public:
 
     void disable() override {
         m_speed = 0.0f;
-        sabertoothMotor(m_motorId, 0);
+        (void)sabertoothMotor(m_motorId, 0);
     }
 
     void stop() override {
         m_speed = 0.0f;
-        sabertoothMotor(m_motorId, 0);
+        (void)sabertoothMotor(m_motorId, 0);
     }
 
     bool handleDiagnostic(const char* command, char* response, size_t maxLen) override {
@@ -140,9 +143,9 @@ public:
 
     // -- Configuration methods (call after init) --
 
-    void setTimeout(uint8_t value) { sendCommand(CMD_SET_TIMEOUT, value); }
-    void setRamping(uint8_t value) { sendCommand(CMD_SET_RAMPING, value); }
-    void setDeadband(uint8_t value) { sendCommand(CMD_SET_DEADBAND, value); }
+    void setTimeout(uint8_t value) { (void)sendCommand(CMD_SET_TIMEOUT, value); }
+    void setRamping(uint8_t value) { (void)sendCommand(CMD_SET_RAMPING, value); }
+    void setDeadband(uint8_t value) { (void)sendCommand(CMD_SET_DEADBAND, value); }
 
     // -- Test / inspection accessors --
 
@@ -154,9 +157,9 @@ private:
      * Send the autobaud byte (0xAA) to synchronize the Sabertooth.
      * Must be sent once after power-up before any commands.
      */
-    void sendAutobaud() {
+    bool sendAutobaud() {
         uint8_t byte = AUTOBAUD_BYTE;
-        m_serial->write(&byte, 1);
+        return writeBytes(&byte, 1, "autobaud");
     }
 
     /**
@@ -164,13 +167,13 @@ private:
      * Format: [address, command, value, checksum]
      * Checksum = (address + command + value) & 0x7F
      */
-    void sendCommand(uint8_t cmd, uint8_t value) {
+    bool sendCommand(uint8_t cmd, uint8_t value) {
         uint8_t buf[4];
         buf[0] = m_address;
         buf[1] = cmd;
         buf[2] = value;
         buf[3] = (m_address + cmd + value) & 0x7F;
-        m_serial->write(buf, 4);
+        return writeBytes(buf, 4, "packet");
     }
 
     /**
@@ -180,7 +183,7 @@ private:
      * Motor 1: forward=cmd 0, reverse=cmd 1
      * Motor 2: forward=cmd 4, reverse=cmd 5
      */
-    void sabertoothMotor(uint8_t motor, int power) {
+    bool sabertoothMotor(uint8_t motor, int power) {
         uint8_t cmd = 0;
         uint8_t absValue = 0;
 
@@ -192,7 +195,19 @@ private:
             absValue = static_cast<uint8_t>(-power);
         }
 
-        sendCommand(cmd, absValue);
+        return sendCommand(cmd, absValue);
+    }
+
+    bool writeBytes(const uint8_t* data, size_t length, const char* operation) {
+        const size_t written = m_serial->write(data, length);
+        if (written == length) {
+            return true;
+        }
+        m_status = DriverStatus::kError;
+        m_lastError.set(ERROR_SERIAL_WRITE, 0, "Sabertooth serial write incomplete");
+        ESP_LOGE(m_name, "%s write failed: %u/%u bytes", operation, static_cast<unsigned>(written),
+                 static_cast<unsigned>(length));
+        return false;
     }
 
     ISerialPort* m_serial;

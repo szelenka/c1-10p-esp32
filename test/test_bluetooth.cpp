@@ -674,8 +674,15 @@ void test_controller_manager_disconnect() {
     input.is_connected = true;
     mgr.recordInput(slot, 1100, input);
 
-    // Disconnect (DRIVE has 0ms fallback, so immediate clear)
+    // Disconnect (DRIVE publishes one zero fallback cycle before clear)
     mgr.onDisconnect(slot, 1200);
+    ASSERT(!mgr.getSlot(slot).isEmpty());
+    chopper::messages::ControllerInput fallback{};
+    ASSERT(mgr.getFallbackInput(slot, fallback));
+    ASSERT(!fallback.is_connected);
+    ASSERT_FLOAT_EQ(fallback.axis_x_normalized, 0.0f);
+
+    mgr.update(1201);
     ASSERT(mgr.getSlot(slot).isEmpty());
     ASSERT_EQ(mgr.getActiveCount(), (uint8_t)0);
 
@@ -756,7 +763,9 @@ void test_controller_manager_watchdog() {
 
     // Update at t=1300 — 300ms since last input, exceeds 200ms timeout
     mgr.update(1300);
-    ASSERT(mgr.getSlot(slot).isEmpty());  // DRIVE = immediate disconnect
+    ASSERT(!mgr.getSlot(slot).isEmpty());  // DRIVE = one zero fallback cycle
+    mgr.update(1301);
+    ASSERT(mgr.getSlot(slot).isEmpty());
 
     PASS();
 }
@@ -782,6 +791,7 @@ void test_controller_manager_reconnect() {
 
     // Disconnect
     mgr.onDisconnect(slot, 2000);
+    mgr.update(2001);
     ASSERT(mgr.getSlot(slot).isEmpty());
 
     // Note: The slot preserves previous_role after clear().
@@ -883,7 +893,7 @@ void test_default_disconnect_drive_zeros() {
     ASSERT_FLOAT_EQ(fallback.axis_y_normalized, 0.0f);
     ASSERT(!fallback.is_connected);
 
-    ASSERT_EQ(behavior.getFallbackDurationMs(ControllerRole::DRIVE, behavior.context), (uint32_t)0);
+    ASSERT_EQ(behavior.getFallbackDurationMs(ControllerRole::DRIVE, behavior.context), (uint32_t)1);
 
     PASS();
 }

@@ -3,8 +3,10 @@
 #ifdef ESP_PLATFORM
 
 #include "chopper/core/PublishingNode.h"
+#include "chopper/core/ParameterServer.h"
 #include "chopper/bluetooth/ControllerManager.h"
 #include "chopper/hal/ChopperBluetooth.h"
+#include "chopper/input/ControllerCalibration.h"
 #include "chopper/input/DriveIntentMapping.h"
 #include "chopper/input/TEmbedInputAdapter.h"
 #include "chopper/messages/CommonMessages.h"
@@ -48,7 +50,8 @@ public:
         dome_pub_ = createPublisher<messages::ControllerInput>("controller/dome");
         animation_pub_ = createPublisher<messages::ControllerInput>("controller/animation");
         camera_pub_ = createPublisher<messages::ControllerInput>("controller/camera");
-        return controller_manager_ && drive_pub_ && dome_pub_ && animation_pub_ && camera_pub_;
+        return controller_manager_ && drive_pub_ && dome_pub_ && animation_pub_ && camera_pub_ &&
+               refreshControllerCalibration();
     }
 
     void process(uint64_t now_us) override {
@@ -122,16 +125,6 @@ public:
 private:
     static constexpr const char* TAG = "BluepadInput";
 
-    static float normalizeAxis(int32_t v) {
-        constexpr float kRange = 512.0f;
-        float out = static_cast<float>(v) / kRange;
-        if (out > 1.0f)
-            out = 1.0f;
-        if (out < -1.0f)
-            out = -1.0f;
-        return out;
-    }
-
     static void formatMac(const uint8_t btaddr[6], char out[18]) {
         std::snprintf(out, 18, "%02X:%02X:%02X:%02X:%02X:%02X", btaddr[0], btaddr[1], btaddr[2], btaddr[3], btaddr[4],
                       btaddr[5]);
@@ -161,11 +154,16 @@ private:
                 }
             }
         } else if (!data.connected && observed_connected_[bt_slot]) {
+            bluetooth::ControllerRole role = bluetooth::ControllerRole::UNASSIGNED;
             if (mapped_slot_[bt_slot] >= 0) {
-                controller_manager_->onDisconnect(static_cast<uint8_t>(mapped_slot_[bt_slot]), now_ms);
+                const auto slot = static_cast<uint8_t>(mapped_slot_[bt_slot]);
+                role = controller_manager_->getSlot(slot).role;
+                controller_manager_->onDisconnect(slot, now_ms);
             }
             if (split_tembed_[bt_slot]) {
                 publishTEmbedZero();
+            } else {
+                publishZeroForDisconnectedRole(role);
             }
             observed_connected_[bt_slot] = false;
             mapped_slot_[bt_slot] = -1;
@@ -215,10 +213,11 @@ private:
         out.has_data = data.connected;
         out.is_gamepad = true;
         formatMac(data.btaddr, out.mac_address);
-        out.axis_x_normalized = normalizeAxis(out.axis_x);
-        out.axis_y_normalized = normalizeAxis(out.axis_y);
-        out.axis_rx_normalized = normalizeAxis(out.axis_rx);
-        out.axis_ry_normalized = normalizeAxis(out.axis_ry);
+        const auto calibration = calibrationForSlot(bt_slot);
+        out.axis_x_normalized = input::normalizeCalibratedAxis(out.axis_x, calibration.offset_x, calibration.invert_x);
+        out.axis_y_normalized = input::normalizeCalibratedAxis(out.axis_y, calibration.offset_y, calibration.invert_y);
+        out.axis_rx_normalized = input::normalizeControllerAxis(out.axis_rx);
+        out.axis_ry_normalized = input::normalizeControllerAxis(out.axis_ry);
         // Runtime currently has no separate slew-filter node; feed DriveNode
         // with normalized axes so input maps to motor commands as expected.
         out.axis_x_slew = out.axis_x_normalized;
@@ -288,6 +287,51 @@ private:
         }
     }
 
+    void publishZeroForDisconnectedRole(bluetooth::ControllerRole role) {
+        if (role != bluetooth::ControllerRole::DRIVE && role != bluetooth::ControllerRole::DOME) {
+            return;
+        }
+        messages::ControllerInput zero{};
+        zero.has_intents = true;
+        zero.is_connected = false;
+        publishByRole(role, zero);
+    }
+
+    input::AxisCalibration calibrationForSlot(int bt_slot) const {
+        if (bt_slot < 0 || bt_slot >= CHOPPER_BT_MAX_DEVICES) {
+            return {};
+        }
+        const int8_t slot = mapped_slot_[bt_slot];
+        if (slot < 0 || slot >= bluetooth::ControllerManager::kMaxSlots) {
+            return {};
+        }
+        const auto role = controller_manager_->getSlot(static_cast<uint8_t>(slot)).role;
+        if (role == bluetooth::ControllerRole::DRIVE) {
+            return drive_axis_cal_;
+        }
+        if (role == bluetooth::ControllerRole::DOME) {
+            return dome_axis_cal_;
+        }
+        return {};
+    }
+
+    bool refreshControllerCalibration() {
+        auto& ps = core::ParameterServer::getInstance();
+        bool ok = true;
+        ok &= ps.get("ctrl.drive.offset_x", drive_axis_cal_.offset_x);
+        ok &= ps.get("ctrl.drive.offset_y", drive_axis_cal_.offset_y);
+        ok &= ps.get("ctrl.drive.invert_x", drive_axis_cal_.invert_x);
+        ok &= ps.get("ctrl.drive.invert_y", drive_axis_cal_.invert_y);
+        ok &= ps.get("ctrl.dome.offset_x", dome_axis_cal_.offset_x);
+        ok &= ps.get("ctrl.dome.offset_y", dome_axis_cal_.offset_y);
+        ok &= ps.get("ctrl.dome.invert_x", dome_axis_cal_.invert_x);
+        ok &= ps.get("ctrl.dome.invert_y", dome_axis_cal_.invert_y);
+        if (!ok) {
+            ESP_LOGE(TAG, "Missing controller calibration parameters");
+        }
+        return ok;
+    }
+
     /// Detect SL+SR (L1+R1) held for 2 seconds on the dome controller.
     /// Sets intent_face_tracking_toggle = true for one publish cycle
     /// when the hold threshold is reached, then suppresses until released.
@@ -322,6 +366,8 @@ private:
     core::TypedPublisherPtr<messages::ControllerInput> camera_pub_;
     input::DriveIntentMap drive_intent_map_{input::defaultDriveIntentMap()};
     input::DomeIntentMap dome_intent_map_{input::defaultDomeIntentMap()};
+    input::AxisCalibration drive_axis_cal_{};
+    input::AxisCalibration dome_axis_cal_{};
 
     bool observed_connected_[CHOPPER_BT_MAX_DEVICES];
     int8_t mapped_slot_[CHOPPER_BT_MAX_DEVICES];

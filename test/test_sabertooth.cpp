@@ -17,12 +17,14 @@
 class MockSerialPort : public chopper::hal::ISerialPort {
 public:
     std::vector<uint8_t> bytes;
+    size_t max_write_len = SIZE_MAX;
 
     size_t write(const uint8_t* data, size_t length) override {
-        for (size_t i = 0; i < length; i++) {
+        const size_t writable = (max_write_len < length) ? max_write_len : length;
+        for (size_t i = 0; i < writable; i++) {
             bytes.push_back(data[i]);
         }
-        return length;
+        return writable;
     }
 
     void clear() { bytes.clear(); }
@@ -86,6 +88,22 @@ void test_init_lifecycle() {
     PASS();
 }
 
+void test_init_write_failure_sets_error() {
+    TEST(sabertooth_init_write_failure_sets_error);
+
+    MockSerialPort serial;
+    serial.max_write_len = 0;
+    chopper::hal::SabertoothMotorDriver driver(serial, 128, 1, "test");
+
+    auto status = driver.init();
+
+    ASSERT(status == chopper::hal::DriverStatus::kError);
+    ASSERT(driver.getStatus() == chopper::hal::DriverStatus::kError);
+    ASSERT(driver.getErrorState().code == chopper::hal::SabertoothMotorDriver::ERROR_SERIAL_WRITE);
+
+    PASS();
+}
+
 void test_motor1_forward() {
     TEST(sabertooth_motor1_forward);
 
@@ -101,6 +119,25 @@ void test_motor1_forward() {
     // Packet: [128, 0, 63, checksum]
     ASSERT(serial.bytes.size() == 4);
     ASSERT(verifyPacket(serial.bytes, 0, 128, 0, 63));
+
+    PASS();
+}
+
+void test_packet_write_failure_sets_error() {
+    TEST(sabertooth_packet_write_failure_sets_error);
+
+    MockSerialPort serial;
+    chopper::hal::SabertoothMotorDriver driver(serial, 128, 1, "test");
+    driver.init();
+
+    serial.clear();
+    serial.max_write_len = 2;
+    driver.set(0.5f);
+    driver.update();
+
+    ASSERT(driver.getStatus() == chopper::hal::DriverStatus::kError);
+    ASSERT(driver.getErrorState().code == chopper::hal::SabertoothMotorDriver::ERROR_SERIAL_WRITE);
+    ASSERT(serial.bytes.size() == 2);
 
     PASS();
 }
@@ -389,7 +426,9 @@ int main() {
 
     test_init_sends_autobaud();
     test_init_lifecycle();
+    test_init_write_failure_sets_error();
     test_motor1_forward();
+    test_packet_write_failure_sets_error();
     test_motor1_reverse();
     test_motor2_forward();
     test_motor2_reverse();

@@ -436,7 +436,7 @@ This is tight. If 4 controllers are rarely connected simultaneously, typical wor
 
 ### 7.5 Serial TX Stagger Strategy
 
-Sabertooth commands at 9600 baud take ~4.2 ms to transmit. With SoftwareSerial (blocking), these must be staggered across ticks:
+Sabertooth commands at the runtime baud of 38400 take ~1.0 ms to transmit. With SoftwareSerial (blocking), multi-motor bursts still need loop-margin validation:
 
 ```
 Tick N:   MotorDriverNode (foot L) enqueues command in TX buffer
@@ -448,7 +448,7 @@ Tick N+3: SoftwareSerial TX ISR transmits foot R command (background)
 
 If SoftwareSerial cannot be made non-blocking, use a dedicated low-priority FreeRTOS task on Core 1 with a 2 KB stack for serial TX. Nodes enqueue commands (lock-free ring buffer); the TX task sends them.
 
-Alternatively, increase Sabertooth baud rate to 38400 (supported by hardware), reducing per-packet TX time from 4.2 ms to ~1.0 ms.
+The 38400 baud setting is now the runtime default; powered testing must confirm both the Sabertooth 2x32 and SyRen accept the autobaud/configured rate.
 
 ---
 
@@ -955,7 +955,7 @@ This enables:
 
 | # | Decision | Options | Recommendation | Owner |
 |---|----------|---------|---------------|-------|
-| 1 | SoftwareSerial replacement | (a) Keep SoftwareSerial + stagger, (b) Non-blocking TX task, (c) Increase baud to 38400 | Start with (a), measure, upgrade to (c) if needed | HAL implementer |
+| 1 | SoftwareSerial replacement | (a) Keep SoftwareSerial + stagger, (b) Non-blocking TX task, (c) Increase baud beyond 38400 if validated | Runtime uses 38400 now; measure loop margin before further changes | HAL implementer |
 | 2 | WiFi: always-on vs on-demand | (a) Always-on, (b) Enable via parameter, (c) Physical switch | (b) Parameter-controlled, default off | Systems implementer |
 | 3 | Physical E-STOP button | (a) Software only, (b) GPIO-wired kill switch on motor enable pins | (b) Recommended for safety but not required for indoor use | Hardware decision |
 | 4 | Exception handling | (a) Keep try/catch, (b) Compile with `-fno-exceptions` | (b) Disable exceptions, use error codes/ErrorLog | Core implementer |

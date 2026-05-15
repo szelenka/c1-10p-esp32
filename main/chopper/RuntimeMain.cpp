@@ -1,6 +1,7 @@
 #include "chopper/Application.h"
 #include "chopper/config/DefaultParameters.h"
 #include "chopper/config/HardwareConfig.h"
+#include "chopper/core/ParameterServer.h"
 #include "chopper/bluetooth/RoleManager.h"
 #include "chopper/nodes/BodyLedNode.h"
 #include "chopper/nodes/BodyUtilityNode.h"
@@ -286,6 +287,17 @@ extern "C" int chopper_runtime_start(void) {
     // Register all default parameters (servo limits, drive config, etc.)
     // before nodes are initialized so they read correct hardware values.
     chopper::config::registerDefaultParameters();
+
+    auto& params = chopper::core::ParameterServer::getInstance();
+    bool drive_left_inverted = true;
+    bool drive_right_inverted = false;
+    bool dome_inverted = false;
+    (void)params.get("drive.motor1_inverted", drive_left_inverted);
+    (void)params.get("drive.motor2_inverted", drive_right_inverted);
+    (void)params.get("dome.motor_inverted", dome_inverted);
+    drive_left.setInverted(drive_left_inverted);
+    drive_right.setInverted(drive_right_inverted);
+    dome_motor.setInverted(dome_inverted);
 
     initRolePolicy();
     app.getControllerManager().getRoleManager().setPolicy(g_role_policy.getPolicy());
