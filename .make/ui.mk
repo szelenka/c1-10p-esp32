@@ -9,16 +9,27 @@ UI_BAUD ?= 115200
 
 run-ui-bridge:
 	@set -e; \
-	if [ ! -f ".venv/bin/activate" ]; then \
+	if [ -f "$(CURDIR)/.venv/bin/python" ]; then \
+		VENV_PY="$(CURDIR)/.venv/bin/python"; \
+	elif [ -f "$(CURDIR)/.venv/Scripts/python.exe" ]; then \
+		VENV_PY="$(CURDIR)/.venv/Scripts/python.exe"; \
+	else \
 		echo "No .venv found at project root — creating ..."; \
-		$(PYTHON) -m venv .venv; \
+		"$(PYTHON)" -m venv .venv; \
+		if [ -f "$(CURDIR)/.venv/bin/python" ]; then \
+			VENV_PY="$(CURDIR)/.venv/bin/python"; \
+		elif [ -f "$(CURDIR)/.venv/Scripts/python.exe" ]; then \
+			VENV_PY="$(CURDIR)/.venv/Scripts/python.exe"; \
+		else \
+			echo "Error: created .venv, but could not find its Python executable."; \
+			exit 1; \
+		fi; \
 	fi; \
-	. .venv/bin/activate; \
 	SERIAL="$(UI_SERIAL)"; \
 	if [ -z "$$SERIAL" ]; then \
 		if command -v pio >/dev/null 2>&1; then \
 			CANDIDATES=$$(pio device list --json-output 2>/dev/null \
-				| $(PYTHON) -c "import sys,json; devs=[d['port'] for d in json.load(sys.stdin) if 'VID:PID' in d.get('hwid','')]; print('\n'.join(devs))"); \
+				| "$$VENV_PY" -c "import sys,json; devs=[d['port'] for d in json.load(sys.stdin) if 'VID:PID' in d.get('hwid','')]; print('\n'.join(devs))"); \
 			COUNT=$$(echo "$$CANDIDATES" | grep -c . 2>/dev/null || true); \
 			if [ "$$COUNT" -eq 1 ]; then \
 				SERIAL="$$CANDIDATES"; \
@@ -46,7 +57,7 @@ run-ui-bridge:
 	echo "Telemetry UI URL: http://$(UI_HOST):$(UI_PORT)"; \
 	echo "Starting UI bridge (serial='$$SERIAL' baud=$(UI_BAUD))"; \
 	cd tools/telemetry_ui; \
-	PY="$(PYTHON)"; \
+	PY="$$VENV_PY"; \
 	if ! $$PY -c "import aiohttp, serial" >/dev/null 2>&1; then \
 		echo "Installing UI bridge dependencies..."; \
 		$$PY -m pip install -r requirements.txt; \
