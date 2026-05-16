@@ -76,17 +76,15 @@ private:
     }
 
     static uint32_t durationImpl(ControllerRole role, void* /*ctx*/) {
-        switch (role) {  // NOLINT(bugprone-branch-clone)
+        switch (role) {
             case ControllerRole::DRIVE:
                 return 1;
             case ControllerRole::DOME:
+            case ControllerRole::CAMERA:
+            case ControllerRole::UNASSIGNED:
                 return 0;
             case ControllerRole::ANIMATION:
                 return 2000;
-            case ControllerRole::CAMERA:
-                return 0;
-            case ControllerRole::UNASSIGNED:
-                return 0;
         }
         return 0;
     }

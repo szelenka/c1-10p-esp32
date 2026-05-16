@@ -35,8 +35,8 @@
 namespace {
 static const char* const TAG = "RuntimeMain";
 struct ConfiguredRoleMapping {
-    chopper::bluetooth::MacAddress mac;
-    chopper::bluetooth::ControllerRole role;
+    chopper::bluetooth::MacAddress mac{};
+    chopper::bluetooth::ControllerRole role = chopper::bluetooth::ControllerRole::UNASSIGNED;
 };
 
 constexpr uint8_t kConfiguredRoleMappingMax = 5;
