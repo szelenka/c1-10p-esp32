@@ -3,6 +3,7 @@
 #include "chopper/config/HardwareConfig.h"
 #include "chopper/core/ParameterServer.h"
 #include "chopper/bluetooth/RoleManager.h"
+#include "chopper/nodes/BodyDoorsNode.h"
 #include "chopper/nodes/BodyLedNode.h"
 #include "chopper/nodes/BodyUtilityNode.h"
 #include "chopper/nodes/BluepadInputNode.h"
@@ -461,6 +462,12 @@ extern "C" int chopper_runtime_start(void) {
     auto body_utility_node = std::make_shared<chopper::nodes::BodyUtilityNode>();
     if (!app.addNode(body_utility_node)) {
         ESP_LOGE(TAG, "Failed to add BodyUtilityNode");
+        return 1;
+    }
+
+    auto body_doors_node = std::make_shared<chopper::nodes::BodyDoorsNode>();
+    if (!app.addNode(body_doors_node)) {
+        ESP_LOGE(TAG, "Failed to add BodyDoorsNode");
         return 1;
     }
 

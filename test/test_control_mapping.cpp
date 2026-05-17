@@ -306,7 +306,7 @@ TEST_CASE("tembed_mac_detection_matches_expected_controller") {
     CHECK_FALSE(chopper::input::isTEmbedMac("98:E6:B9:62:6E:58"));
 }
 
-TEST_CASE("tembed_drive_input_keeps_drive_axes_and_only_door_intent") {
+TEST_CASE("tembed_drive_input_keeps_drive_axes_and_maps_intents") {
     chopper::messages::ControllerInput raw{};
     raw.controller_id = 3;
     raw.battery_level = 77;
@@ -322,12 +322,24 @@ TEST_CASE("tembed_drive_input_keeps_drive_axes_and_only_door_intent") {
     raw.axis_y_slew = -0.4f;
     raw.axis_rx = 333;
     raw.axis_rx_normalized = 0.65f;
+    raw.button_a = true;
+    raw.button_b = true;
     raw.button_x = true;
+    raw.button_y = true;
+    raw.button_l1 = true;
+    raw.button_r1 = true;
     raw.misc_select = true;
 
     const auto drive = chopper::input::makeTEmbedDriveInput(raw);
     CHECK(drive.has_intents);
+    CHECK(drive.intent_periscope_up);
+    CHECK(drive.intent_periscope_down);
+    CHECK(drive.intent_periscope_spin_left);
+    CHECK(drive.intent_periscope_spin_right);
     CHECK(drive.intent_dome_doors_toggle);
+    CHECK(drive.intent_body_left_door_toggle);
+    CHECK(drive.intent_body_right_door_toggle);
+    CHECK(drive.intent_body_utility_toggle);
     CHECK_FALSE(drive.intent_sound_a);
     CHECK_FALSE(drive.intent_carpet_mode_toggle);
     CHECK(drive.axis_x == raw.axis_x);
@@ -342,7 +354,7 @@ TEST_CASE("tembed_drive_input_keeps_drive_axes_and_only_door_intent") {
     CHECK(std::strcmp(drive.mac_address, chopper::input::kTEmbedMac) == 0);
 }
 
-TEST_CASE("tembed_dome_input_keeps_rx_axis_and_only_temp_sound_intent") {
+TEST_CASE("tembed_dome_input_keeps_rx_axis_and_maps_remote_actions") {
     chopper::messages::ControllerInput raw{};
     raw.controller_id = 1;
     raw.battery_level = 55;
@@ -353,18 +365,31 @@ TEST_CASE("tembed_dome_input_keeps_rx_axis_and_only_temp_sound_intent") {
     raw.axis_x = -200;
     raw.axis_rx = 256;
     raw.axis_rx_normalized = 0.5f;
-    raw.button_x = true;
+    raw.button_b = true;
+    raw.button_r2 = true;
     raw.misc_select = true;
+    raw.misc_start = true;
 
     const auto dome = chopper::input::makeTEmbedDomeInput(raw);
     CHECK(dome.has_intents);
     CHECK(dome.intent_sound_a);
+    CHECK_FALSE(dome.intent_sound_b);
+    CHECK(dome.intent_sound_random);
+    CHECK(dome.intent_eye_color_toggle);
+    CHECK(dome.intent_dome_doors_toggle);
     CHECK_FALSE(dome.intent_dome_random_toggle);
     CHECK_FALSE(dome.intent_neck_toggle);
     CHECK(dome.axis_rx == raw.axis_rx);
     CHECK(dome.axis_rx_normalized == doctest::Approx(raw.axis_rx_normalized));
     CHECK(dome.axis_x == 0);
-    CHECK_FALSE(dome.button_x);
+    CHECK_FALSE(dome.button_a);
+    CHECK_FALSE(dome.button_b);
     CHECK_FALSE(dome.misc_select);
     CHECK(std::strcmp(dome.mac_address, chopper::input::kTEmbedMac) == 0);
+
+    raw.button_b = false;
+    raw.button_a = true;
+    const auto dome_button_a = chopper::input::makeTEmbedDomeInput(raw);
+    CHECK_FALSE(dome_button_a.intent_sound_a);
+    CHECK(dome_button_a.intent_sound_b);
 }

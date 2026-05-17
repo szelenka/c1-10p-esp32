@@ -39,6 +39,7 @@
 #include "chopper/nodes/DriveNode.h"
 #include "chopper/nodes/PeriscopeNode.h"
 #include "chopper/nodes/DomeArmsNode.h"
+#include "chopper/nodes/BodyDoorsNode.h"
 #include "chopper/nodes/BodyLedNode.h"
 #include "chopper/nodes/BodyUtilityNode.h"
 #include "chopper/nodes/SoundNode.h"
@@ -1063,6 +1064,98 @@ void test_body_utility_b_retracts_on_release() {
     ASSERT_NEAR(last_position, static_cast<float>(neutral), 0.1f);
     ASSERT(last_duration == 800);
     ASSERT(last_has_start);
+    PASS();
+}
+
+void test_body_utility_intent_toggles_open_closed() {
+    TEST(body_utility_intent_toggles_open_closed);
+    resetFramework();
+
+    auto node = std::make_shared<chopper::nodes::BodyUtilityNode>();
+    ASSERT(node->initialize());
+    node->activate();
+
+    float last_position = 0.0f;
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
+        "servo/body/move",
+        [](const chopper::messages::ServoCommand& cmd, void* c) {
+            float* pos = static_cast<float*>(c);
+            *pos = cmd.value;
+        },
+        &last_position);
+
+    auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
+
+    auto input = connectedControllerInput();
+    input.has_intents = true;
+    input.intent_body_utility_toggle = true;
+    pub->publish(input);
+
+    int32_t max_pos = 2500;
+    chopper::core::ParameterServer::getInstance().get("servo.util_arm.max", max_pos);
+    ASSERT_NEAR(last_position, static_cast<float>(max_pos), 0.1f);
+
+    input.intent_body_utility_toggle = false;
+    pub->publish(input);
+    input.intent_body_utility_toggle = true;
+    pub->publish(input);
+
+    int32_t neutral = 1500;
+    chopper::core::ParameterServer::getInstance().get("servo.util_arm.neutral", neutral);
+    ASSERT_NEAR(last_position, static_cast<float>(neutral), 0.1f);
+    PASS();
+}
+
+void test_body_doors_intents_toggle_individual_doors() {
+    TEST(body_doors_intents_toggle_individual_doors);
+    resetFramework();
+
+    auto node = std::make_shared<chopper::nodes::BodyDoorsNode>();
+    ASSERT(node->initialize());
+    node->activate();
+
+    float last_position = 0.0f;
+    uint8_t last_servo_id = 255;
+    struct Ctx {
+        float* pos;
+        uint8_t* id;
+    };
+    Ctx ctx{&last_position, &last_servo_id};
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
+        "servo/body/move",
+        [](const chopper::messages::ServoCommand& cmd, void* c) {
+            auto* ctx = static_cast<Ctx*>(c);
+            *ctx->pos = cmd.value;
+            *ctx->id = cmd.servo_id;
+        },
+        &ctx);
+
+    auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
+
+    auto input = connectedControllerInput();
+    input.has_intents = true;
+    input.intent_body_left_door_toggle = true;
+    pub->publish(input);
+
+    int32_t left_open = 1696;
+    chopper::core::ParameterServer::getInstance().get("servo.bdoor_l.max", left_open);
+    ASSERT(node->isLeftDoorOpen());
+    ASSERT(last_servo_id == chopper::config::servo_channel::BODY_DOOR_LEFT);
+    ASSERT_NEAR(last_position, static_cast<float>(left_open), 0.1f);
+
+    input.intent_body_left_door_toggle = false;
+    pub->publish(input);
+    input.intent_body_right_door_toggle = true;
+    pub->publish(input);
+
+    int32_t right_open = 992;
+    chopper::core::ParameterServer::getInstance().get("servo.bdoor_r.min", right_open);
+    ASSERT(node->isRightDoorOpen());
+    ASSERT(last_servo_id == chopper::config::servo_channel::BODY_DOOR_RIGHT);
+    ASSERT_NEAR(last_position, static_cast<float>(right_open), 0.1f);
     PASS();
 }
 
@@ -2304,6 +2397,8 @@ int main() {
     // BodyUtilityNode
     test_body_utility_b_extends();
     test_body_utility_b_retracts_on_release();
+    test_body_utility_intent_toggles_open_closed();
+    test_body_doors_intents_toggle_individual_doors();
 
     // SoundNode
     test_sound_a_plays_correct_track();

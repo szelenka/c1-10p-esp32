@@ -90,6 +90,8 @@ public:
     bool intent_periscope_spin_left = false;
     bool intent_periscope_spin_right = false;
     bool intent_dome_doors_toggle = false;
+    bool intent_body_left_door_toggle = false;
+    bool intent_body_right_door_toggle = false;
     bool intent_body_utility_toggle = false;
     bool intent_carpet_mode_toggle = false;
     bool intent_dome_rotate_left = false;
