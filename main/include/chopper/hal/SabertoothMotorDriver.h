@@ -45,11 +45,11 @@ public:
      * @param motorId   Motor number on the controller (1 or 2).
      * @param name      Driver name for diagnostics (must be string literal / static).
      * @param autobaudOnInit Whether init() sends the shared-bus 0xAA byte for
-     *        V1/SyRen-compatible autobaud devices. Sabertooth 2x32 baud is
-     *        configured separately in DEScribe.
+     *        V1/SyRen-compatible autobaud devices. Defaults false because
+     *        autobaud is a bus-level setup step, not a per-motor operation.
      */
     SabertoothMotorDriver(ISerialPort& serial, uint8_t address, uint8_t motorId, const char* name,
-                          bool autobaudOnInit = true)
+                          bool autobaudOnInit = false)
         : m_serial(&serial), m_address(address), m_motorId(motorId), m_name(name), m_autobaudOnInit(autobaudOnInit) {}
 
     // -- IDriver interface --
@@ -146,6 +146,16 @@ public:
     void setRamping(uint8_t value) { (void)sendCommand(CMD_SET_RAMPING, value); }
     void setDeadband(uint8_t value) { (void)sendCommand(CMD_SET_DEADBAND, value); }
 
+    /**
+     * Send the bus-level 0xAA byte used by V1/SyRen-compatible packet serial
+     * autobaud. Call once per shared TX bus after the SyRen power-up delay and
+     * before any addressed packet.
+     */
+    static bool sendSharedAutobaud(ISerialPort& serial) {
+        const uint8_t byte = AUTOBAUD_BYTE;
+        return serial.write(&byte, 1) == 1;
+    }
+
     // -- Test / inspection accessors --
 
     [[nodiscard]] uint8_t getAddress() const { return m_address; }
@@ -159,8 +169,13 @@ private:
      * Sabertooth 2x32 relies on its DEScribe-configured baud setting.
      */
     bool sendAutobaud() {
-        uint8_t byte = AUTOBAUD_BYTE;
-        return writeBytes(&byte, 1, "autobaud");
+        if (sendSharedAutobaud(*m_serial)) {
+            return true;
+        }
+        m_status = DriverStatus::kError;
+        m_lastError.set(ERROR_SERIAL_WRITE, 0, "Sabertooth serial write incomplete");
+        ESP_LOGE(m_name, "autobaud write failed: 0/1 bytes");
+        return false;
     }
 
     /**

@@ -81,17 +81,44 @@ static bool verifyLegacyMotorPacket(const std::vector<uint8_t>& bytes, size_t of
 
 // ---- Tests ----
 
-void test_init_sends_autobaud() {
-    TEST(sabertooth_init_sends_autobaud);
+void test_init_can_opt_into_autobaud() {
+    TEST(sabertooth_init_can_opt_into_autobaud);
 
     MockSerialPort serial;
-    chopper::hal::SabertoothMotorDriver driver(serial, 128, 1, "test");
+    chopper::hal::SabertoothMotorDriver driver(serial, 128, 1, "test", true);
 
     driver.init();
 
     // init() should send the autobaud byte 0xAA
     ASSERT(serial.bytes.size() >= 1);
     ASSERT(serial.bytes[0] == 0xAA);
+
+    PASS();
+}
+
+void test_init_skips_autobaud_by_default() {
+    TEST(sabertooth_init_skips_autobaud_by_default);
+
+    MockSerialPort serial;
+    chopper::hal::SabertoothMotorDriver driver(serial, 128, 1, "test");
+
+    auto status = driver.init();
+
+    ASSERT(status == chopper::hal::DriverStatus::kReady);
+    ASSERT(!driver.isAutobaudOnInitEnabled());
+    ASSERT(serial.bytes.empty());
+
+    PASS();
+}
+
+void test_shared_autobaud_helper_sends_byte() {
+    TEST(sabertooth_shared_autobaud_helper_sends_byte);
+
+    MockSerialPort serial;
+
+    ASSERT(chopper::hal::SabertoothMotorDriver::sendSharedAutobaud(serial));
+    ASSERT(serial.bytes.size() == 1);
+    ASSERT(serial.bytes[0] == chopper::hal::SabertoothMotorDriver::AUTOBAUD_BYTE);
 
     PASS();
 }
@@ -117,9 +144,10 @@ void test_shared_bus_sends_single_autobaud() {
 
     MockSerialPort serial;
     chopper::hal::SabertoothMotorDriver left(serial, 129, 1, "left");
-    chopper::hal::SabertoothMotorDriver right(serial, 129, 2, "right", false);
-    chopper::hal::SabertoothMotorDriver dome(serial, 128, 1, "dome", false);
+    chopper::hal::SabertoothMotorDriver right(serial, 129, 2, "right");
+    chopper::hal::SabertoothMotorDriver dome(serial, 128, 1, "dome");
 
+    ASSERT(chopper::hal::SabertoothMotorDriver::sendSharedAutobaud(serial));
     left.init();
     right.init();
     dome.init();
@@ -153,7 +181,7 @@ void test_init_write_failure_sets_error() {
 
     MockSerialPort serial;
     serial.max_write_len = 0;
-    chopper::hal::SabertoothMotorDriver driver(serial, 128, 1, "test");
+    chopper::hal::SabertoothMotorDriver driver(serial, 128, 1, "test", true);
 
     auto status = driver.init();
 
@@ -510,7 +538,9 @@ void test_reset_restores_ready() {
 int main() {
     printf("=== Sabertooth Motor Driver Tests ===\n\n");
 
-    test_init_sends_autobaud();
+    test_init_can_opt_into_autobaud();
+    test_init_skips_autobaud_by_default();
+    test_shared_autobaud_helper_sends_byte();
     test_init_can_skip_autobaud_for_shared_bus();
     test_shared_bus_sends_single_autobaud();
     test_init_lifecycle();

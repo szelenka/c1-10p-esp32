@@ -251,9 +251,9 @@ extern "C" int chopper_runtime_start(void) {
     static chopper::hal::SabertoothMotorDriver drive_left(
         sabertooth_serial, chopper::config::device_id::SABERTOOTH_TANK_DRIVE, 1, "sabertooth_left");
     static chopper::hal::SabertoothMotorDriver drive_right(
-        sabertooth_serial, chopper::config::device_id::SABERTOOTH_TANK_DRIVE, 2, "sabertooth_right", false);
+        sabertooth_serial, chopper::config::device_id::SABERTOOTH_TANK_DRIVE, 2, "sabertooth_right");
     static chopper::hal::SabertoothMotorDriver dome_motor(
-        sabertooth_serial, chopper::config::device_id::SABERTOOTH_DOME_DRIVE, 1, "sabertooth_dome", false);
+        sabertooth_serial, chopper::config::device_id::SABERTOOTH_DOME_DRIVE, 1, "sabertooth_dome");
     static chopper::hal::MaestroServoDriver maestro_body(maestro_body_serial,
                                                          chopper::config::servo_channel::BODY_CHANNEL_COUNT,
                                                          "maestro_body", chopper::config::device_id::MAESTRO_BODY);
@@ -318,12 +318,19 @@ extern "C" int chopper_runtime_start(void) {
     // The SyRen on the shared packet-serial bus requires a two-second delay
     // before the 0xAA autobaud byte. Sabertooth 2x32 baud is configured in
     // DEScribe and must match config::baud::SABERTOOTH. No motor-controller
-    // bytes are sent until DriverManager::initAll() below.
+    // addressed packets are sent until DriverManager::initAll() below.
     constexpr uint32_t actuator_uart_ready_delay_ms = chopper::config::motor_controller::SYREN_AUTOBAUD_READY_DELAY_MS;
+    constexpr uint32_t actuator_uart_settle_delay_ms =
+        chopper::config::motor_controller::SYREN_AUTOBAUD_SETTLE_DELAY_MS;
     constexpr uint32_t audio_ready_delay_ms = chopper::config::sound::MP3TRIGGER_READY_DELAY_MS;
     constexpr uint32_t startup_serial_ready_delay_ms =
         (actuator_uart_ready_delay_ms > audio_ready_delay_ms) ? actuator_uart_ready_delay_ms : audio_ready_delay_ms;
     vTaskDelay(pdMS_TO_TICKS(startup_serial_ready_delay_ms));
+    if (!chopper::hal::SabertoothMotorDriver::sendSharedAutobaud(sabertooth_serial)) {
+        ESP_LOGE(TAG, "Failed to send Sabertooth/SyRen shared-bus autobaud");
+        return 1;
+    }
+    vTaskDelay(pdMS_TO_TICKS(actuator_uart_settle_delay_ms));
     mp3.setVolume(chopper::config::sound::DEFAULT_VOLUME);
     openmv_serial.begin();
 

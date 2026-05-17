@@ -92,6 +92,7 @@ void test_hardware_config_startup_delays() {
 
     using namespace chopper::config::motor_controller;
     ASSERT(SYREN_AUTOBAUD_READY_DELAY_MS == 2000);
+    ASSERT(SYREN_AUTOBAUD_SETTLE_DELAY_MS == 500);
 
     PASS();
 }

@@ -89,6 +89,9 @@ namespace motor_controller {
 // the shared-bus 0xAA autobaud byte. Sabertooth 2x32 baud is configured
 // separately in DEScribe and must match baud::SABERTOOTH.
 constexpr uint32_t SYREN_AUTOBAUD_READY_DELAY_MS = 2000;
+// Match the Dimension Engineering Arduino helper's post-0xAA settle delay
+// before sending addressed motor packets on the shared bus.
+constexpr uint32_t SYREN_AUTOBAUD_SETTLE_DELAY_MS = 500;
 }  // namespace motor_controller
 
 // ============================================================================
