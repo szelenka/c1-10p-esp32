@@ -86,7 +86,7 @@ Dual-core: Core 0 = BT/WiFi, Core 1 = application executor.
 | Sabertooth 2x32 | UART 38400, 4B packets | ~1.0ms/pkt, device must match/autobaud |
 | SyRen 10 | UART 38400 (shared/separate) | dome rotation, device must match/autobaud |
 | Pololu Maestro x2 | UART 38400, Pololu protocol | body ch0-5, dome ch0-10, 500-2500us; boards fixed/autodetect baud must match |
-| SparkFun MP3 | serial 9600 | SD `MP3TRIGR.INI` must set `#BAUD 9600` |
+| SparkFun MP3 | serial 38400 | SD `MP3TRIGR.INI` should omit baud override or set `#BAUD 38400` |
 | Bluepad32 | BT (Core 0) | 4 controllers, axes -512..+512 |
 | OpenMV Cam | UART2 115200, binary | GPIO25 TX/GPIO33 RX, SYNC=0xA5 |
 

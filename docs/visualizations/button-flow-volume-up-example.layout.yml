@@ -235,7 +235,7 @@ items:
     lines:
       - {x: 1575, y: 334, text: one UART command}
       - {x: 1575, y: 356, text: "'v' + volume"}
-      - {class: small, x: 1575, y: 378, text: 9600 baud}
+      - {class: small, x: 1575, y: 378, text: 38400 baud}
 
   - kind: path
     class: line

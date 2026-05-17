@@ -273,7 +273,7 @@ The safety design's per-node WCETs (Section 8.2) assume non-blocking operations:
 | DriveNode | 80 us | **1040-2080 us** (1-2 Sabertooth packets at 38400 baud) |
 | DomeNode | 60 us | **1040 us** (1 Sabertooth packet at 38400 baud) |
 | ServoNode | 40 us | **1560-7000 us** (Maestro speed or 11-channel batched command at 38400 baud) |
-| AudioNode | 30 us | **1000-2000 us** (MP3 Trigger serial at 9600 baud) |
+| AudioNode | 30 us | **260-520 us** (1-2 byte MP3 Trigger serial commands at 38400 baud) |
 
 **Critical finding**: DriveNode, DomeNode, and servo-command paths still exceed their original WCET budgets, even after moving actuator UARTs to 38400 baud. The rate-monotonic analysis in the safety design (Section 8.4) shows 3.9% CPU utilization, but this is based on incorrect microsecond-only WCET assumptions that omit blocking serial TX.
 

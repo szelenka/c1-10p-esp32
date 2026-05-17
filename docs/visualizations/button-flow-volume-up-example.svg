@@ -116,7 +116,7 @@
   <text class="box-title" x="1575" y="306">MP3 Trigger</text>
   <text class="box-text" x="1575" y="334">one UART command</text>
   <text class="box-text" x="1575" y="356">&#x27;v&#x27; + volume</text>
-  <text class="small" x="1575" y="378">9600 baud</text>
+  <text class="small" x="1575" y="378">38400 baud</text>
   <path class="line" d="M 145 330 L 270 330"/>
   <path class="line" d="M 480 330 L 555 330"/>
   <path class="thin dash" d="M 518 246 L 518 326" fill="none" stroke="#98a2b3"/>

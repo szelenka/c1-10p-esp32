@@ -20,7 +20,7 @@ This document defines the Hardware Abstraction Layer for the chopper ESP32 astro
 | SyRen 10 (addr 128)          | UART (SW) | Packet Serial     | TX-only    | 38400     | Dome rotation, 1 motor; autobauds from delayed 0xAA |
 | Pololu Maestro Body (id 12)  | UART (SW) | Pololu Protocol   | Bidi       | 38400     | 6 channels: neck servos, utility arm, doors; board baud must match/autodetect |
 | Pololu Maestro Dome (id 13)  | UART (SW) | Pololu Protocol   | Bidi       | 38400     | 11 channels: periscope, doors, arms; board baud must match/autodetect |
-| SparkFun MP3 Trigger          | UART (SW) | Serial commands   | Bidi       | 9600      | Audio playback; SD card init file must match |
+| SparkFun MP3 Trigger          | UART (SW) | Serial commands   | Bidi       | 38400     | Audio playback; default board baud matches firmware |
 | OpenMV Camera                 | UART (HW) | Custom/Serial     | Bidi       | 115200    | Vision processing (Serial2)                |
 | Dome Potentiometer            | ADC       | Analog            | Input      | N/A       | GPIO34, 12-bit ADC                         |
 | Penumbra Board                | UART      | MessageHandler     | Bidi       | TBD       | LED commands, inter-board messaging         |
@@ -201,12 +201,12 @@ HW UART2       | GPIO33/GPIO25  | OpenMV Camera      | 115200 | Bidi
 SW UART-A      | N/A/GPIO16     | Sabertooth bus     | 38400  | TX-only
 SW UART-B      | GPIO32/GPIO4   | Maestro Body       | 38400  | Bidi
 SW UART-C      | GPIO13/GPIO14  | Maestro Dome       | 38400  | Bidi
-SW UART-D      | GPIO22/GPIO21  | MP3 Trigger        | 9600   | Bidi
+SW UART-D      | GPIO22/GPIO21  | MP3 Trigger        | 38400  | Bidi
 ```
 
 Sabertooth is TX-only from the ESP32 side and uses `SABERTOOTH_RX = UNUSED_PIN` / `SABERTOOTH_TX = GPIO16`, matching the legacy `NOT_A_PIN` receive mapping. OpenMV uses the separate GPIO33/GPIO25 hardware UART allocation.
 
-The SparkFun MP3 Trigger defaults to 38400 baud when no initialization file is present. This runtime uses 9600 baud to improve SoftwareSerial RX/TX timing margin. The microSD card must include `MP3TRIGR.INI` in the root directory with `#BAUD 9600` before the end-of-command marker so the board and firmware agree. See `docs/reference/MP3TRIGR.INI` for the project reference file.
+The SparkFun MP3 Trigger defaults to 38400 baud when no initialization file is present. Runtime firmware also uses 38400 baud, and the project `MP3TRIGR.INI` keeps `#BAUD 38400` explicit so the board and firmware agree. See `docs/reference/MP3TRIGR.INI` for the project reference file.
 
 The Pololu Maestro boards run at 38400 baud to keep blocking SoftwareSerial writes inside the executor timing budget. Maestro TTL serial supports this rate in both fixed-baud and autodetect-baud modes; if a board is configured for fixed baud, set it to 38400 before powered testing. In autodetect mode, the full Pololu protocol `0xAA` start byte provides baud detection.
 
@@ -408,7 +408,7 @@ Namespace: "hal_uart"
   Key: "maestd_baud"   Type: u32    Default: 38400
   Key: "maestd_rx"     Type: u8     Default: 13
   Key: "maestd_tx"     Type: u8     Default: 14
-  Key: "mp3_baud"      Type: u32    Default: 9600
+  Key: "mp3_baud"      Type: u32    Default: 38400
   Key: "mp3_rx"        Type: u8     Default: 22
   Key: "mp3_tx"        Type: u8     Default: 21
   Key: "omv_baud"      Type: u32    Default: 115200
@@ -815,7 +815,7 @@ The Executor monitors controller activity and transitions power modes:
 
 ## 11. Open Questions and Risks
 
-1. **MP3 Trigger baud agreement**: The MP3 Trigger board defaults to 38400 baud unless `MP3TRIGR.INI` sets a different value. Runtime firmware uses 9600 baud for SoftwareSerial margin, so the SD card must contain `#BAUD 9600` or MP3 serial control will not work.
+1. **MP3 Trigger baud agreement**: The MP3 Trigger board defaults to 38400 baud unless `MP3TRIGR.INI` sets a different value. Runtime firmware uses 38400 baud, so the SD card must either omit a baud override or contain `#BAUD 38400` before the end-of-command marker.
 
 2. **Heap fragmentation from std::vector**: The current `ServoDispatch` uses `std::vector` for channel targets and servo states. The HAL design replaces these with fixed-size arrays sized at compile time. This requires knowing the maximum channel count at compile time, which is acceptable for this application.
 

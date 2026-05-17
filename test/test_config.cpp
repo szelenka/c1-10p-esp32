@@ -82,7 +82,7 @@ void test_hardware_config_baud() {
     ASSERT(SABERTOOTH == 38400);
     ASSERT(MAESTRO == 38400);
     ASSERT(OPENMV == 115200);
-    ASSERT(MP3TRIGGER == 9600);
+    ASSERT(MP3TRIGGER == 38400);
 
     PASS();
 }
