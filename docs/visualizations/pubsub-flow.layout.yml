@@ -264,7 +264,7 @@ items:
     lines:
       - {x: 1236, y: 222, text: Address 129}
       - {x: 1236, y: 244, text: Feet motors}
-      - {class: small, x: 1236, y: 266, text: 19200 baud}
+      - {class: small, x: 1236, y: 266, text: 9600 baud}
 
   - kind: box
     class: hardware
