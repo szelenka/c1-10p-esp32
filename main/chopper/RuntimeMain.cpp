@@ -33,6 +33,10 @@
 #include "driver/gpio.h"
 #include "driver/ledc.h"
 
+#ifndef CHOPPER_ENABLE_TELEMETRY
+#define CHOPPER_ENABLE_TELEMETRY 1
+#endif
+
 namespace {
 static const char* const TAG = "RuntimeMain";
 struct ConfiguredRoleMapping {
@@ -359,12 +363,13 @@ extern "C" int chopper_runtime_start(void) {
     led_ch_cfg.hpoint = 0;
     ledc_channel_config(&led_ch_cfg);
 
-    // Runtime E2E path uses serial telemetry for local UI bridging.
-    // Keep HTTP/WS disabled here unless network stack is explicitly initialized.
+    // Runtime keeps telemetry tap/node registered so debug/UI state collection
+    // remains wired. CHOPPER_ENABLE_TELEMETRY only controls serial TEL output.
+    constexpr bool telemetry_output_enabled = CHOPPER_ENABLE_TELEMETRY != 0;
     chopper::telemetry::TelemetryService::Config telemetry_cfg{};
-    telemetry_cfg.serial_enabled = true;
+    telemetry_cfg.serial_enabled = telemetry_output_enabled;
     telemetry_cfg.serial_compact = false;
-    telemetry_cfg.async_enabled = true;
+    telemetry_cfg.async_enabled = telemetry_output_enabled;
     telemetry_cfg.async_task_core = 0;
     telemetry_cfg.http_enabled = false;
     telemetry_cfg.websocket_enabled = false;
@@ -373,7 +378,11 @@ extern "C" int chopper_runtime_start(void) {
     ESP_LOGI(TAG, "Executor cfg: hz=%u max_loop_us=%u core=%d loop_estop=%d node_estop=%d", exec_cfg.loop_frequency_hz,
              exec_cfg.max_loop_time_us, exec_cfg.executor_task_core, exec_cfg.loop_timeout_triggers_estop ? 1 : 0,
              exec_cfg.node_timeout_triggers_estop ? 1 : 0);
+#if CHOPPER_ENABLE_TELEMETRY
     ESP_LOGI(TAG, "Telemetry enabled (serial JSON only; HTTP/WS disabled in runtime)");
+#else
+    ESP_LOGI(TAG, "Telemetry nodes enabled; serial TEL output disabled by CHOPPER_ENABLE_TELEMETRY=0");
+#endif
 
     // Register all default parameters (servo limits, drive config, etc.)
     // before nodes are initialized so they read correct hardware values.
