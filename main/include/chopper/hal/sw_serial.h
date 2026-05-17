@@ -47,6 +47,7 @@ typedef struct sw_serial {
 // Forward declarations of internal helpers
 static void sw_rx_handler(void* arg);
 static inline bool sw_gpio_valid(gpio_num_t pin);
+static inline esp_err_t sw_ensure_gpio_isr_service(void);
 static inline void sw_wait(uint32_t start, uint32_t ticks);
 
 static inline SwSerial* sw_new(gpio_num_t tx, gpio_num_t rx, bool inverse, int buffSize) {
@@ -126,9 +127,10 @@ static inline esp_err_t sw_enableRx(SwSerial* self, bool state) {
         if (self->rxEnabled) {
             return ESP_OK;
         }
-        esp_err_t err = gpio_install_isr_service(0);
-        if (err != ESP_OK && err != ESP_ERR_INVALID_STATE)
+        esp_err_t err = sw_ensure_gpio_isr_service();
+        if (err != ESP_OK) {
             return err;
+        }
         err = gpio_isr_handler_add(self->rxPin, sw_rx_handler, self);
         if (err == ESP_OK) {
             err = gpio_set_intr_type(self->rxPin, self->invert ? GPIO_INTR_POSEDGE : GPIO_INTR_NEGEDGE);
@@ -248,6 +250,20 @@ static inline int sw_peek(SwSerial* self) {
 
 static inline bool sw_gpio_valid(gpio_num_t pin) {
     return pin >= GPIO_NUM_0 && pin < GPIO_NUM_MAX;
+}
+
+static inline esp_err_t sw_ensure_gpio_isr_service(void) {
+    static bool installed = false;
+    if (installed) {
+        return ESP_OK;
+    }
+
+    const esp_err_t err = gpio_install_isr_service(0);
+    if (err == ESP_OK || err == ESP_ERR_INVALID_STATE) {
+        installed = true;
+        return ESP_OK;
+    }
+    return err;
 }
 
 static inline void sw_wait(uint32_t start, uint32_t ticks) {
