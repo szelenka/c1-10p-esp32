@@ -33,7 +33,14 @@ inline messages::ControllerInput makeTEmbedDriveInput(const messages::Controller
     out.axis_y_slew = raw.axis_y_slew;
 
     out.has_intents = true;
+    out.intent_periscope_up = raw.button_x;
+    out.intent_periscope_down = raw.button_x;
+    out.intent_periscope_spin_left = raw.button_a;
+    out.intent_periscope_spin_right = raw.button_y;
     out.intent_dome_doors_toggle = raw.misc_select;
+    out.intent_body_left_door_toggle = raw.button_l1;
+    out.intent_body_right_door_toggle = raw.button_r1;
+    out.intent_body_utility_toggle = raw.button_b;
     return out;
 }
 
@@ -53,8 +60,13 @@ inline messages::ControllerInput makeTEmbedDomeInput(const messages::ControllerI
     out.axis_rx_normalized = raw.axis_rx_normalized;
 
     out.has_intents = true;
-    out.intent_sound_a = raw.button_x;
+    // Vambrace labels are wired to the Chopper tracks here:
+    // BUTTON_B -> Carol of the Bells, BUTTON_A -> Mandalorian.
+    out.intent_sound_a = raw.button_b;
+    out.intent_sound_b = raw.button_a;
+    out.intent_sound_random = raw.misc_start;
     out.intent_dome_doors_toggle = raw.misc_select;
+    out.intent_eye_color_toggle = raw.button_r2;
     return out;
 }
 

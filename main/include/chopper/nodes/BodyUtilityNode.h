@@ -8,10 +8,11 @@
 namespace chopper::nodes {
 
 /**
- * Controls the body utility arm via the B button.
+ * Controls the body utility arm via the B button / canonical intent.
  *
- * - B held → extend utility arm to max position
- * - B released → retract utility arm to neutral position
+ * - Legacy raw B held → extend utility arm to max position
+ * - Legacy raw B released → retract utility arm to neutral position
+ * - Canonical intent press → toggle open/closed
  *
  * Publishes timed ServoCommand requests on "servo/body/move".
  */
@@ -54,23 +55,38 @@ private:
         }
 
         const bool pressed = input.has_intents ? input.intent_body_utility_toggle : input.button_b;
-        if (pressed != last_b_) {
-            messages::ServoCommand cmd;
-            cmd.servo_id = config::servo_channel::BODY_UTILITY_ARM;
-            cmd.command_type = messages::ServoCommand::CommandType::SET_POSITION;
-            cmd.duration_ms = kUtilityArmMoveMs;
-            cmd.has_start_value = true;
-
-            if (pressed) {
-                cmd.start_value = static_cast<float>(neutral_);
-                cmd.value = static_cast<float>(max_pos_);
-            } else {
-                cmd.start_value = static_cast<float>(max_pos_);
-                cmd.value = static_cast<float>(neutral_);
+        if (input.has_intents) {
+            if (pressed && !last_b_) {
+                toggleUtilityArm();
             }
-            servo_pub_->publish(cmd);
+        } else if (pressed != last_b_) {
+            publishUtilityMove(
+                pressed ? static_cast<float>(neutral_) : static_cast<float>(max_pos_),
+                pressed ? static_cast<float>(max_pos_) : static_cast<float>(neutral_));
+            utility_open_ = pressed;
         }
         last_b_ = pressed;
+    }
+
+    void toggleUtilityArm() {
+        if (utility_open_) {
+            publishUtilityMove(static_cast<float>(max_pos_), static_cast<float>(neutral_));
+            utility_open_ = false;
+        } else {
+            publishUtilityMove(static_cast<float>(neutral_), static_cast<float>(max_pos_));
+            utility_open_ = true;
+        }
+    }
+
+    void publishUtilityMove(float start, float value) {
+        messages::ServoCommand cmd;
+        cmd.servo_id = config::servo_channel::BODY_UTILITY_ARM;
+        cmd.command_type = messages::ServoCommand::CommandType::SET_POSITION;
+        cmd.duration_ms = kUtilityArmMoveMs;
+        cmd.has_start_value = true;
+        cmd.start_value = start;
+        cmd.value = value;
+        servo_pub_->publish(cmd);
     }
 
     static void onParameterChanged(const char*, void* context) {
@@ -93,6 +109,7 @@ private:
     static constexpr uint16_t kUtilityArmMoveMs = 800;
 
     bool last_b_ = false;
+    bool utility_open_ = false;
     int32_t neutral_ = 1500;
     int32_t max_pos_ = 2500;
 };
