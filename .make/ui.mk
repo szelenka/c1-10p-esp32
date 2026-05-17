@@ -25,27 +25,26 @@ run-ui-bridge:
 			exit 1; \
 		fi; \
 	fi; \
+	if ! "$$VENV_PY" -c "import aiohttp, serial" >/dev/null 2>&1; then \
+		echo "Installing UI bridge dependencies..."; \
+		"$$VENV_PY" -m pip install -r tools/telemetry_ui/requirements.txt; \
+	fi; \
 	SERIAL="$(UI_SERIAL)"; \
 	if [ -z "$$SERIAL" ]; then \
-		if command -v pio >/dev/null 2>&1; then \
-			CANDIDATES=$$(pio device list --json-output 2>/dev/null \
-				| "$$VENV_PY" -c "import sys,json; devs=[d['port'] for d in json.load(sys.stdin) if 'VID:PID' in d.get('hwid','')]; print('\n'.join(devs))"); \
-			COUNT=$$(echo "$$CANDIDATES" | grep -c . 2>/dev/null || true); \
-			if [ "$$COUNT" -eq 1 ]; then \
-				SERIAL="$$CANDIDATES"; \
-				echo "Auto-detected serial port: $$SERIAL"; \
-			elif [ "$$COUNT" -gt 1 ]; then \
-				echo "Multiple serial port candidates found:"; \
-				echo "$$CANDIDATES" | while read -r p; do echo "  $$p"; done; \
-				echo ""; \
-				echo "Set UI_SERIAL to select one, e.g.:"; \
-				echo "  make run-ui-bridge UI_SERIAL=$$(echo "$$CANDIDATES" | head -1)"; \
-				exit 1; \
-			else \
-				echo "No USB serial ports detected by pio."; \
-			fi; \
+		CANDIDATES=$$("$$VENV_PY" .scripts/detect_serial_ports.py); \
+		COUNT=$$(echo "$$CANDIDATES" | grep -c . 2>/dev/null || true); \
+		if [ "$$COUNT" -eq 1 ]; then \
+			SERIAL="$$CANDIDATES"; \
+			echo "Auto-detected serial port: $$SERIAL"; \
+		elif [ "$$COUNT" -gt 1 ]; then \
+			echo "Multiple serial port candidates found:"; \
+			echo "$$CANDIDATES" | while read -r p; do echo "  $$p"; done; \
+			echo ""; \
+			echo "Set UI_SERIAL to select one, e.g.:"; \
+			echo "  make run-ui-bridge UI_SERIAL=$$(echo "$$CANDIDATES" | head -1)"; \
+			exit 1; \
 		else \
-			echo "pio not found; skipping serial auto-detect."; \
+			echo "No USB serial ports detected by pyserial."; \
 		fi; \
 	fi; \
 	PID=$$(lsof -ti tcp:$(UI_PORT) 2>/dev/null || true); \
@@ -58,10 +57,6 @@ run-ui-bridge:
 	echo "Starting UI bridge (serial='$$SERIAL' baud=$(UI_BAUD))"; \
 	cd tools/telemetry_ui; \
 	PY="$$VENV_PY"; \
-	if ! $$PY -c "import aiohttp, serial" >/dev/null 2>&1; then \
-		echo "Installing UI bridge dependencies..."; \
-		$$PY -m pip install -r requirements.txt; \
-	fi; \
 	if [ -n "$$SERIAL" ]; then \
 		CMD="$$PY app.py --host \"$(UI_HOST)\" --port \"$(UI_PORT)\" --serial \"$$SERIAL\" --baud \"$(UI_BAUD)\""; \
 	else \
