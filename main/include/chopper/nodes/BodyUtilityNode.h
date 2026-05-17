@@ -60,9 +60,8 @@ private:
                 toggleUtilityArm();
             }
         } else if (pressed != last_b_) {
-            publishUtilityMove(
-                pressed ? static_cast<float>(neutral_) : static_cast<float>(max_pos_),
-                pressed ? static_cast<float>(max_pos_) : static_cast<float>(neutral_));
+            publishUtilityMove(pressed ? static_cast<float>(neutral_) : static_cast<float>(max_pos_),
+                               pressed ? static_cast<float>(max_pos_) : static_cast<float>(neutral_));
             utility_open_ = pressed;
         }
         last_b_ = pressed;

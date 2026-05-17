@@ -54,10 +54,8 @@ private:
             return;
         }
 
-        const bool left_pressed =
-            input.has_intents ? input.intent_body_left_door_toggle : input.button_l1;
-        const bool right_pressed =
-            input.has_intents ? input.intent_body_right_door_toggle : input.button_r1;
+        const bool left_pressed = input.has_intents ? input.intent_body_left_door_toggle : input.button_l1;
+        const bool right_pressed = input.has_intents ? input.intent_body_right_door_toggle : input.button_r1;
 
         if (left_pressed && !last_left_) {
             toggleLeftDoor();
