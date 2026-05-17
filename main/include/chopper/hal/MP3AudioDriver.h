@@ -176,14 +176,16 @@ private:
         uint8_t buf[2];
         buf[0] = 't';
         buf[1] = track;
-        m_serial->write(buf, 2);
+        const size_t written = m_serial->write(buf, 2);
+        logWriteResult("trigger", buf, 2, written);
     }
 
     void mp3SetVolume(uint8_t volume) {
         uint8_t buf[2];
         buf[0] = 'v';
         buf[1] = volume;
-        m_serial->write(buf, 2);
+        const size_t written = m_serial->write(buf, 2);
+        logWriteResult("volume", buf, 2, written);
     }
 
     void mp3Stop() {
@@ -191,7 +193,25 @@ private:
             return;
         }
         uint8_t byte = 'O';
-        m_serial->write(&byte, 1);
+        const size_t written = m_serial->write(&byte, 1);
+        logWriteResult("stop", &byte, 1, written);
+    }
+
+    void logWriteResult(const char* action, const uint8_t* data, size_t expected, size_t written) const {
+        if (written != expected) {
+            ESP_LOGW(m_name, "mp3 uart %s short write: wrote=%u expected=%u", action, static_cast<unsigned>(written),
+                     static_cast<unsigned>(expected));
+            return;
+        }
+
+        if (expected == 1) {
+            ESP_LOGI(m_name, "mp3 uart %s wrote %u byte: 0x%02X", action, static_cast<unsigned>(written),
+                     static_cast<unsigned>(data[0]));
+            return;
+        }
+
+        ESP_LOGI(m_name, "mp3 uart %s wrote %u bytes: 0x%02X 0x%02X", action, static_cast<unsigned>(written),
+                 static_cast<unsigned>(data[0]), static_cast<unsigned>(data[1]));
     }
 
     uint32_t randomIndex() {

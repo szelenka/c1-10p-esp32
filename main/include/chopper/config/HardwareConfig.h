@@ -99,8 +99,10 @@ constexpr uint32_t SYREN_AUTOBAUD_SETTLE_DELAY_MS = 500;
 // ============================================================================
 
 namespace sound {
-constexpr uint8_t DEFAULT_VOLUME = 0;
+constexpr uint8_t DEFAULT_VOLUME = 32;
+// maximum volume is 0x00 (0)
 constexpr uint8_t VOLUME_LOUDEST = 0;
+// values much above 0x40 (64) are too low to be audible
 constexpr uint8_t VOLUME_QUIETEST = 64;
 constexpr uint8_t VOLUME_STEP = 8;
 constexpr uint32_t MP3TRIGGER_READY_DELAY_MS = 1500;
