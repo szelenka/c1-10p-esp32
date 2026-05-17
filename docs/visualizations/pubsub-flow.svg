@@ -137,7 +137,7 @@
   <text class="box-title" x="1236" y="194">Sabertooth</text>
   <text class="box-text" x="1236" y="222">Address 129</text>
   <text class="box-text" x="1236" y="244">Feet motors</text>
-  <text class="small" x="1236" y="266">38400 baud</text>
+  <text class="small" x="1236" y="266">19200 baud</text>
   <rect class="hardware" x="1216" y="338" width="142" height="124" rx="8"/>
   <text class="box-title" x="1236" y="374">SyRen</text>
   <text class="box-text" x="1236" y="402">Address 128</text>

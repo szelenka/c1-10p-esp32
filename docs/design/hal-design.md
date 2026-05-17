@@ -16,8 +16,8 @@ This document defines the Hardware Abstraction Layer for the chopper ESP32 astro
 
 | Device                        | Bus       | Protocol          | Direction  | Baud Rate | Notes                                      |
 |-------------------------------|-----------|-------------------|------------|-----------|--------------------------------------------|
-| Sabertooth 2x32 (addr 129)   | UART (SW) | Packet Serial     | TX-only    | 38400     | Differential drive, 2 motors; DEScribe baud must match |
-| SyRen 10 (addr 128)          | UART (SW) | Packet Serial     | TX-only    | 38400     | Dome rotation, 1 motor; autobauds from delayed 0xAA |
+| Sabertooth 2x32 (addr 129)   | UART (SW) | Packet Serial     | TX-only    | 19200     | Differential drive, 2 motors; DEScribe baud must match |
+| SyRen 10 (addr 128)          | UART (SW) | Packet Serial     | TX-only    | 19200     | Dome rotation, 1 motor; autobauds from delayed 0xAA |
 | Pololu Maestro Body (id 12)  | UART (SW) | Pololu Protocol   | Bidi       | 38400     | 6 channels: neck servos, utility arm, doors; board baud must match/autodetect |
 | Pololu Maestro Dome (id 13)  | UART (SW) | Pololu Protocol   | Bidi       | 38400     | 11 channels: periscope, doors, arms; board baud must match/autodetect |
 | SparkFun MP3 Trigger          | UART (SW) | Serial commands   | Bidi       | 38400     | Audio playback; default board baud matches firmware |
@@ -198,7 +198,7 @@ UART Port      | Pins (RX/TX)   | Device             | Baud   | Mode
 ---------------|----------------|--------------------|--------|----------
 HW UART0       | GPIO3/GPIO1    | USB Console/BP32   | 115200 | Reserved
 HW UART2       | GPIO33/GPIO25  | OpenMV Camera      | 115200 | Bidi
-SW UART-A      | N/A/GPIO16     | Sabertooth bus     | 38400  | TX-only
+SW UART-A      | N/A/GPIO16     | Sabertooth bus     | 19200  | TX-only
 SW UART-B      | GPIO32/GPIO4   | Maestro Body       | 38400  | Bidi
 SW UART-C      | GPIO13/GPIO14  | Maestro Dome       | 38400  | Bidi
 SW UART-D      | GPIO22/GPIO21  | MP3 Trigger        | 38400  | Bidi
@@ -400,7 +400,7 @@ NVS keys are organized by driver namespace. Each driver has a dedicated NVS name
 
 ```
 Namespace: "hal_uart"
-  Key: "saber_baud"    Type: u32    Default: 38400
+  Key: "saber_baud"    Type: u32    Default: 19200
   Key: "saber_tx_pin"  Type: u8     Default: 16
   Key: "maestb_baud"   Type: u32    Default: 38400
   Key: "maestb_rx"     Type: u8     Default: 32
@@ -698,7 +698,7 @@ Timing budget for `DriverManager::updateAll()`: **4 ms maximum** (leaving 6 ms f
 
 | Driver                        | Budget   | Expected | Notes                                     |
 |-------------------------------|----------|----------|-------------------------------------------|
-| SabertoothMotorDriver (x3)    | 4 ms     | 3.1 ms   | 3x blocking 4-byte packet serial TX at 38400 baud |
+| SabertoothMotorDriver (x3)    | 7 ms     | 6.3 ms   | 3x blocking 4-byte packet serial TX at 19200 baud |
 | MaestroServoDriver (body)     | 600 us   | 400 us   | setMultiTarget for 6 channels             |
 | MaestroServoDriver (dome)     | 800 us   | 500 us   | setMultiTarget for 11 channels            |
 | MP3TriggerDriver              | 200 us   | 50 us    | MP3Trigger::update() polling              |
@@ -821,7 +821,7 @@ The Executor monitors controller activity and transitions power modes:
 
 3. **RingBuffer memory**: The `PenumbraCommDriver` (wrapping `MessageHandler`) consumes ~13 KB for its dual ring buffers. If memory pressure becomes an issue, reduce `BUFFER_SIZE` from 25 to 10 and `BUFFER_DATA_MAX_SIZE` from 256 to 128.
 
-4. **Sabertooth shared bus timing**: Multiple Sabertooth/SyRen devices on one TX line require sequential writes. The runtime uses 38400 baud, so a typical 4-byte packet takes about 1.0 ms. Three motor updates in one cycle are still blocking, but fit the current 50 Hz executor budget with much better margin. Bench validation must confirm the Sabertooth 2x32 DEScribe setting and SyRen autobaud before powered testing.
+4. **Sabertooth shared bus timing**: Multiple Sabertooth/SyRen devices on one TX line require sequential writes. The runtime uses 19200 baud as a compatibility midpoint for SyRen autobaud testing, so a typical 4-byte packet takes about 2.1 ms. Three motor updates in one cycle are still blocking and must be measured on hardware. Bench validation must confirm the Sabertooth 2x32 DEScribe setting and SyRen autobaud before powered testing.
 
 5. **Maestro baud agreement**: Runtime firmware uses 38400 baud for both Pololu Maestro boards to reduce servo UART blocking time. Confirm both boards are configured for 38400 fixed baud or autodetect baud before powered testing.
 

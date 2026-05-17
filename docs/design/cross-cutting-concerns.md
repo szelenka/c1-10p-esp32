@@ -31,13 +31,13 @@ Recommendation: Option 2 (multi-rate) aligns with the node frequency concept alr
 
 ### 1.2 Sabertooth Timing Budget
 
-The HAL design (Section 11, Open Question #5) identified that transmitting 3 Sabertooth motor commands at the legacy 9600 baud took ~12.6 ms. Runtime now uses 38400 baud for the shared Sabertooth/SyRen bus, reducing the same burst to ~3.1 ms while keeping the packet protocol unchanged.
+The HAL design (Section 11, Open Question #5) identified that transmitting 3 Sabertooth motor commands at the legacy 9600 baud took ~12.6 ms. Runtime now uses 19200 baud for the shared Sabertooth/SyRen bus as a compatibility midpoint, reducing the same burst to ~6.3 ms while keeping the packet protocol unchanged.
 
-**This is a hard physical constraint**: At runtime 38400 baud, one 4-byte packet takes ~1.0 ms to transmit. This improves executor timing margin, but multi-motor command bursts are still blocking unless unchanged commands are suppressed, updates are staggered, or serial TX is moved out of the executor path.
+**This is a hard physical constraint**: At runtime 19200 baud, one 4-byte packet takes ~2.1 ms to transmit. This improves executor timing margin over the legacy 9600 baud path, but multi-motor command bursts are still blocking unless unchanged commands are suppressed, updates are staggered, or serial TX is moved out of the executor path.
 
-**Impact on timing budget**: If motors update at 50 Hz (every 20 ms), each changed motor command costs about 1.0 ms at 38400 baud. Two drive packets cost about 2.1 ms; drive plus dome can cost about 3.1 ms. This must be explicitly modeled in the executor's timing analysis.
+**Impact on timing budget**: If motors update at 50 Hz (every 20 ms), each changed motor command costs about 2.1 ms at 19200 baud. Two drive packets cost about 4.2 ms; drive plus dome can cost about 6.3 ms. This must be explicitly modeled in the executor's timing analysis.
 
-The safety/RT design's rate-monotonic analysis (Section 8.4) gives the DriveNode a WCET of 80 us at 50 Hz. But this budget does not include the blocking serial TX time of ~1.0 ms per motor command at 38400 baud. If the serial TX is blocking (which SoftwareSerial is), the actual WCET is milliseconds, not 80 us.
+The safety/RT design's rate-monotonic analysis (Section 8.4) gives the DriveNode a WCET of 80 us at 50 Hz. But this budget does not include the blocking serial TX time of ~2.1 ms per motor command at 19200 baud. If the serial TX is blocking (which SoftwareSerial is), the actual WCET is milliseconds, not 80 us.
 
 **Resolution needed**: The DriveNode WCET must account for serial TX time, OR serial TX must be made non-blocking (buffer + ISR/DMA), OR the timing analysis must acknowledge that DriveNode is a special case that spans multiple loop iterations.
 
@@ -270,12 +270,12 @@ The safety design's per-node WCETs (Section 8.2) assume non-blocking operations:
 |------|------------|------------------------|
 | SafetyMonitorNode | 30 us | 30 us (no I/O) |
 | ControllerInputNode | 50 us | 50 us (reads cached BT data) |
-| DriveNode | 80 us | **1040-2080 us** (1-2 Sabertooth packets at 38400 baud) |
-| DomeNode | 60 us | **1040 us** (1 Sabertooth packet at 38400 baud) |
+| DriveNode | 80 us | **2080-4160 us** (1-2 Sabertooth packets at 19200 baud) |
+| DomeNode | 60 us | **2080 us** (1 Sabertooth packet at 19200 baud) |
 | ServoNode | 40 us | **1560-7000 us** (Maestro speed or 11-channel batched command at 38400 baud) |
 | AudioNode | 30 us | **260-520 us** (1-2 byte MP3 Trigger serial commands at 38400 baud) |
 
-**Critical finding**: DriveNode, DomeNode, and servo-command paths still exceed their original WCET budgets, even after moving actuator UARTs to 38400 baud. The rate-monotonic analysis in the safety design (Section 8.4) shows 3.9% CPU utilization, but this is based on incorrect microsecond-only WCET assumptions that omit blocking serial TX.
+**Critical finding**: DriveNode, DomeNode, and servo-command paths still exceed their original WCET budgets, even after moving the motor bus above legacy 9600 baud. The rate-monotonic analysis in the safety design (Section 8.4) shows 3.9% CPU utilization, but this is based on incorrect microsecond-only WCET assumptions that omit blocking serial TX.
 
 **Corrected utilization**:
 ```

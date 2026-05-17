@@ -446,7 +446,7 @@ This is tight. If 4 controllers are rarely connected simultaneously, typical wor
 
 Runtime SoftwareSerial TX is blocking and executes on the caller core. For actuator/audio command paths, the caller is normally the CPU1 executor. It is not a background TX ISR.
 
-At 38400 baud, a Sabertooth/SyRen 8N1 byte takes about 0.26 ms and a four-byte Sabertooth packet takes about 1.04 ms. The Pololu Maestro boards also run at 38400 baud: a six-byte speed command is about 1.56 ms and the dome board's 11-channel multi-target update is about 7.0 ms. The MP3 Trigger also runs at its 38400 baud default, so typical 1-2 byte audio commands take about 0.26-0.52 ms. Powered testing should measure loop-time impact during multi-device command bursts.
+At 19200 baud, a Sabertooth/SyRen 8N1 byte takes about 0.52 ms and a four-byte Sabertooth packet takes about 2.08 ms. The Pololu Maestro boards run at 38400 baud: a six-byte speed command is about 1.56 ms and the dome board's 11-channel multi-target update is about 7.0 ms. The MP3 Trigger also runs at its 38400 baud default, so typical 1-2 byte audio commands take about 0.26-0.52 ms. Powered testing should measure loop-time impact during multi-device command bursts.
 
 If SoftwareSerial cannot be made non-blocking, use a dedicated low-priority FreeRTOS task on Core 1 with a 2 KB stack for serial TX. Nodes enqueue commands (lock-free ring buffer); the TX task sends them.
 
@@ -955,7 +955,7 @@ This enables:
 
 | # | Decision | Options | Recommendation | Owner |
 |---|----------|---------|---------------|-------|
-| 1 | SoftwareSerial replacement | (a) Keep SoftwareSerial + stagger, (b) Non-blocking TX task, (c) Use dedicated hardware UARTs where pins allow | Runtime keeps actuator/audio SoftwareSerial at 38400 where the hardware supports it; measure loop margin before further changes | HAL implementer |
+| 1 | SoftwareSerial replacement | (a) Keep SoftwareSerial + stagger, (b) Non-blocking TX task, (c) Use dedicated hardware UARTs where pins allow | Runtime keeps Maestro/audio SoftwareSerial at 38400 and tests the shared Sabertooth/SyRen bus at 19200 for SyRen autobaud margin; measure loop margin before further changes | HAL implementer |
 | 2 | WiFi: always-on vs on-demand | (a) Always-on, (b) Enable via parameter, (c) Physical switch | (b) Parameter-controlled, default off | Systems implementer |
 | 3 | Physical E-STOP button | (a) Software only, (b) GPIO-wired kill switch on motor enable pins | (b) Recommended for safety but not required for indoor use | Hardware decision |
 | 4 | Exception handling | (a) Keep try/catch, (b) Compile with `-fno-exceptions` | (b) Disable exceptions, use error codes/ErrorLog | Core implementer |

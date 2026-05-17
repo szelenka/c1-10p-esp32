@@ -74,7 +74,7 @@ constexpr int DOME_POTENTIOMETER = DIN34;
 // ============================================================================
 
 namespace baud {
-constexpr uint32_t SABERTOOTH = 38400;
+constexpr uint32_t SABERTOOTH = 19200;
 constexpr uint32_t MAESTRO = 38400;
 constexpr uint32_t OPENMV = 115200;
 constexpr uint32_t MP3TRIGGER = 38400;
