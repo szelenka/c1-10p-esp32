@@ -3,6 +3,7 @@
 #include "chopper/hal/IAudioDriver.h"
 #include "chopper/hal/ISerialPort.h"
 #include "esp_log.h"
+#include "esp_timer.h"
 #include <cstring>
 
 #ifdef ESP_PLATFORM
@@ -68,6 +69,7 @@ public:
         }
         // Poll the serial port for status responses from the MP3 Trigger
         mp3Update();
+        processVolumeRetry();
     }
 
     [[nodiscard]] DriverStatus getStatus() const override { return m_status; }
@@ -77,6 +79,7 @@ public:
     DriverStatus reset() override {
         m_volume = 0;
         m_playing = false;
+        clearVolumeRetry();
         m_lastError.clear();
         m_status = DriverStatus::kReady;
         return m_status;
@@ -109,6 +112,7 @@ public:
     void setVolume(uint8_t volume) override {
         m_volume = volume;
         mp3SetVolume(volume);
+        scheduleVolumeRetry(volume);
     }
 
     [[nodiscard]] uint8_t getVolume() const override { return m_volume; }
@@ -214,6 +218,32 @@ private:
                  static_cast<unsigned>(data[0]), static_cast<unsigned>(data[1]));
     }
 
+    void scheduleVolumeRetry(uint8_t volume) {
+        m_retryVolume = volume;
+        m_volumeRetriesRemaining = kVolumeRetryCount;
+        m_nextVolumeRetryUs = static_cast<uint64_t>(esp_timer_get_time()) + kVolumeRetryIntervalUs;
+    }
+
+    void clearVolumeRetry() {
+        m_volumeRetriesRemaining = 0;
+        m_nextVolumeRetryUs = 0;
+    }
+
+    void processVolumeRetry() {
+        if (m_volumeRetriesRemaining == 0) {
+            return;
+        }
+
+        const uint64_t now_us = static_cast<uint64_t>(esp_timer_get_time());
+        if (now_us < m_nextVolumeRetryUs) {
+            return;
+        }
+
+        mp3SetVolume(m_retryVolume);
+        --m_volumeRetriesRemaining;
+        m_nextVolumeRetryUs = now_us + kVolumeRetryIntervalUs;
+    }
+
     uint32_t randomIndex() {
 #ifdef ESP_PLATFORM
         return esp_random();
@@ -226,9 +256,14 @@ private:
 
     ISerialPort* m_serial;
     const char* m_name;
+    static constexpr uint8_t kVolumeRetryCount = 2;
+    static constexpr uint64_t kVolumeRetryIntervalUs = 50000ULL;
     DriverStatus m_status = DriverStatus::kUninitialized;
     ErrorInfo m_lastError;
     uint8_t m_volume = 0;
+    uint8_t m_retryVolume = 0;
+    uint8_t m_volumeRetriesRemaining = 0;
+    uint64_t m_nextVolumeRetryUs = 0;
     bool m_playing = false;
 
     uint8_t m_randomTracks[kMaxRandomTracks]{};

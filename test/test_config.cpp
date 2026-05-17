@@ -153,7 +153,7 @@ void test_hardware_config_sound_tracks() {
     TEST(hardware_config_sound_tracks);
 
     using namespace chopper::config::sound;
-    ASSERT(DEFAULT_VOLUME == 0);
+    ASSERT(DEFAULT_VOLUME == 32);
     ASSERT(VOLUME_LOUDEST == 0);
     ASSERT(VOLUME_QUIETEST == 64);
     ASSERT(VOLUME_STEP == 8);

@@ -1292,7 +1292,8 @@ void test_sound_drive_sl_sr_changes_volume() {
 
     ASSERT(command_count == 1);
     ASSERT(last_type == static_cast<uint8_t>(chopper::messages::AudioCommand::CommandType::SET_VOLUME));
-    ASSERT(last_volume == chopper::config::sound::VOLUME_STEP);
+    ASSERT(last_volume ==
+           chopper::config::sound::DEFAULT_VOLUME + chopper::config::sound::VOLUME_STEP);
 
     input.button_r1 = false;
     pub->publish(input);
@@ -1303,7 +1304,7 @@ void test_sound_drive_sl_sr_changes_volume() {
 
     ASSERT(command_count == 2);
     ASSERT(last_type == static_cast<uint8_t>(chopper::messages::AudioCommand::CommandType::SET_VOLUME));
-    ASSERT(last_volume == chopper::config::sound::VOLUME_LOUDEST);
+    ASSERT(last_volume == chopper::config::sound::DEFAULT_VOLUME);
     PASS();
 }
 
@@ -1477,7 +1478,8 @@ void test_sound_volume_via_drive_intent() {
     pub->publish(input);
 
     ASSERT(last_type == static_cast<uint8_t>(chopper::messages::AudioCommand::CommandType::SET_VOLUME));
-    ASSERT(last_volume == chopper::config::sound::VOLUME_STEP);
+    ASSERT(last_volume ==
+           chopper::config::sound::DEFAULT_VOLUME + chopper::config::sound::VOLUME_STEP);
     PASS();
 }
 

@@ -334,6 +334,45 @@ void test_trigger_skips_when_not_ready() {
     PASS();
 }
 
+void test_set_volume_retries_from_update() {
+    TEST(mp3_set_volume_retries_from_update);
+
+    MockBidirectionalSerialPort serial;
+    chopper::hal::MP3AudioDriver driver(serial, "test");
+    driver.init();
+
+    mock_esp_timer_set(1'000'000);
+    serial.clearWritten();
+    driver.setVolume(32);
+
+    ASSERT(serial.writtenBytes.size() == 2);
+    ASSERT(serial.writtenBytes[0] == 'v');
+    ASSERT(serial.writtenBytes[1] == 32);
+
+    mock_esp_timer_set(1'020'000);
+    driver.update();
+    ASSERT(serial.writtenBytes.size() == 2);
+
+    mock_esp_timer_set(1'050'000);
+    driver.update();
+    ASSERT(serial.writtenBytes.size() == 4);
+    ASSERT(serial.writtenBytes[2] == 'v');
+    ASSERT(serial.writtenBytes[3] == 32);
+
+    mock_esp_timer_set(1'100'000);
+    driver.update();
+    ASSERT(serial.writtenBytes.size() == 6);
+    ASSERT(serial.writtenBytes[4] == 'v');
+    ASSERT(serial.writtenBytes[5] == 32);
+
+    mock_esp_timer_set(1'150'000);
+    driver.update();
+    ASSERT(serial.writtenBytes.size() == 6);
+
+    mock_esp_timer_reset();
+    PASS();
+}
+
 void test_reset_clears_state() {
     TEST(mp3_reset_clears_state);
 
@@ -389,6 +428,7 @@ int main() {
     test_add_random_track_overflow();
     test_update_skips_when_not_ready();
     test_trigger_skips_when_not_ready();
+    test_set_volume_retries_from_update();
     test_reset_clears_state();
     test_diagnostic_status();
 
