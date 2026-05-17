@@ -9,7 +9,7 @@ Canonical topic names used across the codebase. **Always reuse these** -- do not
 
 | Topic | Message Type | Publisher(s) | Subscriber(s) |
 |-------|-------------|-------------|----------------|
-| `controller/drive` | ControllerInput | BluepadInputNode | DriveNode, DomeNode, DomeArmsNode, PeriscopeNode, BodyUtilityNode, SoundNode |
+| `controller/drive` | ControllerInput | BluepadInputNode | DriveNode, DomeNode, DomeArmsNode, PeriscopeNode, BodyUtilityNode, BodyDoorsNode, SoundNode |
 | `controller/dome` | ControllerInput | BluepadInputNode | DomeNode, NeckNode, SoundNode |
 | `controller/animation` | ControllerInput | BluepadInputNode | (reserved) |
 | `controller/camera` | ControllerInput | BluepadInputNode | (reserved) |
@@ -17,7 +17,7 @@ Canonical topic names used across the codebase. **Always reuse these** -- do not
 | `dome/motor/cmd` | MotorCommand | DomeNode | MotorBridgeNode |
 | `dome/position` | SensorData | DomeNode | (telemetry) |
 | `servo/cmd` | ServoCommand | (aggregate command channel; application default) | TelemetryIOTapNode |
-| `servo/body/move` | ServoCommand | BodyUtilityNode | ServoMotionNode |
+| `servo/body/move` | ServoCommand | BodyUtilityNode, BodyDoorsNode | ServoMotionNode |
 | `servo/body/cmd` | ServoCommand | ServoMotionNode, NeckNode | ServoBridgeNode |
 | `servo/dome/move` | ServoCommand | DomeArmsNode, PeriscopeNode | ServoMotionNode |
 | `servo/dome/cmd` | ServoCommand | ServoMotionNode | ServoBridgeNode |
@@ -44,6 +44,7 @@ TelemetryIOTapNode subscribes to all command/status topics for passthrough to th
 | PeriscopeNode | `nodes/PeriscopeNode.h` | Action | Translate periscope intents into ServoCommands. Never inspects raw buttons. |
 | SoundNode | `nodes/SoundNode.h` | Action | Translate sound intents into AudioCommands. Never inspects raw buttons. |
 | BodyUtilityNode | `nodes/BodyUtilityNode.h` | Action | Translate body utility intents into ServoCommands. Never inspects raw buttons. |
+| BodyDoorsNode | `nodes/BodyDoorsNode.h` | Action | Translate body-door toggle intents into timed ServoCommands. Never inspects raw buttons. |
 | MotorBridgeNode | `nodes/MotorBridgeNode.h` | Bridge | Safety-gated forwarding of MotorCommand to IMotorDriver. No decision logic. |
 | ServoMotionNode | `nodes/ServoMotionNode.h` | Action | Convert timed servo motion requests into immediate ServoCommands. No driver I/O. |
 | ServoBridgeNode | `nodes/ServoBridgeNode.h` | Bridge | Safety-gated forwarding of ServoCommand to IServoController. No decision logic. |
@@ -65,6 +66,7 @@ BT Controllers (Core 0, Bluepad32)
         |                    +-- DomeArmsNode --> servo/dome/move --> ServoMotionNode --> servo/dome/cmd --> ServoBridgeNode --> Maestro(dome)
         |                    +-- PeriscopeNode --> servo/dome/move --> ^
         |                    +-- BodyUtilityNode --> servo/body/move --> ServoMotionNode --> servo/body/cmd --> ServoBridgeNode --> Maestro(body)
+        |                    +-- BodyDoorsNode --> servo/body/move --> ^
         +-- controller/dome  --> DomeNode  --> dome/motor/cmd --> MotorBridgeNode --> SyRen
         |                    |            --> dome/position (sensor data)
         |                    |            --> led/dome_eye/cmd --> OpenMvBridgeNode --> OpenMV serial
