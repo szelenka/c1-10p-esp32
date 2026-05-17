@@ -86,6 +86,11 @@ static inline SwSerial* sw_new(gpio_num_t tx, gpio_num_t rx, bool inverse, int b
 
     // Configure TX pin
     esp_rom_gpio_pad_select_gpio(tx);
+    // Preload the idle level before enabling output. Packet-serial autobaud
+    // devices such as SyRen treat the first RX activity as baud training, so
+    // avoid a low glitch on S1 before the deliberate 0xAA byte.
+    gpio_set_pull_mode(tx, inverse ? GPIO_PULLDOWN_ONLY : GPIO_PULLUP_ONLY);
+    gpio_set_level(tx, inverse ? 0 : 1);
     gpio_set_direction(tx, GPIO_MODE_OUTPUT);
     gpio_set_level(tx, inverse ? 0 : 1);
 

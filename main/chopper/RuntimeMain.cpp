@@ -325,11 +325,18 @@ extern "C" int chopper_runtime_start(void) {
     constexpr uint32_t audio_ready_delay_ms = chopper::config::sound::MP3TRIGGER_READY_DELAY_MS;
     constexpr uint32_t startup_serial_ready_delay_ms =
         (actuator_uart_ready_delay_ms > audio_ready_delay_ms) ? actuator_uart_ready_delay_ms : audio_ready_delay_ms;
+    ESP_LOGI(TAG, "Waiting %ums before shared Sabertooth/SyRen autobaud at %u baud",
+             static_cast<unsigned>(startup_serial_ready_delay_ms),
+             static_cast<unsigned>(chopper::config::baud::SABERTOOTH));
     vTaskDelay(pdMS_TO_TICKS(startup_serial_ready_delay_ms));
+    ESP_LOGI(TAG, "Sending shared Sabertooth/SyRen autobaud byte 0x%02X",
+             chopper::hal::SabertoothMotorDriver::AUTOBAUD_BYTE);
     if (!chopper::hal::SabertoothMotorDriver::sendSharedAutobaud(sabertooth_serial)) {
         ESP_LOGE(TAG, "Failed to send Sabertooth/SyRen shared-bus autobaud");
         return 1;
     }
+    ESP_LOGI(TAG, "Shared Sabertooth/SyRen autobaud sent; settling %ums",
+             static_cast<unsigned>(actuator_uart_settle_delay_ms));
     vTaskDelay(pdMS_TO_TICKS(actuator_uart_settle_delay_ms));
     mp3.setVolume(chopper::config::sound::DEFAULT_VOLUME);
     openmv_serial.begin();
