@@ -79,10 +79,10 @@ void test_hardware_config_baud() {
     TEST(hardware_config_baud_rates);
 
     using namespace chopper::config::baud;
-    ASSERT(SABERTOOTH == 19200);
+    ASSERT(SABERTOOTH == 9600);
     ASSERT(MAESTRO == 38400);
     ASSERT(OPENMV == 115200);
-    ASSERT(MP3TRIGGER == 38400);
+    ASSERT(MP3TRIGGER == 9600);
 
     PASS();
 }
