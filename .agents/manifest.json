@@ -1,0 +1,581 @@
+{
+  "version": "2026-03-13",
+  "canonical_instruction": "CLAUDE.md",
+  "note": "This file is consumed by scripts (render_agent_docs.py, agent_scope.py). Agents should NOT load it directly; all generated content is already inline in CLAUDE.md.",
+  "default_gate": "agent-gate-fast",
+  "project": {
+    "name": "Chopper",
+    "summary": "ESP32 C++20 embedded astromech firmware. ROS2-inspired pub/sub. Zero-allocation hot path.",
+    "pipeline": [
+      "Input capture",
+      "Intent mapping",
+      "Action node",
+      "Bridge node",
+      "Driver",
+      "Hardware"
+    ]
+  },
+  "hard_rules": [
+    {
+      "id": "intent-mapping-placement",
+      "rule": "Button-to-action mapping belongs in DriveIntentMapping.h / DomeIntentMapping.h, never in action nodes.",
+      "why": "Mapping is intent-layer logic and must stay out of action nodes.",
+      "verify": ["make check-placement"],
+      "severity": "ERROR"
+    },
+    {
+      "id": "no-weakened-assertions",
+      "rule": "Never weaken CHECK or REQUIRE assertions to make tests pass.",
+      "why": "Fix code or the test root cause instead of weakening coverage.",
+      "verify": ["make check-assertions"],
+      "severity": "ERROR"
+    },
+    {
+      "id": "safety-gating",
+      "rule": "All motor and servo commands must flow through DegradationManager with no bypasses, including transitive ones.",
+      "why": "Actuator bugs can cause physical harm.",
+      "verify": ["make check-safety"],
+      "severity": "BLOCKING"
+    }
+  ],
+  "startup_algorithm": [
+    "Resume checkpoint if one semantically matches the task.",
+    "Classify the task mode and match a golden task if one fits.",
+    "Load the required persona or personas before the first edit.",
+    "Write a plan before editing if the task is cross-cutting, safety-critical, or unclear.",
+    "Edit only after scope, placement, and ownership are clear.",
+    "Run the shared minimum verification.",
+    "Run selective gates based on what changed.",
+    "Complete persona-specific done-when items.",
+    "Record a lesson or checkpoint if you found a gap or need to hand off."
+  ],
+  "minimum_verification": {
+    "always": ["make test", "make format"],
+    "conditional": [
+      {
+        "when": "actuator path reachable",
+        "commands": ["make check-safety"]
+      }
+    ],
+    "summary": "`make test && make format`; if actuator path is reachable, also run `make check-safety`."
+  },
+  "golden_tasks_file": ".agents/golden-tasks.json",
+  "verification_targets": {
+    "agent-gate-fast": [
+      "test",
+      "lint-tidy",
+      "lint-embedded",
+      "check-format",
+      "check-assertions",
+      "check-placement",
+      "check-safety",
+      "check-safety-ordering",
+      "check-safety-paths",
+      "check-safety-reachability",
+      "check-docs",
+      "check-traceability",
+      "check-ui",
+      "check-ui-mapping",
+      "check-source-inventory",
+      "check-triggers"
+    ]
+  },
+  "verification_rules": [
+    {
+      "what_changed": "Any code",
+      "run": ["make test", "make format"],
+      "skip_when": "`test`: another agent ran it, no code changed since. `format`: docs-only or UI-only"
+    },
+    {
+      "what_changed": "Test assertions changed",
+      "run": ["make check-assertions"],
+      "skip_when": "No test files changed"
+    },
+    {
+      "what_changed": "Application.cpp / CommonMessages.h / chopper_limits.h",
+      "run": ["make check-high-impact"],
+      "note": "confirm with user",
+      "skip_when": "No high-impact files changed"
+    },
+    {
+      "what_changed": "Node behavior or pipeline logic",
+      "run": ["make check-placement"],
+      "skip_when": "Docs-only, UI-only, or test-only"
+    },
+    {
+      "what_changed": "Motor/servo/safety paths",
+      "run": ["make check-safety", "make check-safety-ordering", "make check-safety-reachability"],
+      "skip_when": "NEVER skip for motor/servo/safety diffs"
+    },
+    {
+      "what_changed": "New node/topic/subscriber",
+      "run": ["make check-capacity", "make check-test-inventory"],
+      "skip_when": null
+    },
+    {
+      "what_changed": "Docs or registry",
+      "run": ["make check-docs"],
+      "skip_when": "No docs/registry changes"
+    },
+    {
+      "what_changed": "Telemetry UI",
+      "run": ["make check-ui", "make check-ui-mapping"],
+      "skip_when": "Non-UI tasks"
+    },
+    {
+      "what_changed": "Telemetry format (TelemetryService, CommonMessages fields, or new command types)",
+      "run": ["make check-telemetry-sync"],
+      "skip_when": "No telemetry-related firmware changes"
+    }
+  ],
+  "task_modes": [
+    {
+      "mode": "Express",
+      "scope": "Single file, <20 lines, no safety/API/node/topic/limit change",
+      "preflight": "Use .agents/express.md. Skip persona and golden task unless scope expands.",
+      "plan_required": false
+    },
+    {
+      "mode": "Investigate",
+      "scope": "Root cause unknown or could originate from multiple stages",
+      "preflight": "Read docs/registry.md, trace pipeline, max 5 tool calls for scoping and 3 for confirmation. No edits.",
+      "plan_required": true
+    },
+    {
+      "mode": "Planning-Only",
+      "scope": "Triage or decomposition with no edits",
+      "preflight": "Produce sequencing and verification only.",
+      "plan_required": true
+    },
+    {
+      "mode": "Docs-Only",
+      "scope": "docs/ or .agents/ text changes",
+      "preflight": "Use docs persona. Verify cross-references and run make check-docs.",
+      "plan_required": false
+    },
+    {
+      "mode": "UI-Only",
+      "scope": "tools/telemetry_ui/ or description/ changes",
+      "preflight": "Load telemetry-ui persona and run UI gates.",
+      "plan_required": false
+    },
+    {
+      "mode": "Single-Subsystem",
+      "scope": "One area, tightly coupled, clear scope",
+      "preflight": "Load the matched persona and state placement reasoning before edit.",
+      "plan_required": false
+    },
+    {
+      "mode": "Safety-Critical",
+      "scope": "Motor, servo, safety, or actuator-reachable changes",
+      "preflight": "Safety routing is blocking. Plan before editing.",
+      "plan_required": true
+    },
+    {
+      "mode": "Cross-Cutting",
+      "scope": "Touches 2+ areas or 3+ personas",
+      "preflight": "Load orchestrator and plan sequencing before editing.",
+      "plan_required": true
+    }
+  ],
+  "semantic_routing": [
+    {
+      "signal": "Reaches motor/servo/safety",
+      "role": "safety-auditor",
+      "load": ".agents/extended.md",
+      "example": "Edit PeriscopeNode -> publishes dome/servo_cmd -> reaches ServoBridgeNode"
+    },
+    {
+      "signal": "Design decision or capacity question",
+      "role": "architect",
+      "load": ".agents/extended.md",
+      "example": "Add a new message type or raise a system limit"
+    },
+    {
+      "signal": "Touches files owned by 2+ personas",
+      "role": "orchestrator",
+      "load": ".agents/extended.md",
+      "example": "Firmware node + UI parser + docs"
+    },
+    {
+      "signal": "UI / dashboard",
+      "role": "telemetry-ui",
+      "load": ".agents/extended.md",
+      "example": "Change render3d.js visualization"
+    },
+    {
+      "signal": "Tests only",
+      "role": "tester",
+      "load": ".agents/extended.md",
+      "example": "Fix test_dome_ik.cpp"
+    },
+    {
+      "signal": "Docs only",
+      "role": "docs",
+      "load": ".agents/extended.md",
+      "example": "Update registry.md to match source"
+    },
+    {
+      "signal": "HAL / driver / adapter",
+      "role": "hardware",
+      "load": ".agents/extended.md",
+      "example": "Fix Sabertooth checksum calculation"
+    },
+    {
+      "signal": "Everything else",
+      "role": "implementer",
+      "load": ".agents/extended.md",
+      "example": "Add random motion to PeriscopeNode"
+    }
+  ],
+  "agents": [
+    {
+      "name": "orchestrator",
+      "file": ".agents/extended.md",
+      "load_when": "Multi-subsystem tasks"
+    },
+    {
+      "name": "architect",
+      "file": ".agents/extended.md",
+      "load_when": "Design decisions, capacity"
+    },
+    {
+      "name": "implementer",
+      "file": ".agents/extended.md",
+      "load_when": "Most implementation work"
+    },
+    {
+      "name": "tester",
+      "file": ".agents/extended.md",
+      "load_when": "Tests"
+    },
+    {
+      "name": "hardware",
+      "file": ".agents/extended.md",
+      "load_when": "HAL/driver/serial"
+    },
+    {
+      "name": "telemetry-ui",
+      "file": ".agents/extended.md",
+      "load_when": "UI dashboard"
+    },
+    {
+      "name": "docs",
+      "file": ".agents/extended.md",
+      "load_when": "Documentation and instruction files"
+    },
+    {
+      "name": "reviewer",
+      "file": ".agents/extended.md",
+      "load_when": "Dedicated review phase only"
+    },
+    {
+      "name": "safety-auditor",
+      "file": ".agents/extended.md",
+      "load_when": "Motor/servo/safety"
+    }
+  ],
+  "routes": [
+    {
+      "area": "safety",
+      "role": "safety-auditor",
+      "priority": 0,
+      "read": ".agents/extended.md",
+      "patterns": ["**/safety/**", "**/nodes/Motor*", "**/nodes/Servo*", "**/hal/IMotor*", "**/hal/IServo*"],
+      "notes": ["BLOCKING. Run make check-safety."]
+    },
+    {
+      "area": "hardware",
+      "role": "hardware",
+      "priority": 1,
+      "read": ".agents/extended.md",
+      "patterns": ["**/hal/**", "**/adapters/**"]
+    },
+    {
+      "area": "implementation",
+      "role": "implementer",
+      "priority": 1,
+      "read": ".agents/extended.md",
+      "patterns": ["main/**", "Makefile", "platformio.ini", "sdkconfig.defaults", ".scripts/**", "docs/registry.md"]
+    },
+    {
+      "area": "tests",
+      "role": "tester",
+      "priority": 1,
+      "read": ".agents/extended.md",
+      "patterns": ["test/test_*.cpp", "test/mocks/**"]
+    },
+    {
+      "area": "telemetry-ui",
+      "role": "telemetry-ui",
+      "priority": 1,
+      "read": ".agents/extended.md",
+      "patterns": ["tools/telemetry_ui/**", "description/**"]
+    },
+    {
+      "area": "instructions",
+      "role": "docs",
+      "priority": 1,
+      "read": ".agents/extended.md",
+      "patterns": ["CLAUDE.md", "AGENTS.md", ".agents/express.md", ".cursorrules", ".windsurfrules"],
+      "notes": ["Instruction changes have broad implications. Verify cross-references."]
+    },
+    {
+      "area": "docs",
+      "role": "docs",
+      "priority": 2,
+      "read": ".agents/extended.md",
+      "patterns": ["docs/**", ".agents/**"]
+    },
+    {
+      "area": "catch-all",
+      "role": "implementer",
+      "priority": 3,
+      "match_mode": "fallback",
+      "read": ".agents/extended.md",
+      "patterns": ["**"],
+      "notes": ["Only when no other route matched."]
+    }
+  ],
+  "multi_area_rule": {
+    "role": "orchestrator",
+    "read": ".agents/extended.md",
+    "note": "Load when 3+ personas matched or scope is unclear."
+  },
+  "area_definition": "An area is a distinct route group from the routes table below. Each route with a unique 'area' field counts as one area. Count distinct areas your touch set hits to classify task mode.",
+  "route_rules": {
+    "multi_match": "2 areas matched: load both personas, work sequentially (safety leads). Still Single-Subsystem or Safety-Critical mode, NOT automatically Cross-Cutting. 3+ areas: load orchestrator (Cross-Cutting mode). Safety (priority 0) is always BLOCKING.",
+    "conflict_resolution": "See orchestrator.md §Conflict Resolution."
+  },
+  "high_impact_files": [
+    {
+      "path": "main/chopper/Application.cpp",
+      "reason": "Wires all subsystems; changes affect every area.",
+      "requires_user_confirmation": true
+    },
+    {
+      "path": "main/include/chopper/messages/CommonMessages.h",
+      "reason": "Shared by all nodes; message changes affect downstream consumers.",
+      "requires_user_confirmation": true
+    },
+    {
+      "path": "main/include/chopper/chopper_limits.h",
+      "reason": "Fixed-size array caps and capacity budgets are system-wide.",
+      "requires_user_confirmation": true
+    }
+  ],
+  "context_budget": {
+    "startup_bundle": [
+      "CLAUDE.md",
+      "one matched persona",
+      "one matching checkpoint file"
+    ],
+    "additional_files_before_first_edit": {
+      "express": 0,
+      "focused": 3,
+      "single_subsystem": 3,
+      "investigate": 8,
+      "cross_cutting": 5,
+      "safety_critical": 5
+    },
+    "checkpoint_triggers": [
+      "15 tool calls",
+      "5 additional file reads without editing",
+      "context pressure"
+    ],
+    "small_context_fallback": "Use Minimum Viable Instructions + matched persona capsule from cross-tool.md instead of full CLAUDE.md when effective context < 32k tokens.",
+    "tiers": [
+      {
+        "name": "Express",
+        "signal": "Single file, <20 lines",
+        "behavior": "Use .agents/express.md only. Skip persona and golden task."
+      },
+      {
+        "name": "Focused",
+        "signal": "Single subsystem, clear scope",
+        "behavior": "Startup bundle + target file + golden task if matched."
+      },
+      {
+        "name": "Cross-Cutting",
+        "signal": "2+ subsystems or safety-relevant",
+        "behavior": "Startup bundle + one additional persona or orchestrator + plan before editing."
+      }
+    ],
+    "thresholds": {
+      "large": {
+        "note": "200k+ tokens",
+        "tool_calls": 20,
+        "file_edits": 15
+      },
+      "medium": {
+        "note": "100k-200k tokens",
+        "tool_calls": 15,
+        "file_edits": 10
+      },
+      "small": {
+        "note": "<100k tokens",
+        "tool_calls": 8,
+        "file_edits": 5
+      }
+    }
+  },
+  "cross_tool": {
+    "entry_points": [
+      {
+        "tool": "Claude Code",
+        "entry": "CLAUDE.md",
+        "notes": "Auto-loads repository instructions."
+      },
+      {
+        "tool": "Codex",
+        "entry": "AGENTS.md -> CLAUDE.md",
+        "notes": "Bootstrap from AGENTS.md, then use the canonical shell."
+      },
+      {
+        "tool": "Cursor",
+        "entry": ".cursorrules -> CLAUDE.md",
+        "notes": "Keep editor rules as a thin redirect."
+      },
+      {
+        "tool": "Windsurf",
+        "entry": ".windsurfrules -> CLAUDE.md",
+        "notes": "Keep editor rules as a thin redirect."
+      },
+      {
+        "tool": "No file loading",
+        "entry": "Paste CLAUDE.md Minimum Viable Instructions",
+        "notes": "Use compact fallback blocks plus persona capsules."
+      }
+    ],
+    "capability_degradation": [
+      {
+        "if_tool_cant": "Run make targets",
+        "do_this_instead": "Use the manual checklist from Constraints plus diff review and call out missing verification."
+      },
+      {
+        "if_tool_cant": "Launch subagents",
+        "do_this_instead": "Stay single-agent and switch roles sequentially."
+      },
+      {
+        "if_tool_cant": "Count tokens",
+        "do_this_instead": "Use tool-call and file-read thresholds as the context proxy."
+      },
+      {
+        "if_tool_cant": "Access shell",
+        "do_this_instead": "Do read-only review and emit file:line findings with severity."
+      },
+      {
+        "if_tool_cant": "Load files automatically",
+        "do_this_instead": "Paste Minimum Viable Instructions and the matched persona capsule."
+      },
+      {
+        "if_tool_cant": "Load arbitrary files on demand",
+        "do_this_instead": "Use the matched golden task plus persona capsules and touch-set only reads."
+      }
+    ],
+    "context_constrained_mode": [
+      "Load .agents/express.md plus the matched golden task entry.",
+      "Load the matched persona capsule instead of the full persona file.",
+      "Run the shared minimum verification.",
+      "If safety-relevant, also run the conditional safety gate.",
+      "Skip agent-gate-fast unless the golden task or user explicitly requires it."
+    ],
+    "persona_capsules": [
+      {
+        "name": "implementer",
+        "lines": [
+          "Own production-code changes and state placement reasoning before editing.",
+          "Escalate to safety-auditor if the change can reach an actuator.",
+          "Run lint-embedded for code changes and update docs/registry when interfaces move."
+        ]
+      },
+      {
+        "name": "tester",
+        "lines": [
+          "Use doctest for new tests and do not weaken assertions.",
+          "Root-cause failures as test bug vs code bug before changing behavior.",
+          "Verify Makefile DEPS coverage with make check-test-inventory when adding tests."
+        ]
+      },
+      {
+        "name": "safety-auditor",
+        "lines": [
+          "Treat actuator reachability as BLOCKING until safety gating is proven.",
+          "Trace commands through DegradationManager and bridge nodes, not comments alone.",
+          "Run make check-safety and make check-safety-ordering for safety-relevant diffs."
+        ]
+      },
+      {
+        "name": "docs",
+        "lines": [
+          "Source code is authoritative for behavioral and API claims.",
+          "Instruction edits must preserve valid cross-references and remove duplicated rules.",
+          "Run make check-docs after changing docs, registry, or .agents content."
+        ]
+      },
+      {
+        "name": "orchestrator",
+        "lines": [
+          "Single-agent sequential role switching is the default.",
+          "Use multi-agent only for disjoint file sets, declared ownership, and explicit merge order.",
+          "The orchestrator owns stale-verification detection and final gate execution."
+        ]
+      }
+    ]
+  },
+  "multi_agent": {
+    "default": "opt-in only",
+    "allowed_when": [
+      "independent non-overlapping file sets",
+      "tool supports subagents",
+      "user requests it or the task has 3+ independent phases",
+      "merge order and final verifier are assigned"
+    ],
+    "contract_fields": [
+      "role",
+      "owned_files",
+      "reads",
+      "outputs",
+      "verification_run",
+      "verification_pending",
+      "depends_on",
+      "blockers"
+    ],
+    "post_merge_verification": [
+      "re-run minimum verification",
+      "re-run affected selective gates",
+      "re-run stale dependent verification",
+      "orchestrator runs make agent-gate-fast"
+    ]
+  },
+  "handoff": {
+    "checkpoint_template": ".agents/handoff/CHECKPOINT.md",
+    "required_fields": [
+      "task_id",
+      "task_description",
+      "role",
+      "status",
+      "owned_files",
+      "read_files",
+      "produced_artifacts",
+      "depends_on",
+      "verification_run",
+      "verification_pending",
+      "verification_fresh_as_of",
+      "blockers",
+      "assumptions",
+      "merge_hazards",
+      "timestamp"
+    ],
+    "required_sections": [
+      "Changed Files",
+      "Not Changed (and why)",
+      "Verification Passed",
+      "Verification Still Required",
+      "Open Questions",
+      "Resume Note"
+    ]
+  },
+  "exempt_paths": ["README", ".gitignore", ".github/**"],
+  "exempt_change_types": ["comment-only", "formatting-only", "whitespace-only", "typo-only"]
+}

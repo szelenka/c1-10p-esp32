@@ -1,0 +1,559 @@
+output: docs/visualizations/pubsub-flow.svg
+registry: docs/registry.md
+canvas:
+  width: 1400
+  height: 1060
+title: Chopper Pub/Sub Flow
+desc: A simplified diagram showing controller input flowing through topics, action nodes, safety gates, and hardware drivers.
+
+items:
+  - kind: text
+    class: title
+    x: 48
+    y: 56
+    text: How a controller command reaches the robot
+  - kind: text
+    class: subtitle
+    x: 48
+    y: 88
+    text: Nodes are workers. Topics are mailboxes. Bridges are safety gates before hardware.
+
+  - kind: text
+    class: band-title
+    x: 50
+    y: 142
+    text: 1. Input
+  - kind: text
+    class: band-title
+    x: 270
+    y: 142
+    text: 2. Mailboxes
+  - kind: text
+    class: band-title
+    x: 500
+    y: 142
+    text: 3. Decide action
+  - kind: text
+    class: band-title
+    x: 765
+    y: 142
+    text: 4. Command mailboxes
+  - kind: text
+    class: band-title
+    x: 1010
+    y: 142
+    text: 5. Safety gates
+  - kind: text
+    class: band-title
+    x: 1215
+    y: 142
+    text: 6. Hardware
+
+  - kind: box
+    class: input
+    x: 42
+    y: 176
+    width: 170
+    height: 118
+    title: {x: 62, y: 212, text: Controllers}
+    lines:
+      - {x: 62, y: 240, text: Buttons}
+      - {x: 62, y: 262, text: Sticks}
+      - {x: 62, y: 284, text: Bluetooth reports}
+
+  - kind: box
+    class: input
+    x: 42
+    y: 352
+    width: 170
+    height: 132
+    refs:
+      nodes: [BluepadInputNode]
+    title: {x: 62, y: 388, text: BluepadInputNode}
+    lines:
+      - {x: 62, y: 416, text: Maps raw input}
+      - {x: 62, y: 438, text: "to intents:"}
+      - {x: 62, y: 460, text: "drive, dome, etc."}
+
+  - kind: box
+    class: topic
+    x: 268
+    y: 179
+    width: 172
+    height: 82
+    refs:
+      topics: [controller/drive]
+    title: {x: 288, y: 213, text: controller/drive}
+    lines:
+      - {class: small, x: 288, y: 239, text: drive controller mail}
+
+  - kind: box
+    class: topic
+    x: 268
+    y: 359
+    width: 172
+    height: 82
+    refs:
+      topics: [controller/dome]
+    title: {x: 288, y: 393, text: controller/dome}
+    lines:
+      - {class: small, x: 288, y: 419, text: dome controller mail}
+
+  - kind: box
+    class: action
+    x: 506
+    y: 164
+    width: 178
+    height: 112
+    refs:
+      nodes: [DriveNode]
+    title: {x: 526, y: 200, text: DriveNode}
+    lines:
+      - {x: 526, y: 228, text: Turns stick input}
+      - {x: 526, y: 250, text: into left/right}
+      - {x: 526, y: 272, text: motor speed}
+
+  - kind: box
+    class: action
+    x: 506
+    y: 334
+    width: 178
+    height: 132
+    refs:
+      nodes: [DomeNode]
+    title: {x: 526, y: 370, text: DomeNode}
+    lines:
+      - {x: 526, y: 398, text: Dome spin}
+      - {x: 526, y: 420, text: Face tracking}
+      - {x: 526, y: 442, text: Eye LED commands}
+
+  - kind: box
+    class: action
+    x: 506
+    y: 514
+    width: 178
+    height: 132
+    refs:
+      nodes: [NeckNode, DomeArmsNode, PeriscopeNode, BodyUtilityNode, ServoMotionNode]
+    title: {x: 526, y: 550, text: Servo action nodes}
+    lines:
+      - {x: 526, y: 578, text: Neck}
+      - {x: 526, y: 600, text: Periscope}
+      - {x: 526, y: 622, text: Dome arms}
+
+  - kind: box
+    class: action
+    x: 506
+    y: 708
+    width: 178
+    height: 104
+    refs:
+      nodes: [SoundNode]
+    title: {x: 526, y: 744, text: SoundNode}
+    lines:
+      - {x: 526, y: 772, text: Chooses sounds}
+      - {x: 526, y: 794, text: and volume}
+
+  - kind: box
+    class: topic
+    x: 765
+    y: 179
+    width: 172
+    height: 82
+    refs:
+      topics: [drive/cmd]
+    title: {x: 785, y: 213, text: drive/cmd}
+    lines:
+      - {class: small, x: 785, y: 239, text: wheel motor mail}
+
+  - kind: box
+    class: topic
+    x: 765
+    y: 359
+    width: 172
+    height: 82
+    refs:
+      topics: [dome/motor/cmd]
+    title: {x: 785, y: 393, text: dome/motor/cmd}
+    lines:
+      - {class: small, x: 785, y: 419, text: dome motor mail}
+
+  - kind: box
+    class: topic
+    x: 765
+    y: 539
+    width: 172
+    height: 82
+    refs:
+      topics: [servo/body/cmd, servo/dome/cmd]
+    title: {x: 785, y: 573, text: "servo/*/cmd"}
+    lines:
+      - {class: small, x: 785, y: 599, text: servo command mail}
+
+  - kind: box
+    class: topic
+    x: 765
+    y: 719
+    width: 172
+    height: 82
+    refs:
+      topics: [audio/cmd]
+    title: {x: 785, y: 753, text: audio/cmd}
+    lines:
+      - {class: small, x: 785, y: 779, text: sound command mail}
+
+  - kind: box
+    class: bridge
+    x: 1012
+    y: 164
+    width: 168
+    height: 112
+    refs:
+      nodes: [MotorBridgeNode]
+    title: {x: 1032, y: 200, text: MotorBridgeNode}
+    lines:
+      - {x: 1032, y: 228, text: Checks safety}
+      - {x: 1032, y: 250, text: then forwards}
+
+  - kind: box
+    class: bridge
+    x: 1012
+    y: 344
+    width: 168
+    height: 112
+    refs:
+      nodes: [MotorBridgeNode]
+    title: {x: 1032, y: 380, text: MotorBridgeNode}
+    lines:
+      - {x: 1032, y: 408, text: Checks safety}
+      - {x: 1032, y: 430, text: then forwards}
+
+  - kind: box
+    class: bridge
+    x: 1012
+    y: 524
+    width: 168
+    height: 112
+    refs:
+      nodes: [ServoBridgeNode]
+    title: {x: 1032, y: 560, text: ServoBridgeNode}
+    lines:
+      - {x: 1032, y: 588, text: Checks safety}
+      - {x: 1032, y: 610, text: then forwards}
+
+  - kind: box
+    class: bridge
+    x: 1012
+    y: 704
+    width: 168
+    height: 112
+    refs:
+      nodes: [AudioBridgeNode]
+    title: {x: 1032, y: 740, text: AudioBridgeNode}
+    lines:
+      - {x: 1032, y: 768, text: Forwards sound}
+      - {x: 1032, y: 790, text: commands}
+
+  - kind: box
+    class: hardware
+    x: 1216
+    y: 158
+    width: 142
+    height: 124
+    title: {x: 1236, y: 194, text: Sabertooth}
+    lines:
+      - {x: 1236, y: 222, text: Address 129}
+      - {x: 1236, y: 244, text: Feet motors}
+      - {class: small, x: 1236, y: 266, text: 9600 baud}
+
+  - kind: box
+    class: hardware
+    x: 1216
+    y: 338
+    width: 142
+    height: 124
+    title: {x: 1236, y: 374, text: SyRen}
+    lines:
+      - {x: 1236, y: 402, text: Address 128}
+      - {x: 1236, y: 424, text: Dome motor}
+      - {class: small, x: 1236, y: 446, text: 0xAA after 2s}
+
+  - kind: box
+    class: hardware
+    x: 1216
+    y: 518
+    width: 142
+    height: 124
+    title: {x: 1236, y: 554, text: Maestro}
+    lines:
+      - {x: 1236, y: 582, text: Body + dome}
+      - {x: 1236, y: 604, text: servos}
+
+  - kind: box
+    class: hardware
+    x: 1216
+    y: 698
+    width: 142
+    height: 124
+    title: {x: 1236, y: 734, text: MP3 Trigger}
+    lines:
+      - {x: 1236, y: 762, text: Plays tracks}
+      - {x: 1236, y: 784, text: Sets volume}
+
+  - kind: box
+    class: telemetry
+    x: 744
+    y: 846
+    width: 224
+    height: 88
+    refs:
+      nodes: [TelemetryIOTapNode]
+    title: {x: 764, y: 882, text: Telemetry tap}
+    lines:
+      - {x: 764, y: 906, text: Listens to mailbox copies}
+      - {x: 764, y: 928, text: for UI/dashboard}
+
+  - kind: box
+    class: note
+    x: 42
+    y: 718
+    width: 360
+    height: 166
+    title: {x: 64, y: 754, text: Safety rule}
+    lines:
+      - {x: 64, y: 784, text: Motor and servo commands must pass}
+      - {x: 64, y: 810, text: through a bridge node before hardware.}
+      - {x: 64, y: 842, text: "If the robot is in SAFE_STOP, the"}
+      - {x: 64, y: 868, text: bridge drops the command.}
+
+  - kind: box
+    class: note
+    x: 42
+    y: 970
+    width: 1316
+    height: 56
+    lines:
+      - {x: 64, y: 1004, text: "Simple version: controller says what you want, action nodes decide the command, bridge nodes check safety, then hardware gets bytes."}
+
+  - kind: path
+    class: line
+    d: M 127 294 L 127 344
+  - kind: path
+    class: control-bus
+    d: M 212 418 L 240 418 L 240 220 L 240 400
+  - kind: path
+    class: line
+    d: M 240 220 L 268 220
+  - kind: path
+    class: line
+    d: M 240 400 L 268 400
+  - kind: circle
+    class: control-junction
+    cx: 240
+    cy: 220
+    r: 4
+  - kind: circle
+    class: control-junction
+    cx: 240
+    cy: 400
+    r: 4
+  - kind: circle
+    class: control-junction
+    cx: 240
+    cy: 418
+    r: 4
+
+  - kind: path
+    class: drive-bus
+    d: M 440 220 L 468 220 L 468 748
+  - kind: path
+    class: dome-bus
+    d: M 440 400 L 452 400 L 452 412 L 452 772
+  - kind: text
+    class: small
+    x: 448
+    y: 186
+    text: drive mail copies
+  - kind: text
+    class: small
+    x: 432
+    y: 486
+    text: dome mail copies
+  - kind: path
+    class: line-shield
+    d: M 452 412 L 506 412
+  - kind: path
+    class: line-shield
+    d: M 452 592 L 506 592
+  - kind: path
+    class: line-shield
+    d: M 452 772 L 506 772
+  - kind: path
+    class: drive-line
+    d: M 468 220 L 506 220
+  - kind: path
+    class: drive-line
+    d: M 468 388 L 506 388
+  - kind: path
+    class: dome-line
+    d: M 452 412 L 506 412
+  - kind: path
+    class: drive-line
+    d: M 468 568 L 506 568
+  - kind: path
+    class: dome-line
+    d: M 452 592 L 506 592
+  - kind: path
+    class: drive-line
+    d: M 468 748 L 506 748
+  - kind: path
+    class: dome-line
+    d: M 452 772 L 506 772
+  - kind: circle
+    class: drive-junction
+    cx: 468
+    cy: 220
+    r: 4
+  - kind: circle
+    class: drive-junction
+    cx: 468
+    cy: 388
+    r: 4
+  - kind: circle
+    class: drive-junction
+    cx: 468
+    cy: 568
+    r: 4
+  - kind: circle
+    class: drive-junction
+    cx: 468
+    cy: 748
+    r: 4
+  - kind: circle
+    class: dome-junction
+    cx: 452
+    cy: 400
+    r: 4
+  - kind: circle
+    class: dome-junction
+    cx: 452
+    cy: 412
+    r: 4
+  - kind: circle
+    class: dome-junction
+    cx: 452
+    cy: 592
+    r: 4
+  - kind: circle
+    class: dome-junction
+    cx: 452
+    cy: 772
+    r: 4
+
+  - kind: path
+    class: line
+    d: M 684 220 L 765 220
+  - kind: path
+    class: line
+    d: M 684 400 L 765 400
+  - kind: path
+    class: line
+    d: M 684 580 L 765 580
+  - kind: path
+    class: line
+    d: M 684 760 L 765 760
+
+  - kind: path
+    class: red-line
+    d: M 937 220 L 1012 220
+  - kind: path
+    class: red-line
+    d: M 937 400 L 1012 400
+  - kind: path
+    class: red-line
+    d: M 937 580 L 1012 580
+  - kind: path
+    class: line
+    d: M 937 760 L 1012 760
+
+  - kind: path
+    class: line
+    d: M 1180 220 L 1216 220
+  - kind: path
+    class: line
+    d: M 1180 400 L 1216 400
+  - kind: path
+    class: line
+    d: M 1180 580 L 1216 580
+  - kind: path
+    class: line
+    d: M 1180 760 L 1216 760
+
+  - kind: path
+    class: telemetry-line
+    d: M 937 252 L 990 252
+  - kind: path
+    class: telemetry-line
+    d: M 937 432 L 990 432
+  - kind: path
+    class: telemetry-line
+    d: M 937 612 L 990 612
+  - kind: path
+    class: telemetry-line
+    d: M 937 792 L 990 792
+  - kind: path
+    class: telemetry-line
+    d: M 990 252 L 990 380
+  - kind: path
+    class: telemetry-line
+    d: M 990 420 L 990 560
+  - kind: path
+    class: telemetry-line
+    d: M 990 600 L 990 740
+  - kind: path
+    class: telemetry-line
+    d: M 990 780 L 990 890
+  - kind: path
+    class: telemetry-flow
+    d: M 990 890 L 968 890
+  - kind: circle
+    class: telemetry-junction
+    cx: 990
+    cy: 252
+    r: 3.5
+  - kind: circle
+    class: telemetry-junction
+    cx: 990
+    cy: 432
+    r: 3.5
+  - kind: circle
+    class: telemetry-junction
+    cx: 990
+    cy: 612
+    r: 3.5
+  - kind: circle
+    class: telemetry-junction
+    cx: 990
+    cy: 792
+    r: 3.5
+  - kind: text
+    class: small
+    x: 744
+    y: 838
+    text: dashed purple = mailbox copies
+
+  - kind: path
+    class: thin dash
+    d: M 595 334 C 632 294, 680 296, 720 334 C 760 372, 760 448, 720 486 C 680 524, 632 522, 595 466
+    fill: none
+    stroke: "#7a5af8"
+  - kind: text
+    class: small
+    x: 650
+    y: 322
+    text: OpenMV vision loop
+  - kind: text
+    class: small
+    x: 650
+    y: 504
+    text: stale vision times out to zero

@@ -1,0 +1,247 @@
+#pragma once
+
+#include "chopper/hal/IMotorDriver.h"
+#include "chopper/hal/ISerialPort.h"
+#include "esp_log.h"
+#include <cstring>
+
+namespace chopper::hal {
+
+/**
+ * HAL motor driver that wraps a single motor channel on a Sabertooth/SyRen
+ * motor controller using the Packet Serial protocol.
+ *
+ * Implements the Dimension Engineering Packet Serial protocol directly
+ * via ISerialPort, removing the Arduino Sabertooth library dependency.
+ *
+ * Protocol reference: https://www.dimensionengineering.com/datasheets/Sabertooth2x32.pdf
+ *   - 4-byte packets: [address, command, value, checksum]
+ *   - Checksum = (address + command + value) & 0x7F
+ *   - Motor 1: forward=0, reverse=1
+ *   - Motor 2: forward=4, reverse=5
+ *
+ * One instance per physical motor channel. Multiple SabertoothMotorDriver
+ * instances can share the same ISerialPort (which represents the shared
+ * UART bus to the controller).
+ */
+class SabertoothMotorDriver : public IMotorDriver {
+public:
+    // Packet Serial command bytes
+    static constexpr uint8_t CMD_MOTOR1_FORWARD = 0;
+    static constexpr uint8_t CMD_MOTOR1_REVERSE = 1;
+    static constexpr uint8_t CMD_MOTOR2_FORWARD = 4;
+    static constexpr uint8_t CMD_MOTOR2_REVERSE = 5;
+    static constexpr uint8_t CMD_SET_TIMEOUT = 14;
+    static constexpr uint8_t CMD_SET_RAMPING = 16;
+    static constexpr uint8_t CMD_SET_DEADBAND = 17;
+
+    static constexpr uint8_t AUTOBAUD_BYTE = 0xAA;
+    static constexpr uint16_t ERROR_SERIAL_WRITE = 1;
+    static constexpr int MAX_THROTTLE_POWER = 126;
+
+    /**
+     * @param serial    Serial port for Sabertooth communication (shared bus).
+     * @param address   Packet Serial address of the controller (128-135).
+     * @param motorId   Motor number on the controller (1 or 2).
+     * @param name      Driver name for diagnostics (must be string literal / static).
+     * @param autobaudOnInit Whether init() sends the shared-bus 0xAA byte for
+     *        V1/SyRen-compatible autobaud devices. Defaults false because
+     *        autobaud is a bus-level setup step, not a per-motor operation.
+     */
+    SabertoothMotorDriver(ISerialPort& serial, uint8_t address, uint8_t motorId, const char* name,
+                          bool autobaudOnInit = false)
+        : m_serial(&serial), m_address(address), m_motorId(motorId), m_name(name), m_autobaudOnInit(autobaudOnInit) {}
+
+    // -- IDriver interface --
+
+    DriverStatus init() override {
+        ESP_LOGI(m_name, "init motor %d addr %d", m_motorId, m_address);
+        m_speed = 0.0f;
+        if (m_autobaudOnInit && !sendAutobaud()) {
+            return m_status;
+        }
+        m_status = DriverStatus::kReady;
+        return m_status;
+    }
+
+    void update() override {
+        if (m_status != DriverStatus::kReady && m_status != DriverStatus::kDegraded) {
+            return;
+        }
+        // Legacy wrapper computes -127..127; the Sabertooth library clamps
+        // throttle packets to -126..126 before writing the UART packet.
+        float effective = m_inverted ? -m_speed : m_speed;
+        int power = static_cast<int>(effective * 127.0f);
+        (void)sabertoothMotor(m_motorId, power);
+    }
+
+    [[nodiscard]] DriverStatus getStatus() const override { return m_status; }
+
+    [[nodiscard]] ErrorInfo getErrorState() const override { return m_lastError; }
+
+    [[nodiscard]] const char* getName() const override { return m_name; }
+
+    DriverStatus reset() override {
+        m_speed = 0.0f;
+        m_lastError.clear();
+        m_status = DriverStatus::kReady;
+        return m_status;
+    }
+
+    void shutdown() override {
+        m_speed = 0.0f;
+        (void)sabertoothMotor(m_motorId, 0);
+        m_status = DriverStatus::kDisabled;
+    }
+
+    // -- IMotorDriver interface --
+
+    void set(float speed) override {
+        // Clamp to [-1.0, 1.0]
+        if (speed > 1.0f) {
+            speed = 1.0f;
+        }
+        if (speed < -1.0f) {
+            speed = -1.0f;
+        }
+        m_speed = speed;
+    }
+
+    [[nodiscard]] float get() const override { return m_speed; }
+
+    void setInverted(bool inverted) override { m_inverted = inverted; }
+    [[nodiscard]] bool isInverted() const override { return m_inverted; }
+
+    void disable() override {
+        m_speed = 0.0f;
+        (void)sabertoothMotor(m_motorId, 0);
+    }
+
+    void stop() override {
+        m_speed = 0.0f;
+        (void)sabertoothMotor(m_motorId, 0);
+    }
+
+    bool handleDiagnostic(const char* command, char* response, size_t maxLen) override {
+        if ((command == nullptr) || (response == nullptr) || maxLen == 0) {
+            return false;
+        }
+
+        if (strcmp(command, "status") == 0) {
+            snprintf(response, maxLen, "%s, speed=%.2f, inverted=%s", driverStatusToString(m_status), m_speed,
+                     m_inverted ? "true" : "false");
+            return true;
+        }
+        if (strcmp(command, "stop") == 0) {
+            stop();
+            snprintf(response, maxLen, "stopped");
+            return true;
+        }
+        return false;
+    }
+
+    // -- Configuration methods (call after init) --
+
+    void setTimeout(uint8_t value) { (void)sendCommand(CMD_SET_TIMEOUT, value); }
+    void setRamping(uint8_t value) { (void)sendCommand(CMD_SET_RAMPING, value); }
+    void setDeadband(uint8_t value) { (void)sendCommand(CMD_SET_DEADBAND, value); }
+
+    /**
+     * Send the bus-level 0xAA byte used by V1/SyRen-compatible packet serial
+     * autobaud. Call once per shared TX bus after the SyRen power-up delay and
+     * before any addressed packet.
+     */
+    static bool sendSharedAutobaud(ISerialPort& serial) {
+        const uint8_t byte = AUTOBAUD_BYTE;
+        return serial.write(&byte, 1) == 1;
+    }
+
+    // -- Test / inspection accessors --
+
+    [[nodiscard]] uint8_t getAddress() const { return m_address; }
+    [[nodiscard]] uint8_t getMotorId() const { return m_motorId; }
+    [[nodiscard]] bool isAutobaudOnInitEnabled() const { return m_autobaudOnInit; }
+
+private:
+    /**
+     * Send the 0xAA byte used by V1/SyRen-compatible packet serial autobaud.
+     * On a mixed SyRen/Sabertooth 2x32 bus, this trains the SyRen while the
+     * Sabertooth 2x32 relies on its DEScribe-configured baud setting.
+     */
+    bool sendAutobaud() {
+        if (sendSharedAutobaud(*m_serial)) {
+            return true;
+        }
+        m_status = DriverStatus::kError;
+        m_lastError.set(ERROR_SERIAL_WRITE, 0, "Sabertooth serial write incomplete");
+        ESP_LOGE(m_name, "autobaud write failed: 0/1 bytes");
+        return false;
+    }
+
+    /**
+     * Send a Packet Serial command.
+     * Format: [address, command, value, checksum]
+     * Checksum = (address + command + value) & 0x7F
+     */
+    bool sendCommand(uint8_t cmd, uint8_t value) {
+        uint8_t buf[4];
+        buf[0] = m_address;
+        buf[1] = cmd;
+        buf[2] = value;
+        buf[3] = (m_address + cmd + value) & 0x7F;
+        return writeBytes(buf, 4, "packet");
+    }
+
+    /**
+     * Send motor command with signed power value.
+     * Maps motor number (1/2) and sign to the appropriate command byte.
+     *
+     * Motor 1: forward=cmd 0, reverse=cmd 1
+     * Motor 2: forward=cmd 4, reverse=cmd 5
+     */
+    bool sabertoothMotor(uint8_t motor, int power) {
+        if (power > MAX_THROTTLE_POWER) {
+            power = MAX_THROTTLE_POWER;
+        }
+        if (power < -MAX_THROTTLE_POWER) {
+            power = -MAX_THROTTLE_POWER;
+        }
+
+        uint8_t cmd = 0;
+        uint8_t absValue = 0;
+
+        if (power >= 0) {
+            cmd = (motor == 1) ? CMD_MOTOR1_FORWARD : CMD_MOTOR2_FORWARD;
+            absValue = static_cast<uint8_t>(power);
+        } else {
+            cmd = (motor == 1) ? CMD_MOTOR1_REVERSE : CMD_MOTOR2_REVERSE;
+            absValue = static_cast<uint8_t>(-power);
+        }
+
+        return sendCommand(cmd, absValue);
+    }
+
+    bool writeBytes(const uint8_t* data, size_t length, const char* operation) {
+        const size_t written = m_serial->write(data, length);
+        if (written == length) {
+            return true;
+        }
+        m_status = DriverStatus::kError;
+        m_lastError.set(ERROR_SERIAL_WRITE, 0, "Sabertooth serial write incomplete");
+        ESP_LOGE(m_name, "%s write failed: %u/%u bytes", operation, static_cast<unsigned>(written),
+                 static_cast<unsigned>(length));
+        return false;
+    }
+
+    ISerialPort* m_serial;
+    uint8_t m_address;
+    uint8_t m_motorId;
+    const char* m_name;
+    bool m_autobaudOnInit;
+    float m_speed = 0.0f;
+    bool m_inverted = false;
+    DriverStatus m_status = DriverStatus::kUninitialized;
+    ErrorInfo m_lastError;
+};
+
+}  // namespace chopper::hal

@@ -1,0 +1,53 @@
+{
+  "_comment": "Maps ESP32 telemetry servo/motor/LED IDs to Fusion2URDF joint names. Edit this file to update mappings when hardware or URDF changes.",
+
+  "servo_joints": {
+    "_comment": "Key format: 'group:channel'. Value: single joint name or array of joint names driven together.",
+    "body:0": ["NeckAServo", "NeckALift"],
+    "body:1": [],
+    "body:2": [],
+    "body:3": ["MainBodyUtilityArmServo", "MainBodyUtilityArm"],
+    "body:4": ["DoorAServo", "DoorA"],
+    "body:5": ["DoorBServo", "DoorB"]
+  },
+
+  "dome_servo_joints": {
+    "_comment": "Dome servos are children of LazySusan (dome). Key format: 'dome:channel'.",
+    "dome:0": ["PeriscopeLift", "PeriscopeArmLiftServo"],
+    "dome:1": "PeriscopeCameraServo",
+    "dome:2": ["DomeDoorRightServo", "DomeDoorRight"],
+    "dome:3": [],
+    "dome:4": [],
+    "dome:5": [],
+    "dome:6": ["DomeDoorLeftServo", "DomeDoorLeft"],
+    "dome:7": [],
+    "dome:8": [],
+    "dome:9": []
+  },
+
+  "motor_joints": {
+    "_comment": "Key: motor ID (string). Value: URDF joint name. Motors are continuous joints driven by speed.",
+    "0": "LLegMotor",
+    "1": "RLegMotor",
+    "2": "LazySusan"
+  },
+
+  "motor_rad_per_sec": {
+    "_comment": "Visual rotation speed (rad/s) at full motor value (|1.0|).",
+    "0": 8.0,
+    "1": 8.0,
+    "2": 3.0
+  },
+
+  "led_links": {
+    "_comment": "Map LED IDs to URDF link names for color visualization.",
+    "0": "FrontBodyLED_1",
+    "1": "RightEyelens_1",
+    "2": "CentreEyeLens_1",
+    "3": "LeftEyeLens_1"
+  },
+
+  "urdf_file": "chopper_fusion.urdf",
+  "urdf_package": "fusion2urdf_description",
+  "urdf_up_axis": "Z"
+}

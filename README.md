@@ -38,6 +38,15 @@ This is accomplished with diff/patch. The patches are created by the following p
 ## Libraries
 Refer to [components/README.md](components/README.md)
 
+## On-Device Integration Quick Start
+For flashing + serial port selection + telemetry/UI endpoint checks, use:
+- [docs/review/on_device_validation_checklist.md](docs/review/on_device_validation_checklist.md)
+
+Most common flow:
+```bash
+./.scripts/run_on_device_validation.sh --env esp32dev-validation --telemetry-mode full
+```
+
 ## Bluetooth Mac Addresses
 Create a file in `main/include/SettingsBluetooth.h` with settings containing the MAC address of controllers you wish to restrict
 connecting to the ESP32.
