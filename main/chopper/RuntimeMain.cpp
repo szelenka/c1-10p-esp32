@@ -104,7 +104,8 @@ int8_t hexNibble(char c) {
 }
 
 bool isActuatorControllerRole(chopper::bluetooth::ControllerRole role) {
-    return role == chopper::bluetooth::ControllerRole::DRIVE || role == chopper::bluetooth::ControllerRole::DOME;
+    return role == chopper::bluetooth::ControllerRole::DRIVE || role == chopper::bluetooth::ControllerRole::DOME ||
+           role == chopper::bluetooth::ControllerRole::VAMBRACE;
 }
 
 void initRolePolicy() {
@@ -120,7 +121,7 @@ void initRolePolicy() {
         {chopper::config::bluetooth::DOME_MAC, chopper::bluetooth::ControllerRole::DOME},
         {chopper::config::bluetooth::ANIMATE_MAC, chopper::bluetooth::ControllerRole::ANIMATION},
         {chopper::config::bluetooth::CAMERA_MAC, chopper::bluetooth::ControllerRole::CAMERA},
-        {chopper::config::bluetooth::TEMBED_MAC, chopper::bluetooth::ControllerRole::DRIVE},
+        {chopper::config::bluetooth::TEMBED_MAC, chopper::bluetooth::ControllerRole::VAMBRACE},
     };
 
     for (const auto& mapping : mappings) {

@@ -283,6 +283,7 @@ private:
                     camera_pub_->publish(mapped);
                 break;
             case bluetooth::ControllerRole::UNASSIGNED:
+            case bluetooth::ControllerRole::VAMBRACE:
                 break;
         }
     }
@@ -326,7 +327,7 @@ private:
             return {};
         }
         const auto role = controller_manager_->getSlot(static_cast<uint8_t>(slot)).role;
-        if (role == bluetooth::ControllerRole::DRIVE) {
+        if (role == bluetooth::ControllerRole::DRIVE || role == bluetooth::ControllerRole::VAMBRACE) {
             return drive_axis_cal_;
         }
         if (role == bluetooth::ControllerRole::DOME) {

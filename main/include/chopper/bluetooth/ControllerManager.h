@@ -38,6 +38,7 @@ struct DisconnectBehavior {
  *   DOME      -> hold last position
  *   ANIMATION -> copy last state (animation node handles timeout)
  *   CAMERA    -> hold last position
+ *   VAMBRACE  -> no manager fallback; BluepadInputNode zeros split topics
  */
 class DefaultDisconnectHandler {
 public:
@@ -71,6 +72,7 @@ private:
                 output.is_connected = false;
                 break;
             case ControllerRole::UNASSIGNED:
+            case ControllerRole::VAMBRACE:
                 break;
         }
     }
@@ -82,6 +84,7 @@ private:
             case ControllerRole::DOME:
             case ControllerRole::CAMERA:
             case ControllerRole::UNASSIGNED:
+            case ControllerRole::VAMBRACE:
                 return 0;
             case ControllerRole::ANIMATION:
                 return 2000;

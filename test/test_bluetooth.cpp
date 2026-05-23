@@ -52,6 +52,7 @@ void test_role_to_string() {
     ASSERT(strcmp(roleToString(ControllerRole::DOME), "DOME") == 0);
     ASSERT(strcmp(roleToString(ControllerRole::ANIMATION), "ANIMATION") == 0);
     ASSERT(strcmp(roleToString(ControllerRole::CAMERA), "CAMERA") == 0);
+    ASSERT(strcmp(roleToString(ControllerRole::VAMBRACE), "VAMBRACE") == 0);
     PASS();
 }
 
@@ -62,6 +63,7 @@ void test_role_to_led_mask() {
     ASSERT_EQ(roleToLedMask(ControllerRole::DOME), (uint8_t)3);
     ASSERT_EQ(roleToLedMask(ControllerRole::ANIMATION), (uint8_t)7);
     ASSERT_EQ(roleToLedMask(ControllerRole::CAMERA), (uint8_t)15);
+    ASSERT_EQ(roleToLedMask(ControllerRole::VAMBRACE), (uint8_t)0);
     PASS();
 }
 
@@ -425,7 +427,7 @@ void test_mac_based_policy_supports_five_mappings() {
     ASSERT(policy.addMapping(makeMac(0x10, 0, 0, 0, 0, 3), ControllerRole::ANIMATION));
     ASSERT(policy.addMapping(makeMac(0x10, 0, 0, 0, 0, 4), ControllerRole::CAMERA));
     MacAddress mac_tembed = makeMac(0x10, 0, 0, 0, 0, 5);
-    ASSERT(policy.addMapping(mac_tembed, ControllerRole::DRIVE));
+    ASSERT(policy.addMapping(mac_tembed, ControllerRole::VAMBRACE));
 
     ControllerSlot slots[4];
     for (auto& s : slots) s.fullReset();
@@ -437,7 +439,37 @@ void test_mac_based_policy_supports_five_mappings() {
     slots[0].mac = mac_tembed;
     slots[0].state = ControllerSlot::State::ASSIGNING;
     ControllerRole role = mgr.onControllerAdded(0, 1000);
+    ASSERT_EQ(role, ControllerRole::VAMBRACE);
+
+    PASS();
+}
+
+void test_mac_based_policy_vambrace_coexists_with_drive() {
+    TEST(mac_based_policy_vambrace_coexists_with_drive);
+    using namespace chopper::bluetooth;
+
+    MacBasedPolicy policy;
+    MacAddress mac_drive = makeMac(0x20, 0, 0, 0, 0, 1);
+    MacAddress mac_vambrace = makeMac(0x20, 0, 0, 0, 0, 2);
+    ASSERT(policy.addMapping(mac_drive, ControllerRole::DRIVE));
+    ASSERT(policy.addMapping(mac_vambrace, ControllerRole::VAMBRACE));
+
+    ControllerSlot slots[4];
+    for (auto& s : slots) s.fullReset();
+
+    RoleManager mgr;
+    mgr.setSlots(slots, 4);
+    mgr.setPolicy(policy.getPolicy());
+
+    slots[0].mac = mac_drive;
+    slots[0].state = ControllerSlot::State::ASSIGNING;
+    ControllerRole role = mgr.onControllerAdded(0, 1000);
     ASSERT_EQ(role, ControllerRole::DRIVE);
+
+    slots[1].mac = mac_vambrace;
+    slots[1].state = ControllerSlot::State::ASSIGNING;
+    role = mgr.onControllerAdded(1, 1001);
+    ASSERT_EQ(role, ControllerRole::VAMBRACE);
 
     PASS();
 }
@@ -922,6 +954,27 @@ void test_default_disconnect_dome_holds() {
     PASS();
 }
 
+void test_default_disconnect_vambrace_has_no_manager_fallback() {
+    TEST(default_disconnect_vambrace_has_no_manager_fallback);
+    using namespace chopper::bluetooth;
+
+    DefaultDisconnectHandler handler;
+    auto behavior = handler.getBehavior();
+
+    chopper::messages::ControllerInput lastInput{};
+    lastInput.axis_x_normalized = 0.8f;
+    lastInput.is_connected = true;
+
+    chopper::messages::ControllerInput fallback{};
+    behavior.getFallback(ControllerRole::VAMBRACE, lastInput, fallback, behavior.context);
+
+    ASSERT_FLOAT_EQ(fallback.axis_x_normalized, 0.0f);
+    ASSERT(!fallback.is_connected);
+    ASSERT_EQ(behavior.getFallbackDurationMs(ControllerRole::VAMBRACE, behavior.context), (uint32_t)0);
+
+    PASS();
+}
+
 // ---- Main ----
 
 int main() {
@@ -951,6 +1004,7 @@ int main() {
     test_mac_based_policy();
     test_mac_based_policy_conflict();
     test_mac_based_policy_supports_five_mappings();
+    test_mac_based_policy_vambrace_coexists_with_drive();
     test_first_available_policy();
     test_first_available_with_preference();
     test_manual_policy();
@@ -971,6 +1025,7 @@ int main() {
     // Disconnect handler
     test_default_disconnect_drive_zeros();
     test_default_disconnect_dome_holds();
+    test_default_disconnect_vambrace_has_no_manager_fallback();
 
     printf("\n=== Results: %d/%d passed ===\n", pass_count, test_count);
     return (pass_count == test_count) ? 0 : 1;
