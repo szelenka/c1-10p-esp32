@@ -81,6 +81,15 @@ FIRMWARE_JSON_SCHEMA: dict[str, dict[str, dict]] = {
         "brightness": {"aliases": ["brightness"], "required": True},
         "pattern": {"aliases": ["pattern", "pattern_id"], "required": False},
     },
+    "outputs.leds[]": {
+        "valid": {"aliases": ["valid"], "required": False},
+        "id": {"aliases": ["id", "name", "index"], "required": True},
+        "type": {"aliases": ["type", "command_type"], "required": False},
+        "on": {"aliases": ["on", "state"], "required": True},
+        "color": {"aliases": ["color", "rgb", "hex"], "required": True},
+        "brightness": {"aliases": ["brightness"], "required": True},
+        "pattern": {"aliases": ["pattern", "pattern_id"], "required": False},
+    },
     "outputs.audio": {
         "valid": {"aliases": ["valid"], "required": False},
         "type": {"aliases": ["type", "command_type", "cmd"], "required": True},
@@ -225,7 +234,7 @@ def check_schema_freshness(firmware_text: str) -> list[str]:
 
     # Known structural/wrapper keys that aren't data fields
     wrappers = {
-        "inputs", "outputs", "motors", "servos", "led", "audio",
+        "inputs", "outputs", "motors", "servos", "led", "leds", "audio",
         "status", "color", "r", "g", "b", "w",  # color sub-keys
     }
 

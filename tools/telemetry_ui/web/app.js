@@ -632,9 +632,49 @@ const DOME_SLOT = 1;
 const ZR_BIT = 7;               // BUTTON_TRIGGER_R = ZR on Joy-Con (R)
 const RIGHT_EYE_LED_ID = "1";   // LED ID for right eye lens
 const CENTRE_EYE_LED_ID = "2";  // LED ID for centre eye lens
+const EYE_LED_IDS = [RIGHT_EYE_LED_ID, CENTRE_EYE_LED_ID];
 
 let prevDomeButtons = 0;
 let eyeIsRed = false;
+
+function normalizeLedColor(color) {
+  if (!color || typeof color !== "object") return null;
+  return {
+    r: color.r ?? color.red ?? 0,
+    g: color.g ?? color.green ?? 0,
+    b: color.b ?? color.blue ?? 0,
+  };
+}
+
+function applyEyeLedColor(msg, color) {
+  if (!msg.leds) {
+    msg.leds = [];
+  }
+
+  for (const ledId of EYE_LED_IDS) {
+    const existing = msg.leds.findIndex((l) => String(l.id) === ledId);
+    const entry = { id: ledId, state: "on", color };
+    if (existing >= 0) {
+      msg.leds[existing] = entry;
+    } else {
+      msg.leds.push(entry);
+    }
+  }
+}
+
+function syncEyeColorFromLedTelemetry(msg) {
+  if (!Array.isArray(msg.leds)) return false;
+
+  const eyeLed = msg.leds.find((l) => EYE_LED_IDS.includes(String(l.id)));
+  if (!eyeLed) return false;
+
+  const color = normalizeLedColor(eyeLed.color);
+  if (!color) return false;
+
+  eyeIsRed = color.r > color.b;
+  applyEyeLedColor(msg, color);
+  return true;
+}
 
 /**
  * Simulate the DomeNode eye-color toggle: when ZR on the dome controller
@@ -642,6 +682,10 @@ let eyeIsRed = false;
  * and inject synthetic LED events into the telemetry message.
  */
 function simulateEyeColorToggle(msg) {
+  if (syncEyeColorFromLedTelemetry(msg)) {
+    return;
+  }
+
   let domeButtons = 0;
   if (msg.controllers && msg.controllers[DOME_SLOT]) {
     domeButtons = msg.controllers[DOME_SLOT].buttons ?? 0;
@@ -661,19 +705,7 @@ function simulateEyeColorToggle(msg) {
     ? { r: 255, g: 0, b: 0 }
     : { r: 0, g: 0, b: 255 };
 
-  if (!msg.leds) {
-    msg.leds = [];
-  }
-  // Replace or append LED entries — centre and right eyes stay in sync
-  for (const ledId of [RIGHT_EYE_LED_ID, CENTRE_EYE_LED_ID]) {
-    const existing = msg.leds.findIndex((l) => String(l.id) === ledId);
-    const entry = { id: ledId, state: "on", color };
-    if (existing >= 0) {
-      msg.leds[existing] = entry;
-    } else {
-      msg.leds.push(entry);
-    }
-  }
+  applyEyeLedColor(msg, color);
 }
 
 // ── Telemetry handler ────────────────────────────────────────────────

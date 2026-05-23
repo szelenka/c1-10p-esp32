@@ -13,7 +13,7 @@ static int pass_count = 0;
 #define ASSERT(cond) do { if (!(cond)) { std::printf("FAIL at %s:%d: %s\n", __FILE__, __LINE__, #cond); return; } } while (0)
 
 namespace {
-char g_last_line[768] = {};
+char g_last_line[4096] = {};
 
 void captureSink(const char* line, void*) {
     std::strncpy(g_last_line, line, sizeof(g_last_line) - 1);
@@ -95,6 +95,53 @@ void test_min_publish_interval() {
     svc.shutdown();
     PASS();
 }
+
+void test_led_telemetry_keeps_each_led_id() {
+    TEST(led_telemetry_keeps_each_led_id);
+
+    std::memset(g_last_line, 0, sizeof(g_last_line));
+
+    chopper::telemetry::TelemetryService svc;
+    chopper::telemetry::TelemetryService::Config cfg{};
+    cfg.serial_enabled = true;
+    cfg.serial_compact = false;
+    cfg.http_enabled = false;
+    cfg.websocket_enabled = false;
+    cfg.min_publish_interval_ms = 0;
+
+    svc.setSerialSink(&captureSink, nullptr);
+    ASSERT(svc.begin(cfg));
+
+    chopper::messages::LEDCommand right_eye;
+    right_eye.command_type = chopper::messages::LEDCommand::CommandType::SET_COLOR;
+    right_eye.led_id = 1;
+    right_eye.color.red = 255;
+    svc.observeLedCommand(right_eye);
+
+    chopper::messages::LEDCommand center_eye = right_eye;
+    center_eye.led_id = 2;
+    svc.observeLedCommand(center_eye);
+
+    chopper::messages::LEDCommand front_led;
+    front_led.command_type = chopper::messages::LEDCommand::CommandType::SET_BRIGHTNESS;
+    front_led.led_id = 0;
+    front_led.color.red = 255;
+    front_led.brightness = 42;
+    svc.observeLedCommand(front_led);
+
+    chopper::telemetry::TelemetryService::Snapshot snap{};
+    snap.timestamp_us = 12345;
+    svc.update(snap);
+
+    ASSERT(std::strstr(g_last_line, "\"leds\":[") != nullptr);
+    ASSERT(std::strstr(g_last_line, "\"id\":0") != nullptr);
+    ASSERT(std::strstr(g_last_line, "\"id\":1") != nullptr);
+    ASSERT(std::strstr(g_last_line, "\"id\":2") != nullptr);
+    ASSERT(std::strstr(g_last_line, "\"led\":{\"valid\":true,\"id\":0") != nullptr);
+
+    svc.shutdown();
+    PASS();
+}
 }  // namespace
 
 int main() {
@@ -102,6 +149,7 @@ int main() {
 
     test_json_format_and_serial_prefix();
     test_min_publish_interval();
+    test_led_telemetry_keeps_each_led_id();
 
     std::printf("\n=== Results: %d/%d passed ===\n", pass_count, test_count);
     return (pass_count == test_count) ? 0 : 1;

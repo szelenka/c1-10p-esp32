@@ -56,6 +56,7 @@ TelemetryService::TelemetryService()
     std::memset(&input_states_, 0, sizeof(input_states_));
     std::memset(&motor_states_, 0, sizeof(motor_states_));
     std::memset(&servo_states_, 0, sizeof(servo_states_));
+    std::memset(&led_states_, 0, sizeof(led_states_));
     std::memset(&led_state_, 0, sizeof(led_state_));
     std::memset(&audio_state_, 0, sizeof(audio_state_));
     std::memset(&status_state_, 0, sizeof(status_state_));
@@ -243,7 +244,12 @@ void TelemetryService::observeServoCommand(const messages::ServoCommand& cmd, Se
 
 void TelemetryService::observeLedCommand(const messages::LEDCommand& cmd) {
     std::lock_guard<std::mutex> lock(state_mutex_);
-    auto& st = led_state_;
+    LedState* per_led = nullptr;
+    if (cmd.led_id < limits::MAX_LEDS) {
+        per_led = &led_states_[cmd.led_id];
+    }
+
+    auto& st = (per_led != nullptr) ? *per_led : led_state_;
     st.valid = true;
     st.command_type = static_cast<uint8_t>(cmd.command_type);
     st.led_id = cmd.led_id;
@@ -260,6 +266,8 @@ void TelemetryService::observeLedCommand(const messages::LEDCommand& cmd) {
                cmd.command_type == messages::LEDCommand::CommandType::SET_COLOR) {
         st.is_on = true;
     }
+
+    led_state_ = st;
 }
 
 void TelemetryService::observeAudioCommand(const messages::AudioCommand& cmd) {
@@ -292,6 +300,7 @@ void TelemetryService::snapshotToFrame(PublishFrame& out) {
     std::memcpy(out.input_states, input_states_, sizeof(input_states_));
     std::memcpy(out.motor_states, motor_states_, sizeof(motor_states_));
     std::memcpy(out.servo_states, servo_states_, sizeof(servo_states_));
+    std::memcpy(out.led_states, led_states_, sizeof(led_states_));
     out.led_state = led_state_;
     out.audio_state = audio_state_;
     out.status_state = status_state_;
@@ -460,6 +469,24 @@ void TelemetryService::formatJsonFromFrame(const PublishFrame& frame, char* out_
                     static_cast<unsigned>(group_idx));
             first = false;
         }
+    }
+    appendf(used, "],");
+
+    appendf(used, "\"leds\":[");
+    first = true;
+    for (size_t i = 0; i < limits::MAX_LEDS; ++i) {
+        const auto& st = frame.led_states[i];
+        if (!st.valid) {
+            continue;
+        }
+        appendf(used,
+                "%s{\"valid\":true,\"id\":%u,\"type\":%u,\"on\":%s,"
+                "\"color\":{\"r\":%u,\"g\":%u,\"b\":%u,\"w\":%u},\"brightness\":%u,\"pattern\":%u}",
+                first ? "" : ",", static_cast<unsigned>(st.led_id), static_cast<unsigned>(st.command_type),
+                st.is_on ? "true" : "false", static_cast<unsigned>(st.red), static_cast<unsigned>(st.green),
+                static_cast<unsigned>(st.blue), static_cast<unsigned>(st.white), static_cast<unsigned>(st.brightness),
+                static_cast<unsigned>(st.pattern_id));
+        first = false;
     }
     appendf(used, "],");
 

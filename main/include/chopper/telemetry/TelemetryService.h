@@ -167,6 +167,7 @@ private:
         InputState input_states[static_cast<size_t>(InputRole::COUNT)];
         MotorState motor_states[limits::MAX_MOTORS];
         ServoState servo_states[static_cast<size_t>(ServoSourceGroup::COUNT)][limits::MAX_MOTORS];
+        LedState led_states[limits::MAX_LEDS];
         LedState led_state;
         AudioState audio_state;
         StatusState status_state;
@@ -205,6 +206,7 @@ private:
     InputState input_states_[static_cast<size_t>(InputRole::COUNT)];
     MotorState motor_states_[limits::MAX_MOTORS];
     ServoState servo_states_[static_cast<size_t>(ServoSourceGroup::COUNT)][limits::MAX_MOTORS];
+    LedState led_states_[limits::MAX_LEDS];
     LedState led_state_;
     AudioState audio_state_;
     StatusState status_state_;
