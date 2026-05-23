@@ -802,6 +802,38 @@ void test_controller_manager_watchdog() {
     PASS();
 }
 
+void test_controller_manager_watchdog_reconnect() {
+    TEST(controller_manager_watchdog_reconnect_role_reclaim);
+    using namespace chopper::bluetooth;
+
+    ControllerManager mgr;
+    mgr.setTimeoutMs(200);
+
+    FirstAvailablePolicy policy;
+    mgr.getRoleManager().setPolicy(policy.getPolicy());
+
+    DefaultDisconnectHandler handler;
+    mgr.setDisconnectBehavior(handler.getBehavior());
+
+    MacAddress mac = makeMac(0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0x07);
+    int8_t slot = mgr.onConnect(mac, ControllerType::kPS5Controller, 0, 0, 1000);
+    ASSERT(slot >= 0);
+    ASSERT_EQ(mgr.getSlot(slot).role, ControllerRole::DRIVE);
+
+    chopper::messages::ControllerInput input{};
+    mgr.recordInput(slot, 1000, input);
+    mgr.update(1300);
+    mgr.update(1301);
+    ASSERT(mgr.getSlot(slot).isEmpty());
+
+    int8_t reconnect_slot = mgr.onConnect(mac, ControllerType::kPS5Controller, 0, 0, 1500);
+    ASSERT_EQ(reconnect_slot, slot);
+    ASSERT_EQ(mgr.getSlot(reconnect_slot).role, ControllerRole::DRIVE);
+    ASSERT(mgr.getSlot(reconnect_slot).isActive());
+
+    PASS();
+}
+
 void test_controller_manager_reconnect() {
     TEST(controller_manager_reconnect_role_reclaim);
     using namespace chopper::bluetooth;
@@ -1018,6 +1050,7 @@ int main() {
     test_controller_manager_disconnect();
     test_controller_manager_disconnect_animation_fallback();
     test_controller_manager_watchdog();
+    test_controller_manager_watchdog_reconnect();
     test_controller_manager_reconnect();
     test_controller_manager_emergency_stop();
     test_controller_manager_find_operations();
