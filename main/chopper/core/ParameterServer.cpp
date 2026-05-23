@@ -289,10 +289,9 @@ bool ParameterServer::onChange(const char* name, ParamChangeCallback callback, v
         return false;
     }
 
-    listeners_[listener_count_].param_index = idx;
+    listeners_[listener_count_].param_index = static_cast<uint16_t>(idx);
     listeners_[listener_count_].callback = callback;
     listeners_[listener_count_].context = context;
-    listeners_[listener_count_].active = true;
     ++listener_count_;
     return true;
 }
@@ -319,7 +318,7 @@ void ParameterServer::removeListenersByContext(void* context) {
 void ParameterServer::notifyListeners(size_t param_index) {
     const char* name = params_[param_index].name;
     for (size_t i = 0; i < listener_count_; ++i) {
-        if (listeners_[i].active && listeners_[i].param_index == param_index) {
+        if (listeners_[i].param_index == param_index) {
             listeners_[i].callback(name, listeners_[i].context);
         }
     }
