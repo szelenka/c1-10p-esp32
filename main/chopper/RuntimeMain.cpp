@@ -151,9 +151,11 @@ void onUnexpectedControllerDisconnect(uint8_t slot_index, chopper::bluetooth::Co
     ESP_LOGE(TAG, "Unexpected controller loss: slot=%u role=%s stale=%llu ms", static_cast<unsigned>(slot_index),
              chopper::bluetooth::roleToString(role), static_cast<unsigned long long>(stale_ms));
     if (app != nullptr) {
-        if (isActuatorControllerRole(role)) {
-            g_soft_stop_required_role = role;
+        if (!isActuatorControllerRole(role)) {
+            ESP_LOGI(TAG, "Non-actuator controller role lost; leaving actuator soft stop state unchanged");
+            return;
         }
+        g_soft_stop_required_role = role;
         app->softStop("Unexpected controller disconnect");
     }
 }
