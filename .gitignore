@@ -20,3 +20,4 @@ _backup/
 main/include/wpi
 main/include/hal
 main/include/SettingsBluetooth.h
+**.pyc
