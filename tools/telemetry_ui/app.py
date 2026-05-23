@@ -105,6 +105,7 @@ class TelemetryParser:
         axes = self._extract_axes(source)
         player_leds = self._pick_int(source, ["player_leds", "leds_mask"])
         battery = self._pick_int(source, ["battery", "battery_level"])
+        has_data_val = self._pick_int(source, ["has_data", "data"])
         avg_interval_us = self._pick_int(source, ["avg_interval_us", "avg_report_interval_us"])
         labels = LEFT_BUTTON_LABELS if jc_type == "left" else RIGHT_BUTTON_LABELS
         misc_labels = LEFT_MISC_LABELS if jc_type == "left" else RIGHT_MISC_LABELS
@@ -112,6 +113,7 @@ class TelemetryParser:
             "role": role,
             "type": jc_type,
             "connected": bool(connected_val) if connected_val is not None else False,
+            "has_data": bool(has_data_val) if has_data_val is not None else False,
             "buttons": buttons or 0,
             "misc": misc or 0,
             "axes": axes,
@@ -162,6 +164,10 @@ class TelemetryParser:
         for role, jc_type, prefix in self.ROLE_SLOTS:
             btn_val = self._parse_number(fields.get(f"{prefix}_btn"))
             conn_val = self._parse_number(fields.get(f"{prefix}_conn"))
+            if conn_val is None and role == "drive":
+                conn_val = self._parse_number(fields.get("drv"))
+            if conn_val is None and role == "dome":
+                conn_val = self._parse_number(fields.get("dome"))
             misc_val = self._parse_number(fields.get(f"{prefix}_misc"))
             axes = self._extract_compact_axes(payload, f"{prefix}_ax")
             labels = LEFT_BUTTON_LABELS if jc_type == "left" else RIGHT_BUTTON_LABELS
@@ -172,6 +178,7 @@ class TelemetryParser:
                 "role": role,
                 "type": jc_type,
                 "connected": bool(conn_val) if conn_val is not None else False,
+                "has_data": True if conn_val else False,
                 "buttons": btn_int,
                 "misc": misc_int,
                 "axes": axes,

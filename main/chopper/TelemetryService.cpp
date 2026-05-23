@@ -177,6 +177,7 @@ void TelemetryService::observeInput(InputRole role, const messages::ControllerIn
 
     st.valid = true;
     st.connected = input.is_connected;
+    st.has_data = input.has_data;
     st.battery = input.battery_level;
     st.dpad = input.dpad;
     st.axis_x = input.axis_x;
@@ -426,17 +427,18 @@ void TelemetryService::formatJsonFromFrame(const PublishFrame& frame, char* out_
     for (size_t i = 0; i < static_cast<size_t>(InputRole::COUNT); ++i) {
         const auto& st = frame.input_states[i];
         appendf(used,
-                "%s\"%s\":{\"valid\":%s,\"connected\":%s,\"battery\":%u,"
+                "%s\"%s\":{\"valid\":%s,\"connected\":%s,\"has_data\":%s,\"battery\":%u,"
                 "\"dpad\":%u,\"axes\":[%ld,%ld,%ld,%ld],\"buttons\":%u,\"misc\":%u,"
                 "\"reports\":%u,\"changes\":%u,\"btn_edges\":%u,\"btn_edge_mask\":%u,\"last_change_us\":%llu,"
                 "\"avg_interval_us\":%u}",
                 (i == 0) ? "" : ",", role_keys[i], st.valid ? "true" : "false", st.connected ? "true" : "false",
-                static_cast<unsigned>(st.battery), static_cast<unsigned>(st.dpad), static_cast<long>(st.axis_x),
-                static_cast<long>(st.axis_y), static_cast<long>(st.axis_rx), static_cast<long>(st.axis_ry),
-                static_cast<unsigned>(st.buttons), static_cast<unsigned>(st.misc_buttons),
-                static_cast<unsigned>(st.report_count), static_cast<unsigned>(st.change_count),
-                static_cast<unsigned>(st.button_edge_count), static_cast<unsigned>(st.button_edge_mask),
-                static_cast<unsigned long long>(st.last_change_us), static_cast<unsigned>(st.avg_report_interval_us));
+                st.has_data ? "true" : "false", static_cast<unsigned>(st.battery), static_cast<unsigned>(st.dpad),
+                static_cast<long>(st.axis_x), static_cast<long>(st.axis_y), static_cast<long>(st.axis_rx),
+                static_cast<long>(st.axis_ry), static_cast<unsigned>(st.buttons),
+                static_cast<unsigned>(st.misc_buttons), static_cast<unsigned>(st.report_count),
+                static_cast<unsigned>(st.change_count), static_cast<unsigned>(st.button_edge_count),
+                static_cast<unsigned>(st.button_edge_mask), static_cast<unsigned long long>(st.last_change_us),
+                static_cast<unsigned>(st.avg_report_interval_us));
     }
     appendf(used, "}");
 

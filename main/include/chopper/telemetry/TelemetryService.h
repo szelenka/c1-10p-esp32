@@ -103,6 +103,7 @@ private:
     struct InputState {
         bool valid = false;
         bool connected = false;
+        bool has_data = false;
         uint8_t battery = 0;
         uint8_t dpad = 0;
         int32_t axis_x = 0;

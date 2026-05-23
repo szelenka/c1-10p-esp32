@@ -46,11 +46,17 @@ void test_json_format_and_serial_prefix() {
     snap.safety_estop = true;
     snap.degradation_mode = 3;
 
+    chopper::messages::ControllerInput input{};
+    input.is_connected = true;
+    input.has_data = false;
+    svc.observeInput(chopper::telemetry::TelemetryService::InputRole::DRIVE, input);
+
     svc.update(snap);
 
     ASSERT(std::strncmp(g_last_line, "TEL:{", 5) == 0);
     ASSERT(std::strstr(g_last_line, "\"loop_count\":99") != nullptr);
     ASSERT(std::strstr(g_last_line, "\"degradation_mode\":3") != nullptr);
+    ASSERT(std::strstr(g_last_line, "\"has_data\":false") != nullptr);
     ASSERT(std::strstr(svc.getLastJson(), "\"safety_estop\":true") != nullptr);
 
     svc.shutdown();
