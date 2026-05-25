@@ -289,7 +289,7 @@ private:
 
     void disableTEmbedDiscoveryRetry() {
         if (tembed_discovery_retry_enabled_) {
-            ESP_LOGI(TAG, "Persistent T-Embed LE discovery retry disabled");
+            ESP_LOGD(TAG, "Persistent T-Embed LE discovery retry disabled");
         }
         tembed_discovery_retry_enabled_ = false;
         next_tembed_discovery_retry_ms_ = 0;
@@ -303,7 +303,7 @@ private:
             return;
         }
 
-        ESP_LOGI(TAG, "Persistent T-Embed LE discovery retry tick: now=%llu", static_cast<unsigned long long>(now_ms));
+        ESP_LOGD(TAG, "Persistent T-Embed LE discovery retry tick: now=%llu", static_cast<unsigned long long>(now_ms));
         chopper_bt_restart_le_discovery();
         next_tembed_discovery_retry_ms_ = now_ms + kTEmbedDiscoveryRetryMs;
     }
@@ -642,7 +642,7 @@ private:
                                     input.misc_buttons != last_tembed_misc_[bt_slot] ||
                                     input.dpad != last_tembed_dpad_[bt_slot];
         if (button_changed) {
-            ESP_LOGI(TAG,
+            ESP_LOGD(TAG,
                      "T-Embed button split: bt_slot=%d raw_buttons=0x%04x raw_misc=0x%02x "
                      "raw_dpad=0x%02x blocked[drive=%d dome=%d] "
                      "drive[peri_up=%d peri_down=%d spin_l=%d spin_r=%d doors=%d util=%d] "
