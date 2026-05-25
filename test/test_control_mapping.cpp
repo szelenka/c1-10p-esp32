@@ -322,6 +322,10 @@ TEST_CASE("tembed_drive_input_keeps_drive_axes_and_maps_intents") {
     raw.axis_y_slew = -0.4f;
     raw.axis_rx = 333;
     raw.axis_rx_normalized = 0.65f;
+    raw.source_diagnostic_flags = chopper::messages::ControllerInput::SOURCE_DIAG_FRESH_REPORT;
+    raw.source_report_gap_us = 123000;
+    raw.source_report_age_us = 4000;
+    raw.source_local_stop_count = 2;
     raw.button_a = true;
     raw.button_b = true;
     raw.button_x = true;
@@ -350,6 +354,10 @@ TEST_CASE("tembed_drive_input_keeps_drive_axes_and_maps_intents") {
     CHECK(drive.axis_y_normalized == doctest::Approx(raw.axis_y_normalized));
     CHECK(drive.axis_x_slew == doctest::Approx(raw.axis_x_slew));
     CHECK(drive.axis_y_slew == doctest::Approx(raw.axis_y_slew));
+    CHECK(drive.source_diagnostic_flags == raw.source_diagnostic_flags);
+    CHECK(drive.source_report_gap_us == raw.source_report_gap_us);
+    CHECK(drive.source_report_age_us == raw.source_report_age_us);
+    CHECK(drive.source_local_stop_count == raw.source_local_stop_count);
     CHECK(drive.axis_rx == 0);
     CHECK_FALSE(drive.button_x);
     CHECK_FALSE(drive.misc_select);
@@ -373,6 +381,31 @@ TEST_CASE("tembed_drive_input_keeps_drive_axes_and_maps_intents") {
     CHECK(drive_only_buttons.intent_body_utility_toggle);
 }
 
+TEST_CASE("tembed_decoded_button_x_remains_periscope_lift") {
+    chopper::messages::ControllerInput raw{};
+
+    raw.buttons = 1u << 2;  // Bluepad decoded BUTTON_X, not the Vambrace HID wire bit.
+    raw.button_x = true;
+    const auto drive = chopper::input::makeTEmbedDriveInput(raw);
+    CHECK(drive.intent_periscope_up);
+    CHECK(drive.intent_periscope_down);
+    CHECK_FALSE(drive.intent_volume_down);
+    CHECK_FALSE(drive.intent_volume_up);
+
+    raw = {};
+    raw.buttons = 1u << 5;  // Bluepad decoded BUTTON_SHOULDER_R.
+    raw.button_r1 = true;
+    const auto right_door = chopper::input::makeTEmbedDriveInput(raw);
+    CHECK(right_door.intent_body_right_door_toggle);
+    CHECK_FALSE(right_door.intent_volume_down);
+    CHECK_FALSE(right_door.intent_volume_up);
+
+    raw = {};
+    raw.misc_start = true;
+    const auto random_sound = chopper::input::makeTEmbedDomeInput(raw);
+    CHECK(random_sound.intent_sound_random);
+}
+
 TEST_CASE("tembed_dome_input_keeps_rx_axis_and_maps_remote_actions") {
     chopper::messages::ControllerInput raw{};
     raw.controller_id = 1;
@@ -384,6 +417,10 @@ TEST_CASE("tembed_dome_input_keeps_rx_axis_and_maps_remote_actions") {
     raw.axis_x = -200;
     raw.axis_rx = 256;
     raw.axis_rx_normalized = 0.5f;
+    raw.source_diagnostic_flags = chopper::messages::ControllerInput::SOURCE_DIAG_TEMBED_SPLIT;
+    raw.source_report_gap_us = 220000;
+    raw.source_report_age_us = 7000;
+    raw.source_local_stop_count = 3;
     raw.button_b = true;
     raw.button_r2 = true;
     raw.misc_select = true;
@@ -400,6 +437,10 @@ TEST_CASE("tembed_dome_input_keeps_rx_axis_and_maps_remote_actions") {
     CHECK_FALSE(dome.intent_neck_toggle);
     CHECK(dome.axis_rx == raw.axis_rx);
     CHECK(dome.axis_rx_normalized == doctest::Approx(raw.axis_rx_normalized));
+    CHECK(dome.source_diagnostic_flags == raw.source_diagnostic_flags);
+    CHECK(dome.source_report_gap_us == raw.source_report_gap_us);
+    CHECK(dome.source_report_age_us == raw.source_report_age_us);
+    CHECK(dome.source_local_stop_count == raw.source_local_stop_count);
     CHECK(dome.axis_x == 0);
     CHECK_FALSE(dome.button_a);
     CHECK_FALSE(dome.button_b);

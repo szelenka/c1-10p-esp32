@@ -59,6 +59,10 @@ FIRMWARE_JSON_SCHEMA: dict[str, dict[str, dict]] = {
         "btn_edge_mask": {"aliases": ["btn_edge_mask", "button_edge_mask"], "required": False},
         "last_change_us": {"aliases": ["last_change_us"], "required": False},
         "avg_interval_us": {"aliases": ["avg_interval_us", "avg_report_interval_us"], "required": True},
+        "source_flags": {"aliases": ["source_flags", "source_diag_flags"], "required": False},
+        "report_gap_us": {"aliases": ["report_gap_us", "source_report_gap_us"], "required": False},
+        "report_age_us": {"aliases": ["report_age_us", "source_report_age_us"], "required": False},
+        "local_stops": {"aliases": ["local_stops", "source_local_stop_count"], "required": False},
     },
     "outputs.motors[]": {
         "id": {"aliases": ["id", "motor_id"], "required": True},

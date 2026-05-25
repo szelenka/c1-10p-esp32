@@ -31,6 +31,10 @@ inline messages::ControllerInput makeTEmbedDriveInput(const messages::Controller
     out.axis_y_normalized = raw.axis_y_normalized;
     out.axis_x_slew = raw.axis_x_slew;
     out.axis_y_slew = raw.axis_y_slew;
+    out.source_diagnostic_flags = raw.source_diagnostic_flags;
+    out.source_report_gap_us = raw.source_report_gap_us;
+    out.source_report_age_us = raw.source_report_age_us;
+    out.source_local_stop_count = raw.source_local_stop_count;
 
     out.has_intents = true;
     out.intent_periscope_up = raw.button_x;
@@ -58,6 +62,10 @@ inline messages::ControllerInput makeTEmbedDomeInput(const messages::ControllerI
 
     out.axis_rx = raw.axis_rx;
     out.axis_rx_normalized = raw.axis_rx_normalized;
+    out.source_diagnostic_flags = raw.source_diagnostic_flags;
+    out.source_report_gap_us = raw.source_report_gap_us;
+    out.source_report_age_us = raw.source_report_age_us;
+    out.source_local_stop_count = raw.source_local_stop_count;
 
     out.has_intents = true;
     // Vambrace labels are wired to the Chopper tracks here:
