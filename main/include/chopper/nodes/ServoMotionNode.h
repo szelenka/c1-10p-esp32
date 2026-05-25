@@ -4,6 +4,7 @@
 #include "chopper/core/PublishingNode.h"
 #include "chopper/math/Easing.h"
 #include "chopper/messages/CommonMessages.h"
+#include "esp_log.h"
 #include "esp_timer.h"
 
 #include <cmath>
@@ -65,6 +66,8 @@ public:
     }
 
 private:
+    static constexpr const char* TAG = "ServoMotion";
+
     struct TimedMove {
         bool active = false;
         uint16_t start_us = 0;
@@ -213,6 +216,13 @@ private:
     void onCommand(const messages::ServoCommand& cmd) {
         if (cmd.servo_id >= channel_count_) {
             return;
+        }
+
+        if (cmd.command_type == messages::ServoCommand::CommandType::SET_POSITION && cmd.duration_ms > 0) {
+            ESP_LOGI(TAG, "%s timed move request: %s -> %s id=%u start=%ld target=%ld duration=%u has_start=%d",
+                     getName(), input_topic_, output_topic_, static_cast<unsigned>(cmd.servo_id),
+                     static_cast<long>(cmd.start_value), static_cast<long>(cmd.value),
+                     static_cast<unsigned>(cmd.duration_ms), cmd.has_start_value ? 1 : 0);
         }
 
         if (cmd.command_type == messages::ServoCommand::CommandType::SET_POSITION && cmd.duration_ms > 0) {
