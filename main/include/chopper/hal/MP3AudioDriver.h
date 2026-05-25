@@ -209,12 +209,12 @@ private:
         }
 
         if (expected == 1) {
-            ESP_LOGI(m_name, "mp3 uart %s wrote %u byte: 0x%02X", action, static_cast<unsigned>(written),
+            ESP_LOGD(m_name, "mp3 uart %s wrote %u byte: 0x%02X", action, static_cast<unsigned>(written),
                      static_cast<unsigned>(data[0]));
             return;
         }
 
-        ESP_LOGI(m_name, "mp3 uart %s wrote %u bytes: 0x%02X 0x%02X", action, static_cast<unsigned>(written),
+        ESP_LOGD(m_name, "mp3 uart %s wrote %u bytes: 0x%02X 0x%02X", action, static_cast<unsigned>(written),
                  static_cast<unsigned>(data[0]), static_cast<unsigned>(data[1]));
     }
 
