@@ -52,7 +52,6 @@ RIGHT_MISC_LABELS = {
     2: "Plus",
 }
 
-
 class TelemetryParser:
     KEYVAL_RE = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)=([^\s]+)")
     SERVO_COMMANDS = {
@@ -163,17 +162,21 @@ class TelemetryParser:
         controllers = []
         for role, jc_type, prefix in self.ROLE_SLOTS:
             btn_val = self._parse_number(fields.get(f"{prefix}_btn"))
+            edge_val = self._parse_number(fields.get(f"{prefix}_edge"))
             conn_val = self._parse_number(fields.get(f"{prefix}_conn"))
             if conn_val is None and role == "drive":
                 conn_val = self._parse_number(fields.get("drv"))
             if conn_val is None and role == "dome":
                 conn_val = self._parse_number(fields.get("dome"))
             misc_val = self._parse_number(fields.get(f"{prefix}_misc"))
+            misc_edge_val = self._parse_number(fields.get(f"{prefix}_medge"))
             axes = self._extract_compact_axes(payload, f"{prefix}_ax")
             labels = LEFT_BUTTON_LABELS if jc_type == "left" else RIGHT_BUTTON_LABELS
             misc_labels = LEFT_MISC_LABELS if jc_type == "left" else RIGHT_MISC_LABELS
             btn_int = int(btn_val) if btn_val is not None else 0
+            edge_int = int(edge_val) if edge_val is not None else 0
             misc_int = int(misc_val) if misc_val is not None else 0
+            misc_edge_int = int(misc_edge_val) if misc_edge_val is not None else 0
             controllers.append({
                 "role": role,
                 "type": jc_type,
@@ -181,10 +184,14 @@ class TelemetryParser:
                 "has_data": True if conn_val else False,
                 "buttons": btn_int,
                 "misc": misc_int,
+                "button_edge_mask": edge_int,
+                "misc_edge_mask": misc_edge_int,
                 "axes": axes,
                 "player_leds": None,
                 "pressed": self._mask_to_labels(btn_int, labels)
-                + self._mask_to_labels(misc_int, misc_labels),
+                + self._mask_to_labels(edge_int, labels)
+                + self._mask_to_labels(misc_int, misc_labels)
+                + self._mask_to_labels(misc_edge_int, misc_labels),
             })
 
         motors: List[Dict[str, Any]] = []

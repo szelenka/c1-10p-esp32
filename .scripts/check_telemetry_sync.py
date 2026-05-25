@@ -47,6 +47,7 @@ FIRMWARE_JSON_SCHEMA: dict[str, dict[str, dict]] = {
     "inputs.<role>": {
         "valid": {"aliases": ["valid"], "required": True},
         "connected": {"aliases": ["connected", "conn", "is_connected"], "required": True},
+        "has_data": {"aliases": ["has_data", "data"], "required": False},
         "battery": {"aliases": ["battery", "battery_level"], "required": True},
         "dpad": {"aliases": ["dpad"], "required": False},
         "axes": {"aliases": ["axes", "axis_x", "axis_y", "axis_rx", "axis_ry"], "required": True},
@@ -92,8 +93,8 @@ FIRMWARE_JSON_SCHEMA: dict[str, dict[str, dict]] = {
     },
     "outputs.audio": {
         "valid": {"aliases": ["valid"], "required": False},
-        "type": {"aliases": ["type", "command_type", "cmd"], "required": True},
-        "track": {"aliases": ["track", "track_id"], "required": True},
+        "type": {"aliases": ["type", "command_type", "cmd", "sound_type"], "required": True},
+        "track": {"aliases": ["track", "track_id", "id", "sound_track"], "required": True},
         "volume": {"aliases": ["volume", "vol"], "required": True},
         "loop": {"aliases": ["loop"], "required": True},
     },

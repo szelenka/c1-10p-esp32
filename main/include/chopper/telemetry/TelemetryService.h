@@ -118,6 +118,10 @@ private:
         uint32_t change_count = 0;
         uint32_t button_edge_count = 0;
         uint16_t button_edge_mask = 0;
+        uint16_t pending_button_edge_mask = 0;
+        uint32_t misc_edge_count = 0;
+        uint16_t misc_edge_mask = 0;
+        uint16_t pending_misc_edge_mask = 0;
         uint64_t last_change_us = 0;
         uint64_t last_report_us = 0;
         uint32_t avg_report_interval_us = 0;
@@ -171,6 +175,7 @@ private:
         LedState led_states[limits::MAX_LEDS];
         LedState led_state;
         AudioState audio_state;
+        AudioState pending_audio_state;
         StatusState status_state;
     };
 
@@ -210,6 +215,7 @@ private:
     LedState led_states_[limits::MAX_LEDS];
     LedState led_state_;
     AudioState audio_state_;
+    AudioState pending_audio_state_;
     StatusState status_state_;
     PublishFrame async_pending_frame_;
     PublishFrame publish_frame_;

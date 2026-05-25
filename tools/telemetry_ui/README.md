@@ -1,7 +1,7 @@
 # Telemetry UI
 
 Lightweight local app that reads serial `TEL:` telemetry and visualizes:
-- Left/right JoyCon button activity (mask-based)
+- Controller button activity (mask-based)
 - Motor events
 - Servo events (grouped by `group` when provided, e.g. `body`/`dome`)
 - LED events
@@ -17,12 +17,14 @@ Lightweight local app that reads serial `TEL:` telemetry and visualizes:
 
 ## Supported `TEL:` formats
 
-1. JSON payload (primary)
-- Example: `TEL:{"inputs":{"drive":{"buttons":3},"dome":{"buttons":4}},"outputs":{"motors":[...],"servos":[...],"leds":[...]}}`
-
-2. Compact key/value payload (tolerated)
-- Reads fields like `d_btn=0x0003`, `m_btn=0x0004`, `d_dpad=...`, `m_dpad=...`
+1. Compact key/value payload (hardware default)
+- Reads fields like `drv=1`, `dome=1`, `d_btn=0x0003`, `m_btn=0x0004`, `d_dpad=...`, `m_dpad=...`
+- Reads compact axes like `d_ax=(0,0,-409,0)` and grouped servo keys like `sb3=1500.0`, `sd1=1282.0`
+- Reads one-frame audio events like `sound_type=0 track=254` for sound notifications
 - Also tolerates compact event keys such as `motor0=0.6 servo2=1500 ledstatus=on`
+
+2. JSON payload (diagnostic/full format)
+- Example: `TEL:{"inputs":{"drive":{"buttons":3},"dome":{"buttons":4}},"outputs":{"motors":[...],"servos":[...],"leds":[...]}}`
 
 ## Install
 

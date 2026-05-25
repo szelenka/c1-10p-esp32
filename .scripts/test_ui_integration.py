@@ -126,6 +126,37 @@ if result is not None and result.get("kind") == "telemetry":
 else:
     failed(f"expected telemetry, got {result}")
 
+test("firmware_compact_format_parses")
+result = parser.parse_line(
+    "TEL:t=123456 mode=0 estop=0/0 "
+    "drv=1 d_btn=0x00c0 d_edge=0x00c0 d_misc=0x08 d_medge=0x08 d_dpad=0x00 "
+    "d_ax=(0,0,-409,0) "
+    "dome=1 m_btn=0x0001 m_edge=0x0001 m_misc=0x00 m_medge=0x00 m_dpad=0x00 "
+    "m_ax=(0,0,0,0) "
+    "m0=0.1234 m1=-0.1234 m2=0.5000 sb3=1500.0 sd1=1282.0 sound_type=0 track=254"
+)
+if result is None:
+    failed("parse returned None")
+else:
+    drive_ctrl = next((c for c in result["controllers"] if c.get("role") == "drive"), None)
+    dome_ctrl = next((c for c in result["controllers"] if c.get("role") == "dome"), None)
+    if result.get("format") != "compact":
+        failed(f"format={result.get('format')}, expected compact")
+    elif not drive_ctrl or not drive_ctrl.get("connected") or drive_ctrl.get("buttons") != 0x00C0:
+        failed(f"bad drive controller: {drive_ctrl}")
+    elif not dome_ctrl or not dome_ctrl.get("connected") or dome_ctrl.get("buttons") != 0x0001:
+        failed(f"bad dome controller: {dome_ctrl}")
+    elif len(result.get("motors", [])) != 3:
+        failed(f"motors={result.get('motors')}, expected 3")
+    elif not any(s.get("group") == "body" and s.get("id") == 3 for s in result.get("servos", [])):
+        failed(f"missing body servo: {result.get('servos')}")
+    elif not any(s.get("group") == "dome" and s.get("id") == 1 for s in result.get("servos", [])):
+        failed(f"missing dome servo: {result.get('servos')}")
+    elif not result.get("audio") or result["audio"].get("type") != 0 or result["audio"].get("track") != 254:
+        failed(f"bad compact audio: {result.get('audio')}")
+    else:
+        passed()
+
 # --- Schema validation ---
 test("json_output_has_required_fields")
 result = parser.parse_line('TEL:{"inputs":{},"outputs":{}}')

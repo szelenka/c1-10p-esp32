@@ -371,7 +371,7 @@ extern "C" int chopper_runtime_start(void) {
     constexpr bool telemetry_output_enabled = CHOPPER_ENABLE_TELEMETRY != 0;
     chopper::telemetry::TelemetryService::Config telemetry_cfg{};
     telemetry_cfg.serial_enabled = telemetry_output_enabled;
-    telemetry_cfg.serial_compact = false;
+    telemetry_cfg.serial_compact = true;
     telemetry_cfg.async_enabled = telemetry_output_enabled;
     telemetry_cfg.async_task_core = 0;
     telemetry_cfg.http_enabled = false;

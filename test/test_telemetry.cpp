@@ -148,6 +148,61 @@ void test_led_telemetry_keeps_each_led_id() {
     svc.shutdown();
     PASS();
 }
+
+void test_compact_telemetry_omits_intent_masks() {
+    TEST(compact_telemetry_omits_intent_masks);
+
+    std::memset(g_last_line, 0, sizeof(g_last_line));
+
+    chopper::telemetry::TelemetryService svc;
+    chopper::telemetry::TelemetryService::Config cfg{};
+    cfg.serial_enabled = true;
+    cfg.serial_compact = true;
+    cfg.http_enabled = false;
+    cfg.websocket_enabled = false;
+    cfg.min_publish_interval_ms = 0;
+
+    svc.setSerialSink(&captureSink, nullptr);
+    ASSERT(svc.begin(cfg));
+
+    chopper::messages::ControllerInput drive{};
+    drive.is_connected = true;
+    drive.has_data = true;
+    drive.buttons = 0x00c0;
+    drive.misc_buttons = 0x08;
+    svc.observeInput(chopper::telemetry::TelemetryService::InputRole::DRIVE, drive);
+
+    chopper::messages::ControllerInput dome{};
+    dome.is_connected = true;
+    dome.has_data = true;
+    dome.buttons = 0x0001;
+    svc.observeInput(chopper::telemetry::TelemetryService::InputRole::DOME, dome);
+
+    chopper::telemetry::TelemetryService::Snapshot snap{};
+    snap.timestamp_us = 12345;
+    svc.update(snap);
+
+    ASSERT(std::strstr(g_last_line, " d_btn=0x00c0 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, " d_edge=0x00c0 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, " d_misc=0x08 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, " d_medge=0x08 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, " m_btn=0x0001 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, " m_edge=0x0001 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, "d_int=") == nullptr);
+    ASSERT(std::strstr(g_last_line, "m_int=") == nullptr);
+
+    std::memset(g_last_line, 0, sizeof(g_last_line));
+    snap.timestamp_us = 22345;
+    svc.update(snap);
+    ASSERT(std::strstr(g_last_line, " d_btn=0x00c0 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, " d_edge=0x0000 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, " m_btn=0x0001 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, " m_edge=0x0000 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, "iedge=") == nullptr);
+
+    svc.shutdown();
+    PASS();
+}
 }  // namespace
 
 int main() {
@@ -156,6 +211,7 @@ int main() {
     test_json_format_and_serial_prefix();
     test_min_publish_interval();
     test_led_telemetry_keeps_each_led_id();
+    test_compact_telemetry_omits_intent_masks();
 
     std::printf("\n=== Results: %d/%d passed ===\n", pass_count, test_count);
     return (pass_count == test_count) ? 0 : 1;
