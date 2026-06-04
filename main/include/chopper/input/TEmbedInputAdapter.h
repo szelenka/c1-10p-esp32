@@ -3,14 +3,24 @@
 #include "chopper/config/HardwareConfig.h"
 #include "chopper/messages/CommonMessages.h"
 
+#include <cmath>
 #include <cstring>
 
 namespace chopper::input {
 
 inline constexpr const char* kTEmbedMac = config::bluetooth::TEMBED_MAC;
+inline constexpr float kTEmbedDriveMotionThreshold = 0.05f;
 
 inline bool isTEmbedMac(const char* mac_address) {
     return mac_address != nullptr && std::strncmp(mac_address, kTEmbedMac, 17) == 0;
+}
+
+inline bool hasTEmbedDriveMotion(const messages::ControllerInput& raw) {
+    const bool slew_active = std::fabs(raw.axis_x_slew) > kTEmbedDriveMotionThreshold ||
+                             std::fabs(raw.axis_y_slew) > kTEmbedDriveMotionThreshold;
+    const bool normalized_active = std::fabs(raw.axis_x_normalized) > kTEmbedDriveMotionThreshold ||
+                                   std::fabs(raw.axis_y_normalized) > kTEmbedDriveMotionThreshold;
+    return slew_active || normalized_active;
 }
 
 inline messages::ControllerInput makeTEmbedDriveInput(const messages::ControllerInput& raw) {
@@ -45,6 +55,7 @@ inline messages::ControllerInput makeTEmbedDriveInput(const messages::Controller
     out.intent_body_left_door_toggle = raw.button_l1;
     out.intent_body_right_door_toggle = raw.button_r1;
     out.intent_body_utility_toggle = raw.button_y;
+    out.intent_carpet_mode_active = hasTEmbedDriveMotion(raw);
     return out;
 }
 

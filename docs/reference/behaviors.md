@@ -12,6 +12,7 @@ by `BluepadInputNode` rather than through the standard intent mapping table.
 **Drive controller** (`controller/drive` topic):
 - Left stick → tank/arcade drive → `DriveNode` → Sabertooth motors
 - Left thumb press → toggle carpet mode (speed boost) → `DriveNode`
+- T-Embed drive X/Y active → transient carpet-mode boost while motion is active → `DriveNode`
 - X button → raise/lower periscope → `PeriscopeNode` → dome Maestro
 - A button → spin periscope left → `PeriscopeNode` → dome Maestro
 - Y button → spin periscope right → `PeriscopeNode` → dome Maestro

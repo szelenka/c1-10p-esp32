@@ -516,8 +516,8 @@ private:
                input.intent_periscope_down || input.intent_periscope_spin_left || input.intent_periscope_spin_right ||
                input.intent_dome_doors_toggle || input.intent_body_left_door_toggle ||
                input.intent_body_right_door_toggle || input.intent_body_utility_toggle ||
-               input.intent_carpet_mode_toggle || input.intent_dome_rotate_left || input.intent_volume_down ||
-               input.intent_volume_up;
+               input.intent_carpet_mode_toggle || input.intent_carpet_mode_active || input.intent_dome_rotate_left ||
+               input.intent_volume_down || input.intent_volume_up;
     }
 
     static bool hasDomeOutputActivity(const messages::ControllerInput& input) {

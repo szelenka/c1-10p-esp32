@@ -17,6 +17,7 @@
 #include <cstring>
 #include <cmath>
 #include <memory>
+#include <algorithm>
 
 // Math
 #include "chopper/math/DriveMixer.h"
@@ -419,6 +420,87 @@ void test_drive_node_carpet_mode_toggle() {
 
     ASSERT(node->isCarpetMode());
     ASSERT(last_track == static_cast<uint16_t>(chopper::config::sound_track::TADA));
+    PASS();
+}
+
+void test_drive_node_transient_carpet_mode_active_intent() {
+    TEST(drive_node_transient_carpet_mode_active_intent);
+    resetFramework();
+    mock_esp_timer_set(1'000'000);
+
+    auto node = std::make_shared<chopper::nodes::DriveNode>();
+    ASSERT(node->initialize());
+    node->activate();
+    ASSERT(!node->isCarpetMode());
+
+    int motor_count = 0;
+    float left_speed = 0.0f;
+    float right_speed = 0.0f;
+    int audio_count = 0;
+
+    struct MotorCtx {
+        int* count;
+        float* left;
+        float* right;
+    };
+    MotorCtx motor_ctx{&motor_count, &left_speed, &right_speed};
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto motor_sub = broker.createSubscription<chopper::messages::MotorCommand>(
+        "drive/cmd",
+        [](const chopper::messages::MotorCommand& cmd, void* c) {
+            auto* ctx = static_cast<MotorCtx*>(c);
+            (*ctx->count)++;
+            if (cmd.motor_id == 0) *ctx->left = cmd.value;
+            if (cmd.motor_id == 1) *ctx->right = cmd.value;
+        },
+        &motor_ctx);
+    auto audio_sub = broker.createSubscription<chopper::messages::AudioCommand>(
+        "audio/cmd",
+        [](const chopper::messages::AudioCommand&, void* c) { (*static_cast<int*>(c))++; },
+        &audio_count);
+
+    auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
+
+    float max_speed = 0.0f;
+    float speed_boost = 0.0f;
+    chopper::core::ParameterServer::getInstance().get("drive.max_speed", max_speed);
+    chopper::core::ParameterServer::getInstance().get("drive.speed_boost", speed_boost);
+    const float boosted_max = std::clamp(max_speed + speed_boost, 0.0f, 1.0f);
+
+    auto input = connectedControllerInput();
+    input.has_intents = true;
+    input.intent_carpet_mode_active = true;
+    input.axis_x_slew = 1.0f;
+    input.axis_x_normalized = 1.0f;
+    mock_esp_timer_set(2'000'000);
+    pub->publish(input);
+
+    ASSERT(motor_count == 2);
+    ASSERT_NEAR(left_speed, boosted_max, 0.01f);
+    ASSERT_NEAR(right_speed, boosted_max, 0.01f);
+    ASSERT(!node->isCarpetMode());
+    ASSERT(audio_count == 0);
+
+    input.intent_carpet_mode_active = false;
+    input.axis_x_slew = 0.0f;
+    input.axis_x_normalized = 0.0f;
+    mock_esp_timer_set(2'020'000);
+    pub->publish(input);
+
+    ASSERT_NEAR(left_speed, 0.0f, 0.001f);
+    ASSERT_NEAR(right_speed, 0.0f, 0.001f);
+
+    input.axis_x_slew = 1.0f;
+    input.axis_x_normalized = 1.0f;
+    mock_esp_timer_set(3'020'000);
+    pub->publish(input);
+
+    ASSERT_NEAR(left_speed, max_speed, 0.01f);
+    ASSERT_NEAR(right_speed, max_speed, 0.01f);
+    ASSERT(!node->isCarpetMode());
+    ASSERT(audio_count == 0);
+    mock_esp_timer_reset();
     PASS();
 }
 
@@ -2381,6 +2463,7 @@ int main() {
     test_drive_node_disconnect_zero_bypasses_slew();
     test_drive_node_connected_neutral_zero_bypasses_slew();
     test_drive_node_carpet_mode_toggle();
+    test_drive_node_transient_carpet_mode_active_intent();
 
     // PeriscopeNode
     test_periscope_intent_toggles_lift();

@@ -105,6 +105,7 @@ public:
     bool intent_body_right_door_toggle = false;
     bool intent_body_utility_toggle = false;
     bool intent_carpet_mode_toggle = false;
+    bool intent_carpet_mode_active = false;
     bool intent_dome_rotate_left = false;
     bool intent_volume_down = false;
     bool intent_volume_up = false;
