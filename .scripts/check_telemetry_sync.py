@@ -47,6 +47,7 @@ FIRMWARE_JSON_SCHEMA: dict[str, dict[str, dict]] = {
     "inputs.<role>": {
         "valid": {"aliases": ["valid"], "required": True},
         "connected": {"aliases": ["connected", "conn", "is_connected"], "required": True},
+        "has_data": {"aliases": ["has_data", "data"], "required": False},
         "battery": {"aliases": ["battery", "battery_level"], "required": True},
         "dpad": {"aliases": ["dpad"], "required": False},
         "axes": {"aliases": ["axes", "axis_x", "axis_y", "axis_rx", "axis_ry"], "required": True},
@@ -58,6 +59,10 @@ FIRMWARE_JSON_SCHEMA: dict[str, dict[str, dict]] = {
         "btn_edge_mask": {"aliases": ["btn_edge_mask", "button_edge_mask"], "required": False},
         "last_change_us": {"aliases": ["last_change_us"], "required": False},
         "avg_interval_us": {"aliases": ["avg_interval_us", "avg_report_interval_us"], "required": True},
+        "source_flags": {"aliases": ["source_flags", "source_diag_flags"], "required": False},
+        "report_gap_us": {"aliases": ["report_gap_us", "source_report_gap_us"], "required": False},
+        "report_age_us": {"aliases": ["report_age_us", "source_report_age_us"], "required": False},
+        "local_stops": {"aliases": ["local_stops", "source_local_stop_count"], "required": False},
     },
     "outputs.motors[]": {
         "id": {"aliases": ["id", "motor_id"], "required": True},
@@ -81,10 +86,19 @@ FIRMWARE_JSON_SCHEMA: dict[str, dict[str, dict]] = {
         "brightness": {"aliases": ["brightness"], "required": True},
         "pattern": {"aliases": ["pattern", "pattern_id"], "required": False},
     },
+    "outputs.leds[]": {
+        "valid": {"aliases": ["valid"], "required": False},
+        "id": {"aliases": ["id", "name", "index"], "required": True},
+        "type": {"aliases": ["type", "command_type"], "required": False},
+        "on": {"aliases": ["on", "state"], "required": True},
+        "color": {"aliases": ["color", "rgb", "hex"], "required": True},
+        "brightness": {"aliases": ["brightness"], "required": True},
+        "pattern": {"aliases": ["pattern", "pattern_id"], "required": False},
+    },
     "outputs.audio": {
         "valid": {"aliases": ["valid"], "required": False},
-        "type": {"aliases": ["type", "command_type", "cmd"], "required": True},
-        "track": {"aliases": ["track", "track_id"], "required": True},
+        "type": {"aliases": ["type", "command_type", "cmd", "sound_type"], "required": True},
+        "track": {"aliases": ["track", "track_id", "id", "sound_track"], "required": True},
         "volume": {"aliases": ["volume", "vol"], "required": True},
         "loop": {"aliases": ["loop"], "required": True},
     },
@@ -225,7 +239,7 @@ def check_schema_freshness(firmware_text: str) -> list[str]:
 
     # Known structural/wrapper keys that aren't data fields
     wrappers = {
-        "inputs", "outputs", "motors", "servos", "led", "audio",
+        "inputs", "outputs", "motors", "servos", "led", "leds", "audio",
         "status", "color", "r", "g", "b", "w",  # color sub-keys
     }
 

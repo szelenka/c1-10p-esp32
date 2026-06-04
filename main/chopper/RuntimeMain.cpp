@@ -104,7 +104,8 @@ int8_t hexNibble(char c) {
 }
 
 bool isActuatorControllerRole(chopper::bluetooth::ControllerRole role) {
-    return role == chopper::bluetooth::ControllerRole::DRIVE || role == chopper::bluetooth::ControllerRole::DOME;
+    return role == chopper::bluetooth::ControllerRole::DRIVE || role == chopper::bluetooth::ControllerRole::DOME ||
+           role == chopper::bluetooth::ControllerRole::VAMBRACE;
 }
 
 void initRolePolicy() {
@@ -120,7 +121,7 @@ void initRolePolicy() {
         {chopper::config::bluetooth::DOME_MAC, chopper::bluetooth::ControllerRole::DOME},
         {chopper::config::bluetooth::ANIMATE_MAC, chopper::bluetooth::ControllerRole::ANIMATION},
         {chopper::config::bluetooth::CAMERA_MAC, chopper::bluetooth::ControllerRole::CAMERA},
-        {chopper::config::bluetooth::TEMBED_MAC, chopper::bluetooth::ControllerRole::DRIVE},
+        {chopper::config::bluetooth::TEMBED_MAC, chopper::bluetooth::ControllerRole::VAMBRACE},
     };
 
     for (const auto& mapping : mappings) {
@@ -150,9 +151,11 @@ void onUnexpectedControllerDisconnect(uint8_t slot_index, chopper::bluetooth::Co
     ESP_LOGE(TAG, "Unexpected controller loss: slot=%u role=%s stale=%llu ms", static_cast<unsigned>(slot_index),
              chopper::bluetooth::roleToString(role), static_cast<unsigned long long>(stale_ms));
     if (app != nullptr) {
-        if (isActuatorControllerRole(role)) {
-            g_soft_stop_required_role = role;
+        if (!isActuatorControllerRole(role)) {
+            ESP_LOGI(TAG, "Non-actuator controller role lost; leaving actuator soft stop state unchanged");
+            return;
         }
+        g_soft_stop_required_role = role;
         app->softStop("Unexpected controller disconnect");
     }
 }
@@ -368,7 +371,7 @@ extern "C" int chopper_runtime_start(void) {
     constexpr bool telemetry_output_enabled = CHOPPER_ENABLE_TELEMETRY != 0;
     chopper::telemetry::TelemetryService::Config telemetry_cfg{};
     telemetry_cfg.serial_enabled = telemetry_output_enabled;
-    telemetry_cfg.serial_compact = false;
+    telemetry_cfg.serial_compact = true;
     telemetry_cfg.async_enabled = telemetry_output_enabled;
     telemetry_cfg.async_task_core = 0;
     telemetry_cfg.http_enabled = false;

@@ -52,7 +52,6 @@ RIGHT_MISC_LABELS = {
     2: "Plus",
 }
 
-
 class TelemetryParser:
     KEYVAL_RE = re.compile(r"([A-Za-z_][A-Za-z0-9_]*)=([^\s]+)")
     SERVO_COMMANDS = {
@@ -105,6 +104,7 @@ class TelemetryParser:
         axes = self._extract_axes(source)
         player_leds = self._pick_int(source, ["player_leds", "leds_mask"])
         battery = self._pick_int(source, ["battery", "battery_level"])
+        has_data_val = self._pick_int(source, ["has_data", "data"])
         avg_interval_us = self._pick_int(source, ["avg_interval_us", "avg_report_interval_us"])
         labels = LEFT_BUTTON_LABELS if jc_type == "left" else RIGHT_BUTTON_LABELS
         misc_labels = LEFT_MISC_LABELS if jc_type == "left" else RIGHT_MISC_LABELS
@@ -112,6 +112,7 @@ class TelemetryParser:
             "role": role,
             "type": jc_type,
             "connected": bool(connected_val) if connected_val is not None else False,
+            "has_data": bool(has_data_val) if has_data_val is not None else False,
             "buttons": buttons or 0,
             "misc": misc or 0,
             "axes": axes,
@@ -161,23 +162,36 @@ class TelemetryParser:
         controllers = []
         for role, jc_type, prefix in self.ROLE_SLOTS:
             btn_val = self._parse_number(fields.get(f"{prefix}_btn"))
+            edge_val = self._parse_number(fields.get(f"{prefix}_edge"))
             conn_val = self._parse_number(fields.get(f"{prefix}_conn"))
+            if conn_val is None and role == "drive":
+                conn_val = self._parse_number(fields.get("drv"))
+            if conn_val is None and role == "dome":
+                conn_val = self._parse_number(fields.get("dome"))
             misc_val = self._parse_number(fields.get(f"{prefix}_misc"))
+            misc_edge_val = self._parse_number(fields.get(f"{prefix}_medge"))
             axes = self._extract_compact_axes(payload, f"{prefix}_ax")
             labels = LEFT_BUTTON_LABELS if jc_type == "left" else RIGHT_BUTTON_LABELS
             misc_labels = LEFT_MISC_LABELS if jc_type == "left" else RIGHT_MISC_LABELS
             btn_int = int(btn_val) if btn_val is not None else 0
+            edge_int = int(edge_val) if edge_val is not None else 0
             misc_int = int(misc_val) if misc_val is not None else 0
+            misc_edge_int = int(misc_edge_val) if misc_edge_val is not None else 0
             controllers.append({
                 "role": role,
                 "type": jc_type,
                 "connected": bool(conn_val) if conn_val is not None else False,
+                "has_data": True if conn_val else False,
                 "buttons": btn_int,
                 "misc": misc_int,
+                "button_edge_mask": edge_int,
+                "misc_edge_mask": misc_edge_int,
                 "axes": axes,
                 "player_leds": None,
                 "pressed": self._mask_to_labels(btn_int, labels)
-                + self._mask_to_labels(misc_int, misc_labels),
+                + self._mask_to_labels(edge_int, labels)
+                + self._mask_to_labels(misc_int, misc_labels)
+                + self._mask_to_labels(misc_edge_int, misc_labels),
             })
 
         motors: List[Dict[str, Any]] = []

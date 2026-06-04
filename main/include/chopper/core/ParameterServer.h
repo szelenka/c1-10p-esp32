@@ -18,7 +18,6 @@ enum class ParamType : uint8_t {
 /// A single parameter entry.
 struct Parameter {
     char name[limits::MAX_PARAM_NAME_LEN];
-    ParamType type;
     union {
         int32_t i;
         float f;
@@ -32,9 +31,10 @@ struct Parameter {
         int32_t i;
         float f;
     } max_value;
+    uint32_t change_count;
+    ParamType type;
     bool has_range;
     bool persistent;  ///< Save to NVS on change (future)
-    uint32_t change_count;
     bool active;
 };
 
@@ -117,13 +117,12 @@ private:
     size_t count_ = 0;
 
     struct ChangeListener {
-        size_t param_index;
         ParamChangeCallback callback;
         void* context;
-        bool active;
+        uint16_t param_index;
     };
 
-    static constexpr size_t MAX_LISTENERS = 32;
+    static constexpr size_t MAX_LISTENERS = 64;
     ChangeListener listeners_[MAX_LISTENERS]{};
     size_t listener_count_ = 0;
 

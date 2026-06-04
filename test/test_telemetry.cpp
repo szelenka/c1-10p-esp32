@@ -13,7 +13,7 @@ static int pass_count = 0;
 #define ASSERT(cond) do { if (!(cond)) { std::printf("FAIL at %s:%d: %s\n", __FILE__, __LINE__, #cond); return; } } while (0)
 
 namespace {
-char g_last_line[768] = {};
+char g_last_line[4096] = {};
 
 void captureSink(const char* line, void*) {
     std::strncpy(g_last_line, line, sizeof(g_last_line) - 1);
@@ -46,11 +46,17 @@ void test_json_format_and_serial_prefix() {
     snap.safety_estop = true;
     snap.degradation_mode = 3;
 
+    chopper::messages::ControllerInput input{};
+    input.is_connected = true;
+    input.has_data = false;
+    svc.observeInput(chopper::telemetry::TelemetryService::InputRole::DRIVE, input);
+
     svc.update(snap);
 
     ASSERT(std::strncmp(g_last_line, "TEL:{", 5) == 0);
     ASSERT(std::strstr(g_last_line, "\"loop_count\":99") != nullptr);
     ASSERT(std::strstr(g_last_line, "\"degradation_mode\":3") != nullptr);
+    ASSERT(std::strstr(g_last_line, "\"has_data\":false") != nullptr);
     ASSERT(std::strstr(svc.getLastJson(), "\"safety_estop\":true") != nullptr);
 
     svc.shutdown();
@@ -95,6 +101,108 @@ void test_min_publish_interval() {
     svc.shutdown();
     PASS();
 }
+
+void test_led_telemetry_keeps_each_led_id() {
+    TEST(led_telemetry_keeps_each_led_id);
+
+    std::memset(g_last_line, 0, sizeof(g_last_line));
+
+    chopper::telemetry::TelemetryService svc;
+    chopper::telemetry::TelemetryService::Config cfg{};
+    cfg.serial_enabled = true;
+    cfg.serial_compact = false;
+    cfg.http_enabled = false;
+    cfg.websocket_enabled = false;
+    cfg.min_publish_interval_ms = 0;
+
+    svc.setSerialSink(&captureSink, nullptr);
+    ASSERT(svc.begin(cfg));
+
+    chopper::messages::LEDCommand right_eye;
+    right_eye.command_type = chopper::messages::LEDCommand::CommandType::SET_COLOR;
+    right_eye.led_id = 1;
+    right_eye.color.red = 255;
+    svc.observeLedCommand(right_eye);
+
+    chopper::messages::LEDCommand center_eye = right_eye;
+    center_eye.led_id = 2;
+    svc.observeLedCommand(center_eye);
+
+    chopper::messages::LEDCommand front_led;
+    front_led.command_type = chopper::messages::LEDCommand::CommandType::SET_BRIGHTNESS;
+    front_led.led_id = 0;
+    front_led.color.red = 255;
+    front_led.brightness = 42;
+    svc.observeLedCommand(front_led);
+
+    chopper::telemetry::TelemetryService::Snapshot snap{};
+    snap.timestamp_us = 12345;
+    svc.update(snap);
+
+    ASSERT(std::strstr(g_last_line, "\"leds\":[") != nullptr);
+    ASSERT(std::strstr(g_last_line, "\"id\":0") != nullptr);
+    ASSERT(std::strstr(g_last_line, "\"id\":1") != nullptr);
+    ASSERT(std::strstr(g_last_line, "\"id\":2") != nullptr);
+    ASSERT(std::strstr(g_last_line, "\"led\":{\"valid\":true,\"id\":0") != nullptr);
+
+    svc.shutdown();
+    PASS();
+}
+
+void test_compact_telemetry_omits_intent_masks() {
+    TEST(compact_telemetry_omits_intent_masks);
+
+    std::memset(g_last_line, 0, sizeof(g_last_line));
+
+    chopper::telemetry::TelemetryService svc;
+    chopper::telemetry::TelemetryService::Config cfg{};
+    cfg.serial_enabled = true;
+    cfg.serial_compact = true;
+    cfg.http_enabled = false;
+    cfg.websocket_enabled = false;
+    cfg.min_publish_interval_ms = 0;
+
+    svc.setSerialSink(&captureSink, nullptr);
+    ASSERT(svc.begin(cfg));
+
+    chopper::messages::ControllerInput drive{};
+    drive.is_connected = true;
+    drive.has_data = true;
+    drive.buttons = 0x00c0;
+    drive.misc_buttons = 0x08;
+    svc.observeInput(chopper::telemetry::TelemetryService::InputRole::DRIVE, drive);
+
+    chopper::messages::ControllerInput dome{};
+    dome.is_connected = true;
+    dome.has_data = true;
+    dome.buttons = 0x0001;
+    svc.observeInput(chopper::telemetry::TelemetryService::InputRole::DOME, dome);
+
+    chopper::telemetry::TelemetryService::Snapshot snap{};
+    snap.timestamp_us = 12345;
+    svc.update(snap);
+
+    ASSERT(std::strstr(g_last_line, " d_btn=0x00c0 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, " d_edge=0x00c0 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, " d_misc=0x08 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, " d_medge=0x08 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, " m_btn=0x0001 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, " m_edge=0x0001 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, "d_int=") == nullptr);
+    ASSERT(std::strstr(g_last_line, "m_int=") == nullptr);
+
+    std::memset(g_last_line, 0, sizeof(g_last_line));
+    snap.timestamp_us = 22345;
+    svc.update(snap);
+    ASSERT(std::strstr(g_last_line, " d_btn=0x00c0 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, " d_edge=0x0000 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, " m_btn=0x0001 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, " m_edge=0x0000 ") != nullptr);
+    ASSERT(std::strstr(g_last_line, "iedge=") == nullptr);
+
+    svc.shutdown();
+    PASS();
+}
 }  // namespace
 
 int main() {
@@ -102,6 +210,8 @@ int main() {
 
     test_json_format_and_serial_prefix();
     test_min_publish_interval();
+    test_led_telemetry_keeps_each_led_id();
+    test_compact_telemetry_omits_intent_masks();
 
     std::printf("\n=== Results: %d/%d passed ===\n", pass_count, test_count);
     return (pass_count == test_count) ? 0 : 1;

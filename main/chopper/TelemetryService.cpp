@@ -56,8 +56,10 @@ TelemetryService::TelemetryService()
     std::memset(&input_states_, 0, sizeof(input_states_));
     std::memset(&motor_states_, 0, sizeof(motor_states_));
     std::memset(&servo_states_, 0, sizeof(servo_states_));
+    std::memset(&led_states_, 0, sizeof(led_states_));
     std::memset(&led_state_, 0, sizeof(led_state_));
     std::memset(&audio_state_, 0, sizeof(audio_state_));
+    std::memset(&pending_audio_state_, 0, sizeof(pending_audio_state_));
     std::memset(&status_state_, 0, sizeof(status_state_));
     std::memset(&async_pending_frame_, 0, sizeof(async_pending_frame_));
     std::memset(&publish_frame_, 0, sizeof(publish_frame_));
@@ -176,6 +178,7 @@ void TelemetryService::observeInput(InputRole role, const messages::ControllerIn
 
     st.valid = true;
     st.connected = input.is_connected;
+    st.has_data = input.has_data;
     st.battery = input.battery_level;
     st.dpad = input.dpad;
     st.axis_x = input.axis_x;
@@ -202,6 +205,7 @@ void TelemetryService::observeInput(InputRole role, const messages::ControllerIn
     const auto button_edges = static_cast<uint16_t>(prev_buttons ^ st.buttons);
     if (button_edges != 0) {
         st.button_edge_mask = static_cast<uint16_t>(st.button_edge_mask | button_edges);
+        st.pending_button_edge_mask = static_cast<uint16_t>(st.pending_button_edge_mask | button_edges);
         st.button_edge_count++;
     }
 
@@ -211,6 +215,13 @@ void TelemetryService::observeInput(InputRole role, const messages::ControllerIn
     if (changed) {
         st.change_count++;
         st.last_change_us = monotonicNowUs();
+    }
+
+    const auto misc_edges = static_cast<uint16_t>(prev_misc ^ st.misc_buttons);
+    if (misc_edges != 0) {
+        st.misc_edge_mask = static_cast<uint16_t>(st.misc_edge_mask | misc_edges);
+        st.pending_misc_edge_mask = static_cast<uint16_t>(st.pending_misc_edge_mask | misc_edges);
+        st.misc_edge_count++;
     }
 }
 
@@ -243,7 +254,12 @@ void TelemetryService::observeServoCommand(const messages::ServoCommand& cmd, Se
 
 void TelemetryService::observeLedCommand(const messages::LEDCommand& cmd) {
     std::lock_guard<std::mutex> lock(state_mutex_);
-    auto& st = led_state_;
+    LedState* per_led = nullptr;
+    if (cmd.led_id < limits::MAX_LEDS) {
+        per_led = &led_states_[cmd.led_id];
+    }
+
+    auto& st = (per_led != nullptr) ? *per_led : led_state_;
     st.valid = true;
     st.command_type = static_cast<uint8_t>(cmd.command_type);
     st.led_id = cmd.led_id;
@@ -260,6 +276,8 @@ void TelemetryService::observeLedCommand(const messages::LEDCommand& cmd) {
                cmd.command_type == messages::LEDCommand::CommandType::SET_COLOR) {
         st.is_on = true;
     }
+
+    led_state_ = st;
 }
 
 void TelemetryService::observeAudioCommand(const messages::AudioCommand& cmd) {
@@ -269,6 +287,7 @@ void TelemetryService::observeAudioCommand(const messages::AudioCommand& cmd) {
     audio_state_.track_id = cmd.track_id;
     audio_state_.volume = cmd.volume;
     audio_state_.loop = cmd.loop;
+    pending_audio_state_ = audio_state_;
 }
 
 void TelemetryService::observeSystemStatus(const messages::SystemStatus& status) {
@@ -290,10 +309,17 @@ void TelemetryService::emitSerial(const char* json) {
 void TelemetryService::snapshotToFrame(PublishFrame& out) {
     out.snapshot = snapshot_;
     std::memcpy(out.input_states, input_states_, sizeof(input_states_));
+    for (auto& input_state : input_states_) {
+        input_state.pending_button_edge_mask = 0;
+        input_state.pending_misc_edge_mask = 0;
+    }
     std::memcpy(out.motor_states, motor_states_, sizeof(motor_states_));
     std::memcpy(out.servo_states, servo_states_, sizeof(servo_states_));
+    std::memcpy(out.led_states, led_states_, sizeof(led_states_));
     out.led_state = led_state_;
     out.audio_state = audio_state_;
+    out.pending_audio_state = pending_audio_state_;
+    std::memset(&pending_audio_state_, 0, sizeof(pending_audio_state_));
     out.status_state = status_state_;
 }
 
@@ -308,34 +334,42 @@ void TelemetryService::emitSerialCompact(const PublishFrame& frame) {
     if (config_.include_perf) {
         std::snprintf(line, sizeof(line),
                       "TEL:t=%llu lc=%llu loop_max=%llu loop_avg=%llu mode=%u estop=%u/%u "
-                      "drv=%u d_btn=0x%04x d_edge=0x%04x d_dpad=0x%02x d_ax=(%ld,%ld,%ld,%ld) "
-                      "dome=%u m_btn=0x%04x m_edge=0x%04x m_dpad=0x%02x m_ax=(%ld,%ld,%ld,%ld)",
+                      "drv=%u d_btn=0x%04x d_edge=0x%04x d_misc=0x%02x d_medge=0x%02x d_dpad=0x%02x "
+                      "d_ax=(%ld,%ld,%ld,%ld) "
+                      "dome=%u m_btn=0x%04x m_edge=0x%04x m_misc=0x%02x m_medge=0x%02x m_dpad=0x%02x "
+                      "m_ax=(%ld,%ld,%ld,%ld)",
                       static_cast<unsigned long long>(frame.snapshot.timestamp_us),
                       static_cast<unsigned long long>(frame.snapshot.loop_count),
                       static_cast<unsigned long long>(frame.snapshot.max_loop_time_us),
                       static_cast<unsigned long long>(frame.snapshot.avg_loop_time_us),
                       static_cast<unsigned>(frame.snapshot.degradation_mode), frame.snapshot.executor_estop ? 1U : 0U,
                       frame.snapshot.safety_estop ? 1U : 0U, drive.connected ? 1U : 0U,
-                      static_cast<unsigned>(drive.buttons), static_cast<unsigned>(drive.button_edge_mask),
+                      static_cast<unsigned>(drive.buttons), static_cast<unsigned>(drive.pending_button_edge_mask),
+                      static_cast<unsigned>(drive.misc_buttons), static_cast<unsigned>(drive.pending_misc_edge_mask),
                       static_cast<unsigned>(drive.dpad), static_cast<long>(drive.axis_x),
                       static_cast<long>(drive.axis_y), static_cast<long>(drive.axis_rx),
                       static_cast<long>(drive.axis_ry), dome.connected ? 1U : 0U, static_cast<unsigned>(dome.buttons),
-                      static_cast<unsigned>(dome.button_edge_mask), static_cast<unsigned>(dome.dpad),
+                      static_cast<unsigned>(dome.pending_button_edge_mask), static_cast<unsigned>(dome.misc_buttons),
+                      static_cast<unsigned>(dome.pending_misc_edge_mask), static_cast<unsigned>(dome.dpad),
                       static_cast<long>(dome.axis_x), static_cast<long>(dome.axis_y), static_cast<long>(dome.axis_rx),
                       static_cast<long>(dome.axis_ry));
     } else {
         std::snprintf(line, sizeof(line),
                       "TEL:t=%llu mode=%u estop=%u/%u "
-                      "drv=%u d_btn=0x%04x d_edge=0x%04x d_dpad=0x%02x d_ax=(%ld,%ld,%ld,%ld) "
-                      "dome=%u m_btn=0x%04x m_edge=0x%04x m_dpad=0x%02x m_ax=(%ld,%ld,%ld,%ld)",
+                      "drv=%u d_btn=0x%04x d_edge=0x%04x d_misc=0x%02x d_medge=0x%02x d_dpad=0x%02x "
+                      "d_ax=(%ld,%ld,%ld,%ld) "
+                      "dome=%u m_btn=0x%04x m_edge=0x%04x m_misc=0x%02x m_medge=0x%02x m_dpad=0x%02x "
+                      "m_ax=(%ld,%ld,%ld,%ld)",
                       static_cast<unsigned long long>(frame.snapshot.timestamp_us),
                       static_cast<unsigned>(frame.snapshot.degradation_mode), frame.snapshot.executor_estop ? 1U : 0U,
                       frame.snapshot.safety_estop ? 1U : 0U, drive.connected ? 1U : 0U,
-                      static_cast<unsigned>(drive.buttons), static_cast<unsigned>(drive.button_edge_mask),
+                      static_cast<unsigned>(drive.buttons), static_cast<unsigned>(drive.pending_button_edge_mask),
+                      static_cast<unsigned>(drive.misc_buttons), static_cast<unsigned>(drive.pending_misc_edge_mask),
                       static_cast<unsigned>(drive.dpad), static_cast<long>(drive.axis_x),
                       static_cast<long>(drive.axis_y), static_cast<long>(drive.axis_rx),
                       static_cast<long>(drive.axis_ry), dome.connected ? 1U : 0U, static_cast<unsigned>(dome.buttons),
-                      static_cast<unsigned>(dome.button_edge_mask), static_cast<unsigned>(dome.dpad),
+                      static_cast<unsigned>(dome.pending_button_edge_mask), static_cast<unsigned>(dome.misc_buttons),
+                      static_cast<unsigned>(dome.pending_misc_edge_mask), static_cast<unsigned>(dome.dpad),
                       static_cast<long>(dome.axis_x), static_cast<long>(dome.axis_y), static_cast<long>(dome.axis_rx),
                       static_cast<long>(dome.axis_ry));
     }
@@ -370,6 +404,15 @@ void TelemetryService::emitSerialCompact(const PublishFrame& frame) {
             if (n > 0 && static_cast<size_t>(n) < (cap - pos)) {
                 pos += static_cast<size_t>(n);
             }
+        }
+    }
+
+    if (frame.pending_audio_state.valid && (cap - pos) > 32) {
+        const auto& st = frame.pending_audio_state;
+        int n = std::snprintf(line + pos, cap - pos, " sound_type=%u track=%u", static_cast<unsigned>(st.command_type),
+                              static_cast<unsigned>(st.track_id));
+        if (n > 0 && static_cast<size_t>(n) < (cap - pos)) {
+            pos += static_cast<size_t>(n);
         }
     }
 
@@ -417,17 +460,18 @@ void TelemetryService::formatJsonFromFrame(const PublishFrame& frame, char* out_
     for (size_t i = 0; i < static_cast<size_t>(InputRole::COUNT); ++i) {
         const auto& st = frame.input_states[i];
         appendf(used,
-                "%s\"%s\":{\"valid\":%s,\"connected\":%s,\"battery\":%u,"
+                "%s\"%s\":{\"valid\":%s,\"connected\":%s,\"has_data\":%s,\"battery\":%u,"
                 "\"dpad\":%u,\"axes\":[%ld,%ld,%ld,%ld],\"buttons\":%u,\"misc\":%u,"
-                "\"reports\":%u,\"changes\":%u,\"btn_edges\":%u,\"btn_edge_mask\":%u,\"last_change_us\":%llu,"
-                "\"avg_interval_us\":%u}",
+                "\"reports\":%u,\"changes\":%u,\"btn_edges\":%u,"
+                "\"btn_edge_mask\":%u,\"last_change_us\":%llu,\"avg_interval_us\":%u}",
                 (i == 0) ? "" : ",", role_keys[i], st.valid ? "true" : "false", st.connected ? "true" : "false",
-                static_cast<unsigned>(st.battery), static_cast<unsigned>(st.dpad), static_cast<long>(st.axis_x),
-                static_cast<long>(st.axis_y), static_cast<long>(st.axis_rx), static_cast<long>(st.axis_ry),
-                static_cast<unsigned>(st.buttons), static_cast<unsigned>(st.misc_buttons),
-                static_cast<unsigned>(st.report_count), static_cast<unsigned>(st.change_count),
-                static_cast<unsigned>(st.button_edge_count), static_cast<unsigned>(st.button_edge_mask),
-                static_cast<unsigned long long>(st.last_change_us), static_cast<unsigned>(st.avg_report_interval_us));
+                st.has_data ? "true" : "false", static_cast<unsigned>(st.battery), static_cast<unsigned>(st.dpad),
+                static_cast<long>(st.axis_x), static_cast<long>(st.axis_y), static_cast<long>(st.axis_rx),
+                static_cast<long>(st.axis_ry), static_cast<unsigned>(st.buttons),
+                static_cast<unsigned>(st.misc_buttons), static_cast<unsigned>(st.report_count),
+                static_cast<unsigned>(st.change_count), static_cast<unsigned>(st.button_edge_count),
+                static_cast<unsigned>(st.button_edge_mask), static_cast<unsigned long long>(st.last_change_us),
+                static_cast<unsigned>(st.avg_report_interval_us));
     }
     appendf(used, "}");
 
@@ -460,6 +504,24 @@ void TelemetryService::formatJsonFromFrame(const PublishFrame& frame, char* out_
                     static_cast<unsigned>(group_idx));
             first = false;
         }
+    }
+    appendf(used, "],");
+
+    appendf(used, "\"leds\":[");
+    first = true;
+    for (size_t i = 0; i < limits::MAX_LEDS; ++i) {
+        const auto& st = frame.led_states[i];
+        if (!st.valid) {
+            continue;
+        }
+        appendf(used,
+                "%s{\"valid\":true,\"id\":%u,\"type\":%u,\"on\":%s,"
+                "\"color\":{\"r\":%u,\"g\":%u,\"b\":%u,\"w\":%u},\"brightness\":%u,\"pattern\":%u}",
+                first ? "" : ",", static_cast<unsigned>(st.led_id), static_cast<unsigned>(st.command_type),
+                st.is_on ? "true" : "false", static_cast<unsigned>(st.red), static_cast<unsigned>(st.green),
+                static_cast<unsigned>(st.blue), static_cast<unsigned>(st.white), static_cast<unsigned>(st.brightness),
+                static_cast<unsigned>(st.pattern_id));
+        first = false;
     }
     appendf(used, "],");
 

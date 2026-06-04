@@ -94,6 +94,9 @@ install-bluepad32: clean-bluepad32 download-bluepad32
 			find components/$$(basename $$dir) -name ".git" -type d -exec rm -rf {} +; \
 		fi; \
 	done
+	if [ -f patches/components/bluepad32.patch ]; then \
+		patch -l -f -p0 < patches/components/bluepad32.patch; \
+	fi
 	cp -R $(BLUEPAD32_BUILD_FOLDER)/_org/patches/ patches/
 	for f in platformio.ini sdkconfig.defaults; do \
 		if [ ! -f $$f ]; then \

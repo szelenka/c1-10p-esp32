@@ -13,9 +13,10 @@ enum class ControllerRole : uint8_t {
     DOME = 3,        ///< 0011
     ANIMATION = 7,   ///< 0111
     CAMERA = 15,     ///< 1111
+    VAMBRACE = 16,   ///< Split-input wrist controller; not a player LED pattern
 };
 
-/// Number of assignable roles (excluding UNASSIGNED).
+/// Number of first-available roles (excluding UNASSIGNED and special split roles).
 static constexpr uint8_t kRoleCount = 4;
 
 /// Ordered list of roles for iteration (priority order).
@@ -39,13 +40,28 @@ inline const char* roleToString(ControllerRole role) {
             return "ANIMATION";
         case ControllerRole::CAMERA:
             return "CAMERA";
+        case ControllerRole::VAMBRACE:
+            return "VAMBRACE";
     }
     return "UNKNOWN";
 }
 
 /// Returns the player LED bitmask for a role.
 inline uint8_t roleToLedMask(ControllerRole role) {
-    return static_cast<uint8_t>(role);
+    switch (role) {
+        case ControllerRole::DRIVE:
+            return 1;
+        case ControllerRole::DOME:
+            return 3;
+        case ControllerRole::ANIMATION:
+            return 7;
+        case ControllerRole::CAMERA:
+            return 15;
+        case ControllerRole::UNASSIGNED:
+        case ControllerRole::VAMBRACE:
+            return 0;
+    }
+    return 0;
 }
 
 /// MAC address as 6 raw bytes.

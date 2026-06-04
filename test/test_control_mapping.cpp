@@ -322,10 +322,16 @@ TEST_CASE("tembed_drive_input_keeps_drive_axes_and_maps_intents") {
     raw.axis_y_slew = -0.4f;
     raw.axis_rx = 333;
     raw.axis_rx_normalized = 0.65f;
+    raw.source_diagnostic_flags = chopper::messages::ControllerInput::SOURCE_DIAG_FRESH_REPORT;
+    raw.source_report_gap_us = 123000;
+    raw.source_report_age_us = 4000;
+    raw.source_local_stop_count = 2;
     raw.button_a = true;
     raw.button_b = true;
     raw.button_x = true;
     raw.button_y = true;
+    raw.button_thumb_l = true;
+    raw.button_thumb_r = true;
     raw.button_l1 = true;
     raw.button_r1 = true;
     raw.misc_select = true;
@@ -348,10 +354,56 @@ TEST_CASE("tembed_drive_input_keeps_drive_axes_and_maps_intents") {
     CHECK(drive.axis_y_normalized == doctest::Approx(raw.axis_y_normalized));
     CHECK(drive.axis_x_slew == doctest::Approx(raw.axis_x_slew));
     CHECK(drive.axis_y_slew == doctest::Approx(raw.axis_y_slew));
+    CHECK(drive.source_diagnostic_flags == raw.source_diagnostic_flags);
+    CHECK(drive.source_report_gap_us == raw.source_report_gap_us);
+    CHECK(drive.source_report_age_us == raw.source_report_age_us);
+    CHECK(drive.source_local_stop_count == raw.source_local_stop_count);
     CHECK(drive.axis_rx == 0);
     CHECK_FALSE(drive.button_x);
     CHECK_FALSE(drive.misc_select);
     CHECK(std::strcmp(drive.mac_address, chopper::input::kTEmbedMac) == 0);
+
+    raw = {};
+    raw.button_a = true;
+    raw.button_b = true;
+    const auto drive_sound_buttons = chopper::input::makeTEmbedDriveInput(raw);
+    CHECK_FALSE(drive_sound_buttons.intent_periscope_spin_left);
+    CHECK_FALSE(drive_sound_buttons.intent_periscope_spin_right);
+    CHECK_FALSE(drive_sound_buttons.intent_body_utility_toggle);
+
+    raw = {};
+    raw.button_thumb_l = true;
+    raw.button_thumb_r = true;
+    raw.button_y = true;
+    const auto drive_only_buttons = chopper::input::makeTEmbedDriveInput(raw);
+    CHECK(drive_only_buttons.intent_periscope_spin_left);
+    CHECK(drive_only_buttons.intent_periscope_spin_right);
+    CHECK(drive_only_buttons.intent_body_utility_toggle);
+}
+
+TEST_CASE("tembed_decoded_button_x_remains_periscope_lift") {
+    chopper::messages::ControllerInput raw{};
+
+    raw.buttons = 1u << 2;  // Bluepad decoded BUTTON_X, not the Vambrace HID wire bit.
+    raw.button_x = true;
+    const auto drive = chopper::input::makeTEmbedDriveInput(raw);
+    CHECK(drive.intent_periscope_up);
+    CHECK(drive.intent_periscope_down);
+    CHECK_FALSE(drive.intent_volume_down);
+    CHECK_FALSE(drive.intent_volume_up);
+
+    raw = {};
+    raw.buttons = 1u << 5;  // Bluepad decoded BUTTON_SHOULDER_R.
+    raw.button_r1 = true;
+    const auto right_door = chopper::input::makeTEmbedDriveInput(raw);
+    CHECK(right_door.intent_body_right_door_toggle);
+    CHECK_FALSE(right_door.intent_volume_down);
+    CHECK_FALSE(right_door.intent_volume_up);
+
+    raw = {};
+    raw.misc_start = true;
+    const auto random_sound = chopper::input::makeTEmbedDomeInput(raw);
+    CHECK(random_sound.intent_sound_random);
 }
 
 TEST_CASE("tembed_dome_input_keeps_rx_axis_and_maps_remote_actions") {
@@ -365,6 +417,10 @@ TEST_CASE("tembed_dome_input_keeps_rx_axis_and_maps_remote_actions") {
     raw.axis_x = -200;
     raw.axis_rx = 256;
     raw.axis_rx_normalized = 0.5f;
+    raw.source_diagnostic_flags = chopper::messages::ControllerInput::SOURCE_DIAG_TEMBED_SPLIT;
+    raw.source_report_gap_us = 220000;
+    raw.source_report_age_us = 7000;
+    raw.source_local_stop_count = 3;
     raw.button_b = true;
     raw.button_r2 = true;
     raw.misc_select = true;
@@ -376,11 +432,15 @@ TEST_CASE("tembed_dome_input_keeps_rx_axis_and_maps_remote_actions") {
     CHECK_FALSE(dome.intent_sound_b);
     CHECK(dome.intent_sound_random);
     CHECK(dome.intent_eye_color_toggle);
-    CHECK(dome.intent_dome_doors_toggle);
+    CHECK_FALSE(dome.intent_dome_doors_toggle);
     CHECK_FALSE(dome.intent_dome_random_toggle);
     CHECK_FALSE(dome.intent_neck_toggle);
     CHECK(dome.axis_rx == raw.axis_rx);
     CHECK(dome.axis_rx_normalized == doctest::Approx(raw.axis_rx_normalized));
+    CHECK(dome.source_diagnostic_flags == raw.source_diagnostic_flags);
+    CHECK(dome.source_report_gap_us == raw.source_report_gap_us);
+    CHECK(dome.source_report_age_us == raw.source_report_age_us);
+    CHECK(dome.source_local_stop_count == raw.source_local_stop_count);
     CHECK(dome.axis_x == 0);
     CHECK_FALSE(dome.button_a);
     CHECK_FALSE(dome.button_b);
@@ -392,4 +452,97 @@ TEST_CASE("tembed_dome_input_keeps_rx_axis_and_maps_remote_actions") {
     const auto dome_button_a = chopper::input::makeTEmbedDomeInput(raw);
     CHECK_FALSE(dome_button_a.intent_sound_a);
     CHECK(dome_button_a.intent_sound_b);
+
+    raw = {};
+    raw.button_l2 = true;
+    const auto dome_button_l2 = chopper::input::makeTEmbedDomeInput(raw);
+    CHECK(dome_button_l2.intent_eye_color_toggle);
+
+    raw = {};
+    raw.button_thumb_l = true;
+    raw.button_thumb_r = true;
+    raw.button_y = true;
+    raw.misc_select = true;
+    const auto dome_drive_buttons = chopper::input::makeTEmbedDomeInput(raw);
+    CHECK_FALSE(dome_drive_buttons.intent_sound_a);
+    CHECK_FALSE(dome_drive_buttons.intent_sound_b);
+    CHECK_FALSE(dome_drive_buttons.intent_sound_random);
+    CHECK_FALSE(dome_drive_buttons.intent_dome_doors_toggle);
+}
+
+TEST_CASE("tembed_split_routes_each_raw_button_without_role_collisions") {
+    using ControllerInput = chopper::messages::ControllerInput;
+    using RawButtonField = bool ControllerInput::*;
+
+    struct ButtonRouteCase {
+        const char* name;
+        RawButtonField raw_button;
+        bool drive_periscope_up;
+        bool drive_periscope_down;
+        bool drive_periscope_spin_left;
+        bool drive_periscope_spin_right;
+        bool drive_dome_doors;
+        bool drive_body_left;
+        bool drive_body_right;
+        bool drive_body_utility;
+        bool dome_sound_a;
+        bool dome_sound_b;
+        bool dome_sound_random;
+        bool dome_eye_color;
+    };
+
+    constexpr ButtonRouteCase cases[] = {
+        {"button_a", &ControllerInput::button_a, false, false, false, false, false, false, false, false, false, true,
+         false, false},
+        {"button_b", &ControllerInput::button_b, false, false, false, false, false, false, false, false, true, false,
+         false, false},
+        {"button_x", &ControllerInput::button_x, true, true, false, false, false, false, false, false, false, false,
+         false, false},
+        {"button_y", &ControllerInput::button_y, false, false, false, false, false, false, false, true, false, false,
+         false, false},
+        {"button_l1", &ControllerInput::button_l1, false, false, false, false, false, true, false, false, false,
+         false, false, false},
+        {"button_l2", &ControllerInput::button_l2, false, false, false, false, false, false, false, false, false,
+         false, false, true},
+        {"button_r1", &ControllerInput::button_r1, false, false, false, false, false, false, true, false, false,
+         false, false, false},
+        {"button_r2", &ControllerInput::button_r2, false, false, false, false, false, false, false, false, false,
+         false, false, true},
+        {"button_thumb_l", &ControllerInput::button_thumb_l, false, false, true, false, false, false, false, false,
+         false, false, false, false},
+        {"button_thumb_r", &ControllerInput::button_thumb_r, false, false, false, true, false, false, false, false,
+         false, false, false, false},
+        {"misc_system", &ControllerInput::misc_system, false, false, false, false, false, false, false, false, false,
+         false, false, false},
+        {"misc_select", &ControllerInput::misc_select, false, false, false, false, true, false, false, false, false,
+         false, false, false},
+        {"misc_start", &ControllerInput::misc_start, false, false, false, false, false, false, false, false, false,
+         false, true, false},
+        {"misc_capture", &ControllerInput::misc_capture, false, false, false, false, false, false, false, false, false,
+         false, false, false},
+    };
+
+    for (const auto& entry : cases) {
+        CAPTURE(entry.name);
+        ControllerInput raw{};
+        raw.*entry.raw_button = true;
+
+        const auto drive = chopper::input::makeTEmbedDriveInput(raw);
+        const auto dome = chopper::input::makeTEmbedDomeInput(raw);
+
+        CHECK(drive.intent_periscope_up == entry.drive_periscope_up);
+        CHECK(drive.intent_periscope_down == entry.drive_periscope_down);
+        CHECK(drive.intent_periscope_spin_left == entry.drive_periscope_spin_left);
+        CHECK(drive.intent_periscope_spin_right == entry.drive_periscope_spin_right);
+        CHECK(drive.intent_dome_doors_toggle == entry.drive_dome_doors);
+        CHECK(drive.intent_body_left_door_toggle == entry.drive_body_left);
+        CHECK(drive.intent_body_right_door_toggle == entry.drive_body_right);
+        CHECK(drive.intent_body_utility_toggle == entry.drive_body_utility);
+
+        CHECK(dome.intent_sound_a == entry.dome_sound_a);
+        CHECK(dome.intent_sound_b == entry.dome_sound_b);
+        CHECK(dome.intent_sound_random == entry.dome_sound_random);
+        CHECK(dome.intent_eye_color_toggle == entry.dome_eye_color);
+        CHECK_FALSE(dome.intent_dome_doors_toggle);
+    }
 }

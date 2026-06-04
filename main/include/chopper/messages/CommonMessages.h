@@ -14,6 +14,10 @@ namespace chopper::messages {
  */
 class ControllerInput : public core::TypedMessage<ControllerInput> {
 public:
+    static constexpr uint16_t SOURCE_DIAG_FRESH_REPORT = 1u << 0;
+    static constexpr uint16_t SOURCE_DIAG_TEMBED_SPLIT = 1u << 1;
+    static constexpr uint16_t SOURCE_DIAG_LOCAL_STOP = 1u << 2;
+
     ControllerInput() = default;
 
     // D-pad
@@ -81,6 +85,13 @@ public:
     // Slew-rate limited values
     float axis_x_slew = 0.0f;
     float axis_y_slew = 0.0f;
+
+    // Input-source diagnostics. These describe the path from the BT report to
+    // this published input message, not downstream actuator timing.
+    uint16_t source_diagnostic_flags = 0;
+    uint32_t source_report_gap_us = 0;
+    uint32_t source_report_age_us = 0;
+    uint32_t source_local_stop_count = 0;
 
     // Canonical intent fields. Populated by the runtime mapping layer
     // when available; nodes may fall back to legacy button fields.

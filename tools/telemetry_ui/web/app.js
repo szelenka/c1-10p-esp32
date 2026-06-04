@@ -252,7 +252,7 @@ function initControllerSlots() {
     const maskEl = document.createElement("div");
     maskEl.className = "jc-mask";
     maskEl.id = `jc${slot.id}-mask`;
-    maskEl.innerHTML = "mask: -<br>misc: -";
+    maskEl.innerHTML = "mask: -<br>misc: -<br>edge: - / -";
     container.appendChild(maskEl);
   }
 }
@@ -315,6 +315,27 @@ function applyMask(slotId, side, buttonMask, miscMask) {
   });
 }
 
+function pulseEdgeMask(slotId, side, buttonEdgeMask, miscEdgeMask) {
+  const container = document.getElementById(`jc-slot-${slotId}`);
+  if (!container) return;
+  if (!buttonEdgeMask && !miscEdgeMask) return;
+
+  container.querySelectorAll(".jc-btn[data-side], .jc-btn-face[data-side], .jc-btn-hidden[data-side]").forEach((el) => {
+    if (el.dataset.side !== side) return;
+    let edge = false;
+    if (el.dataset.bit !== undefined) {
+      const bit = Number(el.dataset.bit);
+      edge = Number.isFinite(buttonEdgeMask) && ((buttonEdgeMask >> bit) & 1) === 1;
+    } else if (el.dataset.miscBit !== undefined) {
+      const miscBit = Number(el.dataset.miscBit);
+      edge = Number.isFinite(miscEdgeMask) && ((miscEdgeMask >> miscBit) & 1) === 1;
+    }
+    if (!edge) return;
+    el.classList.add("edge");
+    window.setTimeout(() => el.classList.remove("edge"), 180);
+  });
+}
+
 function setControllerConnected(slotId, connected, role) {
   const body = document.getElementById(`jc${slotId}-body`);
   if (!body) return;
@@ -361,10 +382,13 @@ function applyStickPosition(slotId, axes, centerX, centerY, joyconType) {
   stickEl.setAttribute("cy", centerY + ny * STICK_MAX_DEFLECTION);
 }
 
-function updateMaskDisplay(slotId, buttonMask, miscMask) {
+function updateMaskDisplay(slotId, buttonMask, miscMask, buttonEdgeMask = 0, miscEdgeMask = 0) {
   const el = document.getElementById(`jc${slotId}-mask`);
   if (!el) return;
-  el.innerHTML = `mask: ${hexMask(buttonMask)}<br>misc: ${hexMask(miscMask)}`;
+  el.innerHTML =
+    `mask: ${hexMask(buttonMask)}<br>` +
+    `misc: ${hexMask(miscMask)}<br>` +
+    `edge: ${hexMask(buttonEdgeMask)} / ${hexMask(miscEdgeMask)}`;
 }
 
 function updateBatteryDisplay(slotId, battery, connected) {
@@ -603,15 +627,18 @@ function updateController(slotId, data) {
   const connected = !!data.connected;
   const buttonMask = data.buttons ?? 0;
   const miscMask = data.misc ?? 0;
+  const buttonEdgeMask = data.button_edge_mask ?? data.edge_mask ?? 0;
+  const miscEdgeMask = data.misc_edge_mask ?? 0;
   const axes = data.axes || [0, 0, 0, 0];
   const playerLeds = data.player_leds;
   const role = data.role || slot.role;
 
   setControllerConnected(slotId, connected, role);
   applyMask(slotId, side, buttonMask, miscMask);
+  pulseEdgeMask(slotId, side, buttonEdgeMask, miscEdgeMask);
   applyStickPosition(slotId, axes, slot.stickCX, slot.stickCY, slot.type);
   setPlayerLeds(slotId, connected, playerLeds);
-  updateMaskDisplay(slotId, buttonMask, miscMask);
+  updateMaskDisplay(slotId, buttonMask, miscMask, buttonEdgeMask, miscEdgeMask);
   updateBatteryDisplay(slotId, data.battery, connected);
   const roleEl = document.getElementById(`jc${slotId}-role`);
   if (roleEl) roleEl.textContent = role;
@@ -626,46 +653,32 @@ function updateController(slotId, data) {
   }
 }
 
-// ── Simulated node logic (mirrors firmware intent handling) ──────────
+// ── Fallback output simulation ───────────────────────────────────────
 
 const DOME_SLOT = 1;
 const ZR_BIT = 7;               // BUTTON_TRIGGER_R = ZR on Joy-Con (R)
 const RIGHT_EYE_LED_ID = "1";   // LED ID for right eye lens
 const CENTRE_EYE_LED_ID = "2";  // LED ID for centre eye lens
+const EYE_LED_IDS = [RIGHT_EYE_LED_ID, CENTRE_EYE_LED_ID];
 
 let prevDomeButtons = 0;
 let eyeIsRed = false;
 
-/**
- * Simulate the DomeNode eye-color toggle: when ZR on the dome controller
- * has a rising edge, toggle the centre and right eyes between red and blue
- * and inject synthetic LED events into the telemetry message.
- */
-function simulateEyeColorToggle(msg) {
-  let domeButtons = 0;
-  if (msg.controllers && msg.controllers[DOME_SLOT]) {
-    domeButtons = msg.controllers[DOME_SLOT].buttons ?? 0;
-  } else if (msg.joycon) {
-    domeButtons = msg.joycon.right_mask ?? 0;
-  }
+function normalizeLedColor(color) {
+  if (!color || typeof color !== "object") return null;
+  return {
+    r: color.r ?? color.red ?? 0,
+    g: color.g ?? color.green ?? 0,
+    b: color.b ?? color.blue ?? 0,
+  };
+}
 
-  const pressed = ((domeButtons >> ZR_BIT) & 1) === 1;
-  const wasPrev = ((prevDomeButtons >> ZR_BIT) & 1) === 1;
-  prevDomeButtons = domeButtons;
-
-  if (pressed && !wasPrev) {
-    eyeIsRed = !eyeIsRed;
-  }
-
-  const color = eyeIsRed
-    ? { r: 255, g: 0, b: 0 }
-    : { r: 0, g: 0, b: 255 };
-
+function applyEyeLedColor(msg, color) {
   if (!msg.leds) {
     msg.leds = [];
   }
-  // Replace or append LED entries — centre and right eyes stay in sync
-  for (const ledId of [RIGHT_EYE_LED_ID, CENTRE_EYE_LED_ID]) {
+
+  for (const ledId of EYE_LED_IDS) {
     const existing = msg.leds.findIndex((l) => String(l.id) === ledId);
     const entry = { id: ledId, state: "on", color };
     if (existing >= 0) {
@@ -674,6 +687,54 @@ function simulateEyeColorToggle(msg) {
       msg.leds.push(entry);
     }
   }
+}
+
+function syncEyeColorFromLedTelemetry(msg) {
+  if (!Array.isArray(msg.leds)) return false;
+
+  const eyeLed = msg.leds.find((l) => EYE_LED_IDS.includes(String(l.id)));
+  if (!eyeLed) return false;
+
+  const color = normalizeLedColor(eyeLed.color);
+  if (!color) return false;
+
+  eyeIsRed = color.r > color.b;
+  applyEyeLedColor(msg, color);
+  return true;
+}
+
+/**
+ * Simulate the DomeNode eye-color toggle when LED output telemetry is absent.
+ * Fallback only; LED output telemetry is authoritative when present.
+ */
+function simulateEyeColorToggle(msg) {
+  if (syncEyeColorFromLedTelemetry(msg)) {
+    return;
+  }
+
+  let toggle = false;
+  const domeController = (msg.controllers && msg.controllers[DOME_SLOT]) ? msg.controllers[DOME_SLOT] : null;
+  let domeButtons = 0;
+  if (domeController) {
+    domeButtons = domeController.buttons ?? 0;
+  } else if (msg.joycon) {
+    domeButtons = msg.joycon.right_mask ?? 0;
+  }
+
+  const pressed = ((domeButtons >> ZR_BIT) & 1) === 1;
+  const wasPrev = ((prevDomeButtons >> ZR_BIT) & 1) === 1;
+  prevDomeButtons = domeButtons;
+  toggle = pressed && !wasPrev;
+
+  if (toggle) {
+    eyeIsRed = !eyeIsRed;
+  }
+
+  const color = eyeIsRed
+    ? { r: 255, g: 0, b: 0 }
+    : { r: 0, g: 0, b: 255 };
+
+  applyEyeLedColor(msg, color);
 }
 
 // ── Telemetry handler ────────────────────────────────────────────────

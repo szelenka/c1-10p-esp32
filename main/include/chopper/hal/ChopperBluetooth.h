@@ -40,6 +40,9 @@ typedef struct {
     uint8_t btaddr[6];             ///< Controller MAC address (raw bytes)
     uint16_t controller_type;      ///< Bluepad32 controller type
     uint64_t last_report_time_us;  ///< esp_timer timestamp of last real controller report
+    uint32_t last_report_gap_us;   ///< Time between the two most recent BT callbacks
+    uint32_t report_count;         ///< Monotonic count of BT callbacks received for this slot
+    int8_t hid_index;              ///< Bluepad32 HID device index, or -1 when not assigned
 } chopper_gamepad_data_t;
 
 /**
@@ -65,6 +68,43 @@ struct uni_platform* get_chopper_platform(void);
  * @return 0 on success, -1 if slot_index is out of range or mutex unavailable.
  */
 int chopper_bt_get_gamepad(int slot_index, chopper_gamepad_data_t* out_data);
+
+/**
+ * Request Bluepad32 to disconnect the controller currently occupying a
+ * Chopper BT slot.
+ *
+ * This schedules the disconnect on the BTstack thread and returns immediately.
+ *
+ * @param slot_index  Chopper BT slot index (0 to CHOPPER_BT_MAX_DEVICES-1).
+ * @return 0 if a disconnect was scheduled, -1 if the slot has no HID device.
+ */
+int chopper_bt_disconnect_gamepad(int slot_index);
+
+/**
+ * Request Bluepad32 to disconnect a controller and include a caller-provided
+ * reason in Chopper logs.
+ *
+ * @param slot_index  Chopper BT slot index (0 to CHOPPER_BT_MAX_DEVICES-1).
+ * @param reason      Static diagnostic reason string; may be NULL.
+ * @return 0 if a disconnect was scheduled, -1 if the slot has no HID device.
+ */
+int chopper_bt_disconnect_gamepad_with_reason(int slot_index, const char* reason);
+
+/**
+ * Request Bluepad32 discovery to restart.
+ *
+ * Safe to call from the application task after a disconnect has been observed.
+ * The scan restart is scheduled on the BTstack thread.
+ */
+void chopper_bt_restart_discovery(void);
+
+/**
+ * Request BLE discovery to restart without touching Classic inquiry.
+ *
+ * Safe to call from the application task. The LE scan restart is scheduled on
+ * the BTstack thread.
+ */
+void chopper_bt_restart_le_discovery(void);
 
 /**
  * Returns the number of currently connected controllers.

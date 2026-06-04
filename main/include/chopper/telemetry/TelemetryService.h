@@ -103,6 +103,7 @@ private:
     struct InputState {
         bool valid = false;
         bool connected = false;
+        bool has_data = false;
         uint8_t battery = 0;
         uint8_t dpad = 0;
         int32_t axis_x = 0;
@@ -117,6 +118,10 @@ private:
         uint32_t change_count = 0;
         uint32_t button_edge_count = 0;
         uint16_t button_edge_mask = 0;
+        uint16_t pending_button_edge_mask = 0;
+        uint32_t misc_edge_count = 0;
+        uint16_t misc_edge_mask = 0;
+        uint16_t pending_misc_edge_mask = 0;
         uint64_t last_change_us = 0;
         uint64_t last_report_us = 0;
         uint32_t avg_report_interval_us = 0;
@@ -167,8 +172,10 @@ private:
         InputState input_states[static_cast<size_t>(InputRole::COUNT)];
         MotorState motor_states[limits::MAX_MOTORS];
         ServoState servo_states[static_cast<size_t>(ServoSourceGroup::COUNT)][limits::MAX_MOTORS];
+        LedState led_states[limits::MAX_LEDS];
         LedState led_state;
         AudioState audio_state;
+        AudioState pending_audio_state;
         StatusState status_state;
     };
 
@@ -205,8 +212,10 @@ private:
     InputState input_states_[static_cast<size_t>(InputRole::COUNT)];
     MotorState motor_states_[limits::MAX_MOTORS];
     ServoState servo_states_[static_cast<size_t>(ServoSourceGroup::COUNT)][limits::MAX_MOTORS];
+    LedState led_states_[limits::MAX_LEDS];
     LedState led_state_;
     AudioState audio_state_;
+    AudioState pending_audio_state_;
     StatusState status_state_;
     PublishFrame async_pending_frame_;
     PublishFrame publish_frame_;

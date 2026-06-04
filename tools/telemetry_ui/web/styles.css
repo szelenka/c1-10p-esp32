@@ -376,6 +376,11 @@ p {
   stroke: rgba(0, 90, 80, 0.9);
 }
 
+.jc-btn.edge {
+  fill: rgba(0, 150, 136, 0.95);
+  stroke: rgba(0, 90, 80, 0.95);
+}
+
 .jc-btn-face {
   fill: rgba(200, 208, 216, 0.55);
   stroke: rgba(140, 150, 160, 0.5);
@@ -385,6 +390,11 @@ p {
 .jc-btn-face.active {
   fill: rgba(0, 121, 107, 0.85);
   stroke: rgba(0, 90, 80, 0.9);
+}
+
+.jc-btn-face.edge {
+  fill: rgba(0, 150, 136, 0.95);
+  stroke: rgba(0, 90, 80, 0.95);
 }
 
 .jc-btn-hidden {
@@ -398,12 +408,22 @@ p {
   stroke-width: 1;
 }
 
+.jc-btn-hidden.edge {
+  fill: rgba(0, 150, 136, 0.35);
+  stroke: rgba(0, 90, 80, 0.5);
+  stroke-width: 1;
+}
+
 .jc-trigger {
   fill: rgba(190, 198, 206, 0.5);
 }
 
 .jc-trigger.active {
   fill: rgba(0, 121, 107, 0.85);
+}
+
+.jc-trigger.edge {
+  fill: rgba(0, 150, 136, 0.95);
 }
 
 .jc-label {
