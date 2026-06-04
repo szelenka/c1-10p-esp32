@@ -66,6 +66,7 @@ render-agent-docs:
 
 VIZ_SVG_FILES := \
 	docs/visualizations/pubsub-flow.svg \
+	docs/visualizations/all-nodes-horizontal-stack.svg \
 	docs/visualizations/button-flow-drive-stick-example.svg \
 	docs/visualizations/button-flow-volume-up-example.svg \
 	docs/visualizations/button-flow-periscope-up-example.svg \
@@ -74,7 +75,7 @@ VIZ_SVG_FILES := \
 VIZ_PNG_FILES := $(VIZ_SVG_FILES:.svg=.png)
 VIZ_PNG_CONVERT ?= rsvg-convert
 
-viz: render-pubsub-flow render-button-flow-example render-button-flow-volume-example render-button-flow-periscope-example render-button-flow-face-tracking-example render-button-flow-dome-spin-example
+viz: render-pubsub-flow render-all-nodes-horizontal-stack render-button-flow-example render-button-flow-volume-example render-button-flow-periscope-example render-button-flow-face-tracking-example render-button-flow-dome-spin-example
 
 png: $(VIZ_PNG_FILES)
 
@@ -83,6 +84,10 @@ docs/visualizations/%.png: docs/visualizations/%.svg
 
 render-pubsub-flow:
 	@$(PYTHON) ./.scripts/render_svg_diagram.py docs/visualizations/pubsub-flow.layout.yml --write
+
+render-all-nodes-horizontal-stack:
+	@$(PYTHON) ./.scripts/render_all_nodes_stack.py --write
+	@$(PYTHON) ./.scripts/render_svg_diagram.py docs/visualizations/all-nodes-horizontal-stack.layout.yml --write
 
 render-button-flow-example:
 	@$(PYTHON) ./.scripts/render_svg_diagram.py docs/visualizations/button-flow-drive-stick-example.layout.yml --write
@@ -99,10 +104,14 @@ render-button-flow-face-tracking-example:
 render-button-flow-dome-spin-example:
 	@$(PYTHON) ./.scripts/render_svg_diagram.py docs/visualizations/button-flow-dome-spin-example.layout.yml --write
 
-check-viz: check-pubsub-flow check-button-flow-example check-button-flow-volume-example check-button-flow-periscope-example check-button-flow-face-tracking-example check-button-flow-dome-spin-example check-png
+check-viz: check-pubsub-flow check-all-nodes-horizontal-stack check-button-flow-example check-button-flow-volume-example check-button-flow-periscope-example check-button-flow-face-tracking-example check-button-flow-dome-spin-example check-png
 
 check-pubsub-flow:
 	@$(PYTHON) ./.scripts/render_svg_diagram.py docs/visualizations/pubsub-flow.layout.yml --check
+
+check-all-nodes-horizontal-stack:
+	@$(PYTHON) ./.scripts/render_all_nodes_stack.py --check
+	@$(PYTHON) ./.scripts/render_svg_diagram.py docs/visualizations/all-nodes-horizontal-stack.layout.yml --check
 
 check-button-flow-example:
 	@$(PYTHON) ./.scripts/render_svg_diagram.py docs/visualizations/button-flow-drive-stick-example.layout.yml --check
