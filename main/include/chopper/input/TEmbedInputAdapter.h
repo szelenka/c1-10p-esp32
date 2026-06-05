@@ -10,6 +10,7 @@ namespace chopper::input {
 
 inline constexpr const char* kTEmbedMac = config::bluetooth::TEMBED_MAC;
 inline constexpr float kTEmbedDriveMotionThreshold = 0.05f;
+inline constexpr uint16_t kTEmbedButtonCameraToggle = 1u << 15;
 
 inline bool isTEmbedMac(const char* mac_address) {
     return mac_address != nullptr && std::strncmp(mac_address, kTEmbedMac, 17) == 0;
@@ -86,6 +87,7 @@ inline messages::ControllerInput makeTEmbedDomeInput(const messages::ControllerI
     out.intent_sound_random = raw.misc_start;
     // Vambrace sends EYES as R2 plus an L2 alias; either reports the same dome intent.
     out.intent_eye_color_toggle = raw.button_r2 || raw.button_l2;
+    out.intent_face_tracking_toggle = (raw.buttons & kTEmbedButtonCameraToggle) != 0;
     return out;
 }
 

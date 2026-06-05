@@ -417,6 +417,12 @@ TEST_CASE("tembed_decoded_button_x_remains_periscope_lift") {
     raw.misc_start = true;
     const auto random_sound = chopper::input::makeTEmbedDomeInput(raw);
     CHECK(random_sound.intent_sound_random);
+
+    raw = {};
+    raw.buttons = chopper::input::kTEmbedButtonCameraToggle;
+    const auto camera_toggle = chopper::input::makeTEmbedDomeInput(raw);
+    CHECK(camera_toggle.has_intents);
+    CHECK(camera_toggle.intent_face_tracking_toggle);
 }
 
 TEST_CASE("tembed_dome_input_keeps_rx_axis_and_maps_remote_actions") {

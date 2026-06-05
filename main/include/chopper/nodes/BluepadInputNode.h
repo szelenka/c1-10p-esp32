@@ -646,14 +646,15 @@ private:
                      "T-Embed button split: bt_slot=%d raw_buttons=0x%04x raw_misc=0x%02x "
                      "raw_dpad=0x%02x blocked[drive=%d dome=%d] "
                      "drive[peri_up=%d peri_down=%d spin_l=%d spin_r=%d doors=%d util=%d] "
-                     "dome[sound_a=%d sound_b=%d random=%d eyes=%d]",
+                     "dome[sound_a=%d sound_b=%d random=%d eyes=%d tracking=%d]",
                      bt_slot, static_cast<unsigned>(input.buttons), static_cast<unsigned>(input.misc_buttons),
                      static_cast<unsigned>(input.dpad), drive_blocked ? 1 : 0, dome_blocked ? 1 : 0,
                      drive_input.intent_periscope_up ? 1 : 0, drive_input.intent_periscope_down ? 1 : 0,
                      drive_input.intent_periscope_spin_left ? 1 : 0, drive_input.intent_periscope_spin_right ? 1 : 0,
                      drive_input.intent_dome_doors_toggle ? 1 : 0, drive_input.intent_body_utility_toggle ? 1 : 0,
                      dome_input.intent_sound_a ? 1 : 0, dome_input.intent_sound_b ? 1 : 0,
-                     dome_input.intent_sound_random ? 1 : 0, dome_input.intent_eye_color_toggle ? 1 : 0);
+                     dome_input.intent_sound_random ? 1 : 0, dome_input.intent_eye_color_toggle ? 1 : 0,
+                     dome_input.intent_face_tracking_toggle ? 1 : 0);
             last_tembed_buttons_[bt_slot] = input.buttons;
             last_tembed_misc_[bt_slot] = input.misc_buttons;
             last_tembed_dpad_[bt_slot] = input.dpad;
