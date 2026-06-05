@@ -303,7 +303,7 @@ private:
                     cmd.color.blue = 255;
                     cmd.color.white = 0;
                 }
-                // Send to both eyes — center and right stay in sync
+                // Send to both eyes — center and right stay in sync.
                 cmd.led_id = LED_ID_RIGHT_EYE;
                 led_pub_->publish(cmd);
                 cmd.led_id = LED_ID_CENTER_EYE;

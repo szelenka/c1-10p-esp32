@@ -577,6 +577,80 @@ void test_periscope_intent_toggles_lift() {
     PASS();
 }
 
+void test_periscope_led_colors_only_when_lifted() {
+    TEST(periscope_led_colors_only_when_lifted);
+    resetFramework();
+    mock_esp_timer_set(1'000'000);
+
+    auto node = std::make_shared<chopper::nodes::PeriscopeNode>();
+    ASSERT(node->initialize());
+    node->activate();
+
+    int periscope_led_count = 0;
+    chopper::messages::LEDCommand last_led;
+    struct LedCtx {
+        chopper::messages::LEDCommand* last;
+        int* count;
+    };
+    LedCtx led_ctx{&last_led, &periscope_led_count};
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto led_sub = broker.createSubscription<chopper::messages::LEDCommand>(
+        "led/dome_eye/cmd",
+        [](const chopper::messages::LEDCommand& cmd, void* c) {
+            if (cmd.led_id != 4) {
+                return;
+            }
+            auto* ctx = static_cast<LedCtx*>(c);
+            (*ctx->count)++;
+            *ctx->last = cmd;
+        },
+        &led_ctx);
+    ASSERT(led_sub != nullptr);
+
+    auto led_pub = broker.createPublisher<chopper::messages::LEDCommand>("led/dome_eye/cmd");
+    ASSERT(led_pub != nullptr);
+    chopper::messages::LEDCommand eye_color;
+    eye_color.command_type = chopper::messages::LEDCommand::CommandType::SET_COLOR;
+    eye_color.led_id = 1;
+    eye_color.color.red = 255;
+    led_pub->publish(eye_color);
+    ASSERT(periscope_led_count == 0);
+
+    auto ctrl_pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/drive");
+
+    auto input = connectedControllerInput();
+    input.has_intents = true;
+    input.intent_periscope_up = true;
+    ctrl_pub->publish(input);
+
+    ASSERT(periscope_led_count == 0);
+
+    mock_esp_timer_set(1'799'000);
+    node->process(1'799'000);
+    ASSERT(periscope_led_count == 0);
+
+    mock_esp_timer_set(1'800'000);
+    node->process(1'800'000);
+    ASSERT(periscope_led_count == 1);
+    ASSERT(last_led.command_type == chopper::messages::LEDCommand::CommandType::SET_COLOR);
+    ASSERT(last_led.led_id == 4);
+    ASSERT(last_led.color.red == 255);
+
+    input.intent_periscope_up = false;
+    ctrl_pub->publish(input);
+
+    mock_esp_timer_set(1'820'000);
+    input.intent_periscope_down = true;
+    ctrl_pub->publish(input);
+
+    ASSERT(periscope_led_count == 2);
+    ASSERT(last_led.command_type == chopper::messages::LEDCommand::CommandType::TURN_OFF);
+    ASSERT(last_led.led_id == 4);
+    mock_esp_timer_reset();
+    PASS();
+}
+
 void test_periscope_intent_spins_left() {
     TEST(periscope_intent_spins_left);
     resetFramework();
@@ -2048,6 +2122,53 @@ void test_dome_disconnect_zero_disables_random_mode() {
     PASS();
 }
 
+void test_dome_eye_toggle_publishes_eye_led_colors() {
+    TEST(dome_eye_toggle_publishes_eye_led_colors);
+    resetFramework();
+
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    ASSERT(node->initialize());
+
+    struct LedCapture {
+        int count;
+        uint8_t ids[4];
+        chopper::messages::LEDCommand::Color colors[4];
+    };
+    LedCapture capture{};
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto led_sub = broker.createSubscription<chopper::messages::LEDCommand>(
+        "led/dome_eye/cmd",
+        [](const chopper::messages::LEDCommand& cmd, void* ctx) {
+            auto* cap = static_cast<LedCapture*>(ctx);
+            if (cap->count < 4) {
+                cap->ids[cap->count] = cmd.led_id;
+                cap->colors[cap->count] = cmd.color;
+            }
+            cap->count++;
+        },
+        &capture);
+    ASSERT(led_sub != nullptr);
+
+    auto ctrl_pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/dome");
+
+    auto input = connectedControllerInput();
+    input.has_intents = true;
+    input.intent_eye_color_toggle = true;
+    ctrl_pub->publish(input);
+
+    ASSERT(capture.count == 2);
+    ASSERT(capture.ids[0] == 1);
+    ASSERT(capture.ids[1] == 2);
+    for (int i = 0; i < 2; ++i) {
+        ASSERT(capture.colors[i].red == 255);
+        ASSERT(capture.colors[i].green == 0);
+        ASSERT(capture.colors[i].blue == 0);
+        ASSERT(capture.colors[i].white == 0);
+    }
+    PASS();
+}
+
 // ============================================================
 // DomeNode face tracking tests
 // ============================================================
@@ -2467,6 +2588,7 @@ int main() {
 
     // PeriscopeNode
     test_periscope_intent_toggles_lift();
+    test_periscope_led_colors_only_when_lifted();
     test_periscope_intent_spins_left();
     test_periscope_intent_spins_right();
     test_periscope_no_spin_when_down();
@@ -2510,6 +2632,7 @@ int main() {
     test_dome_connected_neutral_preserves_random_mode();
     test_dome_disconnect_zero_clears_tracking_speed();
     test_dome_disconnect_zero_disables_random_mode();
+    test_dome_eye_toggle_publishes_eye_led_colors();
 
     // DomeNode face tracking
     test_dome_tracking_toggle_via_intent();

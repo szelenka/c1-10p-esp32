@@ -9,7 +9,7 @@ namespace chopper::nodes {
 /**
  * Bridge node for ESP32 ↔ OpenMV serial communication.
  *
- * Subscribes to LED commands for dome eye LEDs, serializes them into
+ * Subscribes to OpenMV LED and tracking commands, serializes them into
  * a binary wire protocol, and writes to the OpenMV serial port.
  * Reads incoming vision result frames from the OpenMV and publishes
  * VisionResult messages.
@@ -47,9 +47,9 @@ public:
     void process(uint64_t) override { readSerial(); }
 
     void emergencyStop() override {
-        // Turn off all dome eye LEDs
-        uint8_t payload[] = {0};
-        sendFrame(CMD_LED_OFF, payload, sizeof(payload));
+        sendLedOff(LED_ID_RIGHT_EYE);
+        sendLedOff(LED_ID_CENTER_EYE);
+        sendLedOff(LED_ID_PERISCOPE);
     }
 
     // --- Wire protocol constants (public for tests and MicroPython reference) ---
@@ -68,8 +68,19 @@ public:
 
     static constexpr uint8_t MAX_PAYLOAD_SIZE = 16;
 
+    static constexpr uint8_t LED_ID_RIGHT_EYE = 1;
+    static constexpr uint8_t LED_ID_CENTER_EYE = 2;
+    static constexpr uint8_t LED_ID_PERISCOPE = 4;
+
     /// Expose parse state for testing.
     [[nodiscard]] bool isIdle() const { return parse_state_ == ParseState::WAIT_SYNC; }
+
+protected:
+    bool onActivate() override {
+        sendTrackingSet(false);
+        sendLedOff(LED_ID_PERISCOPE);
+        return true;
+    }
 
 private:
     // ---- TX: pub/sub → serial ----
@@ -104,8 +115,15 @@ private:
         }
     }
 
-    void onTrackingCommand(const messages::TrackingCommand& cmd) {
-        uint8_t payload[] = {static_cast<uint8_t>(cmd.enabled ? 1 : 0)};
+    void onTrackingCommand(const messages::TrackingCommand& cmd) { sendTrackingSet(cmd.enabled); }
+
+    void sendLedOff(uint8_t led_id) {
+        uint8_t payload[] = {led_id};
+        sendFrame(CMD_LED_OFF, payload, sizeof(payload));
+    }
+
+    void sendTrackingSet(bool enabled) {
+        uint8_t payload[] = {static_cast<uint8_t>(enabled ? 1 : 0)};
         sendFrame(CMD_TRACKING_SET, payload, sizeof(payload));
     }
 

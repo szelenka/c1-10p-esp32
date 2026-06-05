@@ -119,6 +119,29 @@ void test_initialize_success() {
     PASS();
 }
 
+void test_activate_disables_tracking_and_periscope_led() {
+    TEST(activate_disables_tracking_and_periscope_led);
+    MockSerialPort serial;
+    auto node = std::make_shared<chopper::nodes::OpenMvBridgeNode>(&serial);
+    ASSERT(node->initialize());
+
+    ASSERT(node->activate());
+
+    using Node = chopper::nodes::OpenMvBridgeNode;
+    ASSERT(serial.tx_len == 10);
+    ASSERT(serial.tx_buf[0] == Node::SYNC_BYTE);
+    ASSERT(serial.tx_buf[1] == Node::CMD_TRACKING_SET);
+    ASSERT(serial.tx_buf[2] == 1);
+    ASSERT(serial.tx_buf[3] == 0);
+    ASSERT(serial.tx_buf[4] == xorChecksum(Node::CMD_TRACKING_SET, 1, &serial.tx_buf[3]));
+    ASSERT(serial.tx_buf[5] == Node::SYNC_BYTE);
+    ASSERT(serial.tx_buf[6] == Node::CMD_LED_OFF);
+    ASSERT(serial.tx_buf[7] == 1);
+    ASSERT(serial.tx_buf[8] == Node::LED_ID_PERISCOPE);
+    ASSERT(serial.tx_buf[9] == xorChecksum(Node::CMD_LED_OFF, 1, &serial.tx_buf[8]));
+    PASS();
+}
+
 void test_led_set_color_sends_frame() {
     TEST(led_set_color_sends_frame);
     MockSerialPort serial;
@@ -408,8 +431,8 @@ void test_oversized_payload_rejected() {
     PASS();
 }
 
-void test_emergency_stop_sends_led_off() {
-    TEST(emergency_stop_sends_led_off);
+void test_emergency_stop_sends_openmv_outputs_off() {
+    TEST(emergency_stop_sends_openmv_outputs_off);
     MockSerialPort serial;
     auto node = std::make_shared<chopper::nodes::OpenMvBridgeNode>(&serial);
     ASSERT(node->initialize());
@@ -417,11 +440,25 @@ void test_emergency_stop_sends_led_off() {
     node->emergencyStop();
 
     using Node = chopper::nodes::OpenMvBridgeNode;
-    ASSERT(serial.tx_len == 5);
+    ASSERT(serial.tx_len == 15);
     ASSERT(serial.tx_buf[0] == Node::SYNC_BYTE);
     ASSERT(serial.tx_buf[1] == Node::CMD_LED_OFF);
     ASSERT(serial.tx_buf[2] == 1);  // LEN
-    ASSERT(serial.tx_buf[3] == 0);  // led_id 0
+    ASSERT(serial.tx_buf[3] == Node::LED_ID_RIGHT_EYE);
+    ASSERT(serial.tx_buf[4] == xorChecksum(Node::CMD_LED_OFF, 1, &serial.tx_buf[3]));
+
+    ASSERT(serial.tx_buf[5] == Node::SYNC_BYTE);
+    ASSERT(serial.tx_buf[6] == Node::CMD_LED_OFF);
+    ASSERT(serial.tx_buf[7] == 1);
+    ASSERT(serial.tx_buf[8] == Node::LED_ID_CENTER_EYE);
+    ASSERT(serial.tx_buf[9] == xorChecksum(Node::CMD_LED_OFF, 1, &serial.tx_buf[8]));
+
+    ASSERT(serial.tx_buf[10] == Node::SYNC_BYTE);
+    ASSERT(serial.tx_buf[11] == Node::CMD_LED_OFF);
+    ASSERT(serial.tx_buf[12] == 1);
+    ASSERT(serial.tx_buf[13] == Node::LED_ID_PERISCOPE);
+    ASSERT(serial.tx_buf[14] == xorChecksum(Node::CMD_LED_OFF, 1, &serial.tx_buf[13]));
+
     PASS();
 }
 
@@ -430,6 +467,7 @@ void test_emergency_stop_sends_led_off() {
 int main() {
     test_initialize_with_null_serial();
     test_initialize_success();
+    test_activate_disables_tracking_and_periscope_led();
     test_led_set_color_sends_frame();
     test_led_off_sends_frame();
     test_led_on_sends_frame();
@@ -439,7 +477,7 @@ int main() {
     test_vision_result_bad_checksum_ignored();
     test_parser_recovers_from_garbage();
     test_oversized_payload_rejected();
-    test_emergency_stop_sends_led_off();
+    test_emergency_stop_sends_openmv_outputs_off();
 
     printf("\n=== Results: %d/%d passed ===\n", pass_count, test_count);
     return (pass_count == test_count) ? 0 : 1;

@@ -51,6 +51,16 @@ Every message uses the same frame structure:
 | pattern_id  | uint8  | 0–255   | Animation pattern identifier       |
 | enabled     | uint8  | 0–1     | 1 = start face tracking, 0 = stop  |
 
+### LED IDs
+
+| LED ID | Target |
+|--------|--------|
+| `1` | Right eye NeoPixel strip |
+| `2` | Center/left eye NeoPixel strip |
+| `4` | Periscope NeoPixel |
+
+The ESP32 sends `LED_OFF` for LED ID `4` when the periscope starts lowering.
+
 ## OpenMV → ESP32 Commands (Vision)
 
 | CMD_ID | Name           | LEN | Payload                                              |
@@ -168,7 +178,7 @@ def send_vision_result(uart, center_x, center_y, width, height, confidence, dete
 
 | Topic                 | Message Type    | Direction                      | Description                        |
 |-----------------------|-----------------|--------------------------------|------------------------------------|
-| `led/dome_eye/cmd`    | LEDCommand      | → OpenMvBridgeNode → serial    | Dome eye LED commands              |
+| `led/dome_eye/cmd`    | LEDCommand      | → OpenMvBridgeNode → serial    | OpenMV LED commands                |
 | `openmv/tracking/cmd` | TrackingCommand | DomeNode → OpenMvBridgeNode → serial | Enable/disable face detection |
 | `vision/result`       | VisionResult    | serial → OpenMvBridgeNode → DomeNode | Face detection bounding box   |
 
