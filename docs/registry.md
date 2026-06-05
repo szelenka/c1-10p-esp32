@@ -25,7 +25,7 @@ Canonical topic names used across the codebase. **Always reuse these** -- do not
 | `led/cmd` | LEDCommand | (reserved / aggregate LED command channel) | TelemetryIOTapNode |
 | `led/front/cmd` | LEDCommand | BodyLedNode | TelemetryIOTapNode |
 | `led/back/cmd` | LEDCommand | (reserved) | TelemetryIOTapNode |
-| `led/dome_eye/cmd` | LEDCommand | DomeNode, PeriscopeNode | OpenMvBridgeNode, PeriscopeNode |
+| `led/dome_eye/cmd` | LEDCommand | DomeNode, PeriscopeNode | OpenMvBridgeNode |
 | `openmv/tracking/cmd` | TrackingCommand | DomeNode | OpenMvBridgeNode |
 | `vision/result` | VisionResult | OpenMvBridgeNode | DomeNode |
 | `system/status` | SystemStatus | SafetyNode | (telemetry) |

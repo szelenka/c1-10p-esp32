@@ -59,7 +59,8 @@ Every message uses the same frame structure:
 | `2` | Center/left eye NeoPixel strip |
 | `4` | Periscope NeoPixel |
 
-The ESP32 sends `LED_OFF` for LED ID `4` when the periscope starts lowering.
+The ESP32 sends blue `LED_SET_COLOR` for LED IDs `1` and `2` when `DomeNode` activates.
+The ESP32 sends blue `LED_SET_COLOR` for LED ID `4` after the periscope lift delay completes and `LED_OFF` when the periscope starts lowering.
 
 ## OpenMV → ESP32 Commands (Vision)
 

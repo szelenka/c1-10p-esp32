@@ -26,7 +26,7 @@ by `BluepadInputNode` rather than through the standard intent mapping table.
 - L1 / R1 → lower / raise neck height → `NeckNode`
 - SL+SR hold (2s) → toggle face tracking → `DomeNode` → `OpenMvBridgeNode` → OpenMV (handled by `BluepadInputNode`, not in intent map)
 - Select button → toggle random dome roam → `DomeNode`
-- R2 button → toggle eye color (red/blue) → `DomeNode` → `OpenMvBridgeNode` → OpenMV
+- R2 button → cycle eye color (blue, purple, red, yellow, green) → `DomeNode` → `OpenMvBridgeNode` → OpenMV
 - A button → play sound A → `SoundNode` → MP3 Trigger
 - B button → play sound B → `SoundNode` → MP3 Trigger
 - Start button → play random sound → `SoundNode` → MP3 Trigger

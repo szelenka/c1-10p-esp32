@@ -39,7 +39,6 @@ public:
         periscope_led_pub_ = createPublisher<messages::LEDCommand>("led/dome_eye/cmd");
         input_sub_ =
             createSubscription<messages::ControllerInput>("controller/drive", &PeriscopeNode::onControllerInput, this);
-        led_sub_ = createSubscription<messages::LEDCommand>("led/dome_eye/cmd", &PeriscopeNode::onLedCommand, this);
 
         auto& ps = core::ParameterServer::getInstance();
 
@@ -56,8 +55,7 @@ public:
         listeners_ok &= ps.onChange("servo.peri_spin.auto_min_delay", &PeriscopeNode::onParameterChanged, this);
         listeners_ok &= ps.onChange("servo.peri_spin.auto_max_delay", &PeriscopeNode::onParameterChanged, this);
 
-        return servo_pub_ != nullptr && periscope_led_pub_ != nullptr && input_sub_ != nullptr && led_sub_ != nullptr &&
-               listeners_ok;
+        return servo_pub_ != nullptr && periscope_led_pub_ != nullptr && input_sub_ != nullptr && listeners_ok;
     }
 
     void process(uint64_t) override {
@@ -140,17 +138,6 @@ private:
         last_lift_up_ = up_pressed;
         last_lift_down_ = down_pressed;
         last_lift_toggle_ = toggle_pressed;
-    }
-
-    void onLedCommand(const messages::LEDCommand& cmd) {
-        if (cmd.command_type != messages::LEDCommand::CommandType::SET_COLOR || cmd.led_id != LED_ID_RIGHT_EYE) {
-            return;
-        }
-        periscope_color_ = cmd.color;
-        periscope_color_known_ = true;
-        if (periscope_led_visible_) {
-            publishPeriscopeColor();
-        }
     }
 
     void handleSpin(const messages::ControllerInput& input, uint64_t now) {
@@ -327,13 +314,13 @@ private:
     }
 
     void publishPeriscopeColor() {
-        if (!periscope_led_pub_ || !periscope_color_known_) {
+        if (!periscope_led_pub_) {
             return;
         }
         messages::LEDCommand cmd;
         cmd.command_type = messages::LEDCommand::CommandType::SET_COLOR;
         cmd.led_id = LED_ID_PERISCOPE;
-        cmd.color = periscope_color_;
+        cmd.color.blue = 255;
         periscope_led_pub_->publish(cmd);
     }
 
@@ -412,18 +399,14 @@ private:
     static constexpr uint16_t kPeriscopeLiftMoveMs = 800;
     static constexpr uint16_t kPeriscopeSpinHalfMoveMs = 400;
     static constexpr uint16_t kPeriscopeSpinFullMoveMs = 800;
-    static constexpr uint8_t LED_ID_RIGHT_EYE = 1;
     static constexpr uint8_t LED_ID_PERISCOPE = 4;
 
     core::TypedPublisherPtr<messages::ServoCommand> servo_pub_;
     core::TypedPublisherPtr<messages::LEDCommand> periscope_led_pub_;
     core::TypedSubscriptionPtr<messages::ControllerInput> input_sub_;
-    core::TypedSubscriptionPtr<messages::LEDCommand> led_sub_;
 
     bool periscope_down_ = true;
     int8_t periscope_location_ = 0;  // -1=left, 0=center, 1=right
-    messages::LEDCommand::Color periscope_color_;
-    bool periscope_color_known_ = false;
     bool periscope_led_visible_ = false;
     bool pending_lift_color_ = false;
     uint64_t lift_color_due_ms_ = 0;

@@ -172,6 +172,12 @@ public:
     /// Allow tests to force manual-move gate open
     void setDomeMovedManually(bool moved) { dome_has_moved_manually_ = moved; }
 
+protected:
+    bool onActivate() override {
+        publishEyeColor(eyeColorForIndex(eye_color_index_));
+        return true;
+    }
+
 private:
     // ── Manual input handling ───────────────────────────────────────────
 
@@ -288,29 +294,48 @@ private:
     void handleEyeColorToggle(const messages::ControllerInput& input) {
         const bool pressed = input.has_intents ? input.intent_eye_color_toggle : input.button_r2;
         if (pressed && !last_eye_toggle_) {
-            eye_red_ = !eye_red_;
-            if (led_pub_) {
-                messages::LEDCommand cmd;
-                cmd.command_type = messages::LEDCommand::CommandType::SET_COLOR;
-                if (eye_red_) {
-                    cmd.color.red = 255;
-                    cmd.color.green = 0;
-                    cmd.color.blue = 0;
-                    cmd.color.white = 0;
-                } else {
-                    cmd.color.red = 0;
-                    cmd.color.green = 0;
-                    cmd.color.blue = 255;
-                    cmd.color.white = 0;
-                }
-                // Send to both eyes — center and right stay in sync.
-                cmd.led_id = LED_ID_RIGHT_EYE;
-                led_pub_->publish(cmd);
-                cmd.led_id = LED_ID_CENTER_EYE;
-                led_pub_->publish(cmd);
-            }
+            eye_color_index_ = static_cast<uint8_t>((eye_color_index_ + 1) % EYE_COLOR_COUNT);
+            publishEyeColor(eyeColorForIndex(eye_color_index_));
         }
         last_eye_toggle_ = pressed;
+    }
+
+    void publishEyeColor(const messages::LEDCommand::Color& color) {
+        if (!led_pub_) {
+            return;
+        }
+        messages::LEDCommand cmd;
+        cmd.command_type = messages::LEDCommand::CommandType::SET_COLOR;
+        cmd.color = color;
+        cmd.led_id = LED_ID_RIGHT_EYE;
+        led_pub_->publish(cmd);
+        cmd.led_id = LED_ID_CENTER_EYE;
+        led_pub_->publish(cmd);
+    }
+
+    static messages::LEDCommand::Color eyeColorForIndex(uint8_t index) {
+        messages::LEDCommand::Color color;
+        switch (index) {
+            case EYE_COLOR_PURPLE:
+                color.red = 255;
+                color.blue = 255;
+                break;
+            case EYE_COLOR_RED:
+                color.red = 255;
+                break;
+            case EYE_COLOR_YELLOW:
+                color.red = 255;
+                color.green = 255;
+                break;
+            case EYE_COLOR_GREEN:
+                color.green = 255;
+                break;
+            case EYE_COLOR_BLUE:
+            default:
+                color.blue = 255;
+                break;
+        }
+        return color;
     }
 
     static bool isControllerUnavailable(const messages::ControllerInput& input) {
@@ -713,7 +738,13 @@ private:
     static constexpr uint8_t LED_ID_CENTER_EYE = 2;
 
     // Eye color toggle state
-    bool eye_red_ = false;
+    static constexpr uint8_t EYE_COLOR_BLUE = 0;
+    static constexpr uint8_t EYE_COLOR_PURPLE = 1;
+    static constexpr uint8_t EYE_COLOR_RED = 2;
+    static constexpr uint8_t EYE_COLOR_YELLOW = 3;
+    static constexpr uint8_t EYE_COLOR_GREEN = 4;
+    static constexpr uint8_t EYE_COLOR_COUNT = 5;
+    uint8_t eye_color_index_ = EYE_COLOR_BLUE;
     bool last_eye_toggle_ = false;
 
     // Face tracking state
