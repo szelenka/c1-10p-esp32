@@ -348,32 +348,30 @@ void test_mechanism_joystick_rotation() {
     PASS();
 }
 
-void test_mechanism_signed_rotation_offset() {
-    TEST(mechanism_signed_rotation_offset);
+void test_mechanism_legacy_rotation_offset_clamp() {
+    TEST(mechanism_legacy_rotation_offset_clamp);
     chopper::dome::RSSMechanism mech(kBaseAlt, kEffAlt, kBottomLink, kTopLink,
                                       kMinHeight, kLimitNV, kBendOut);
 
     float x = 1.0f;
     float y = 0.0f;
     mech.setRotationAngleOffset(-30.0f);
-    auto [rx_neg, ry_neg] = mech.adjustJoystickToAngleOffset(x, y);
+    auto [rx_low, ry_low] = mech.adjustJoystickToAngleOffset(x, y);
 
     x = 1.0f;
     y = 0.0f;
     mech.setRotationAngleOffset(390.0f);
-    auto [rx_wrap_pos, ry_wrap_pos] = mech.adjustJoystickToAngleOffset(x, y);
+    auto [rx_high, ry_high] = mech.adjustJoystickToAngleOffset(x, y);
 
     x = 1.0f;
     y = 0.0f;
-    mech.setRotationAngleOffset(-390.0f);
-    auto [rx_wrap_neg, ry_wrap_neg] = mech.adjustJoystickToAngleOffset(x, y);
+    mech.setRotationAngleOffset(160.0f);
+    auto [rx_160, ry_160] = mech.adjustJoystickToAngleOffset(x, y);
 
-    ASSERT_NEAR(rx_neg, 0.866f, 0.01f);
-    ASSERT_NEAR(ry_neg, -0.5f, 0.01f);
-    ASSERT_NEAR(rx_wrap_pos, 0.866f, 0.01f);
-    ASSERT_NEAR(ry_wrap_pos, 0.5f, 0.01f);
-    ASSERT_NEAR(rx_wrap_neg, rx_neg, 0.01f);
-    ASSERT_NEAR(ry_wrap_neg, ry_neg, 0.01f);
+    ASSERT_NEAR(rx_low, 1.0f, 0.01f);
+    ASSERT_NEAR(ry_low, 0.0f, 0.01f);
+    ASSERT_NEAR(rx_high, rx_160, 0.01f);
+    ASSERT_NEAR(ry_high, ry_160, 0.01f);
     PASS();
 }
 
@@ -820,8 +818,8 @@ void test_neck_node_emergency_stop() {
     PASS();
 }
 
-void test_neck_node_disable_toggle_disables_servos() {
-    TEST(neck_node_disable_toggle_disables_servos);
+void test_neck_node_double_click_toggle_disables_servos() {
+    TEST(neck_node_double_click_toggle_disables_servos);
 
     chopper::dome::RSSMechanism mech(kBaseAlt, kEffAlt, kBottomLink, kTopLink, kMinHeight, kLimitNV, kBendOut);
     mech.setActuationRange(270);
@@ -852,14 +850,32 @@ void test_neck_node_disable_toggle_disables_servos() {
 
     node->setTime(2000);
     pub->publish(input);
-    ASSERT(mech.isEnabled());
+    ASSERT(!mech.isEnabled());
 
     input.button_thumb_l = false;
     node->setTime(2100);
     pub->publish(input);
 
     input.button_thumb_l = true;
-    node->setTime(3200);
+    node->setTime(2300);
+    pub->publish(input);
+    ASSERT(mech.isEnabled());
+
+    input.button_thumb_l = false;
+    node->setTime(2400);
+    pub->publish(input);
+
+    input.button_thumb_l = true;
+    node->setTime(3600);
+    pub->publish(input);
+    ASSERT(mech.isEnabled());
+
+    input.button_thumb_l = false;
+    node->setTime(3700);
+    pub->publish(input);
+
+    input.button_thumb_l = true;
+    node->setTime(3900);
     pub->publish(input);
 
     ASSERT(!mech.isEnabled());
@@ -883,7 +899,7 @@ void test_dome_node_publishes_position() {
     chopper::dome::DomePosition domePos;
     domePos.update(180, 1000);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 1.0f, 0, false);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 1.0f, 0);
     ASSERT(node->initialize());
     node->activate();
 
@@ -908,7 +924,7 @@ void test_dome_node_spin_control() {
     mock_esp_timer_set(1'000'000);
 
     chopper::dome::DomePosition domePos;
-    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 100.0f, 2, false);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 100.0f, 2);
     ASSERT(node->initialize());
     node->activate();
 
@@ -973,7 +989,7 @@ void test_dome_node_random_toggle() {
     chopper::dome::DomePosition domePos;
     domePos.update(180, 1000);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 1.0f, 0, false);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 1.0f, 0);
     ASSERT(node->initialize());
     node->activate();
 
@@ -1015,7 +1031,7 @@ void test_dome_node_auto_safety_gate() {
     chopper::dome::DomePosition domePos;
     domePos.update(180, 1000);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 1.0f, 0, false);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 1.0f, 0);
     ASSERT(node->initialize());
     node->activate();
 
@@ -1055,7 +1071,7 @@ void test_dome_node_idle_transition() {
     chopper::dome::DomePosition domePos;
     domePos.update(180, 0);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 100.0f, 0, false);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 100.0f, 0);
     ASSERT(node->initialize());
     node->activate();
 
@@ -1089,7 +1105,7 @@ void test_dome_node_move_to_target() {
     domePos.update(180, 0);
     domePos.setDomeHomePosition(0);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 1.0f, 0, false);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 1.0f, 0);
     ASSERT(node->initialize());
     node->activate();
 
@@ -1171,7 +1187,7 @@ int main() {
     test_mechanism_enabled_produces_pwm();
     test_mechanism_height_adjustment();
     test_mechanism_joystick_rotation();
-    test_mechanism_signed_rotation_offset();
+    test_mechanism_legacy_rotation_offset_clamp();
 
     // DomePosition
     test_dome_position_initial();
@@ -1202,7 +1218,7 @@ int main() {
     // NeckNode integration
     test_neck_node_publishes_commands();
     test_neck_node_emergency_stop();
-    test_neck_node_disable_toggle_disables_servos();
+    test_neck_node_double_click_toggle_disables_servos();
 
     // DomeNode integration
     test_dome_node_publishes_position();

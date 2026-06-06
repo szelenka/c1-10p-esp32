@@ -4,6 +4,8 @@
 #include "chopper/dome/RSSMechanism.h"
 #include "chopper/messages/CommonMessages.h"
 #include "esp_timer.h"
+#include <algorithm>
+#include <cmath>
 
 namespace chopper::nodes {
 
@@ -70,17 +72,9 @@ private:
             time_override_enabled_ ? last_time_ms_ : static_cast<uint64_t>(esp_timer_get_time() / 1000ULL);
         last_time_ms_ = now_ms;
 
-        // Handle enable/disable toggle
-        const bool neck_toggle = input.has_intents ? input.intent_neck_toggle : input.button_thumb_l;
-        if (neck_toggle && !last_thumb_l_) {
-            mechanism_->setEnabled(!mechanism_->isEnabled(), now_ms);
-            if (!mechanism_->isEnabled()) {
-                disableServos();
-                last_thumb_l_ = neck_toggle;
-                return;
-            }
+        if (handleNeckToggle(input, now_ms)) {
+            return;
         }
-        last_thumb_l_ = neck_toggle;
 
         // Height adjust
         const bool height_down = input.has_intents ? input.intent_neck_height_down : input.button_l1;
@@ -92,8 +86,10 @@ private:
             mechanism_->incrementHeight(1.0f);
         }
 
-        // Run IK: joystick slew values → PWM
-        auto pwm = mechanism_->getLegPWMFromJoystick(input.axis_x_slew, input.axis_y_slew, now_ms);
+        // c034 configured the dome controller output range to +/-rss.limit_normal before RSS IK.
+        const float x = scaleRssAxis(input.axis_x_slew, mechanism_->getLimitNormalVector());
+        const float y = scaleRssAxis(input.axis_y_slew, mechanism_->getLimitNormalVector());
+        auto pwm = mechanism_->getLegPWMFromJoystick(x, y, now_ms);
 
         // Publish servo commands for each leg
         for (size_t i = 0; i < pwm.size(); ++i) {
@@ -118,8 +114,35 @@ private:
     core::TypedSubscriptionPtr<messages::ControllerInput> input_sub_;
 
     bool last_thumb_l_ = false;
+    bool thumb_l_click_pending_ = false;
+    uint64_t last_thumb_l_time_ = 0;
     uint64_t last_time_ms_ = 0;
     bool time_override_enabled_ = false;
+
+    bool handleNeckToggle(const messages::ControllerInput& input, uint64_t now_ms) {
+        const bool pressed = input.has_intents ? input.intent_neck_toggle : input.button_thumb_l;
+        bool handled_disable = false;
+
+        if (pressed && !last_thumb_l_) {
+            const bool within_window =
+                thumb_l_click_pending_ && now_ms >= last_thumb_l_time_ && now_ms - last_thumb_l_time_ <= kDoubleClickMs;
+            if (within_window) {
+                thumb_l_click_pending_ = false;
+                last_thumb_l_time_ = 0;
+                mechanism_->setEnabled(!mechanism_->isEnabled(), now_ms);
+                if (!mechanism_->isEnabled()) {
+                    disableServos();
+                    handled_disable = true;
+                }
+            } else {
+                thumb_l_click_pending_ = true;
+                last_thumb_l_time_ = now_ms;
+            }
+        }
+
+        last_thumb_l_ = pressed;
+        return handled_disable;
+    }
 
     void disableServos() {
         for (const uint8_t servo_id : servo_ids_) {
@@ -129,6 +152,15 @@ private:
             servo_pub_->publish(cmd);
         }
     }
+
+    [[nodiscard]] static float scaleRssAxis(float axis, float limit_normal) {
+        if (!std::isfinite(axis) || !std::isfinite(limit_normal) || limit_normal <= 0.0f) {
+            return 0.0f;
+        }
+        return std::clamp(axis, -1.0f, 1.0f) * std::clamp(limit_normal, 0.0f, 1.0f);
+    }
+
+    static constexpr uint64_t kDoubleClickMs = 500;
 
 public:
     /// Allow tests / executor to inject time

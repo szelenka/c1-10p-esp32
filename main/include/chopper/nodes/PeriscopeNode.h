@@ -36,6 +36,7 @@ public:
 
     bool initialize() override {
         servo_pub_ = createPublisher<messages::ServoCommand>("servo/dome/move");
+        periscope_led_pub_ = createPublisher<messages::LEDCommand>("led/dome_eye/cmd");
         input_sub_ =
             createSubscription<messages::ControllerInput>("controller/drive", &PeriscopeNode::onControllerInput, this);
 
@@ -54,11 +55,12 @@ public:
         listeners_ok &= ps.onChange("servo.peri_spin.auto_min_delay", &PeriscopeNode::onParameterChanged, this);
         listeners_ok &= ps.onChange("servo.peri_spin.auto_max_delay", &PeriscopeNode::onParameterChanged, this);
 
-        return servo_pub_ != nullptr && input_sub_ != nullptr && listeners_ok;
+        return servo_pub_ != nullptr && periscope_led_pub_ != nullptr && input_sub_ != nullptr && listeners_ok;
     }
 
     void process(uint64_t) override {
         auto now_ms = static_cast<uint64_t>(esp_timer_get_time() / 1000);
+        publishPendingLiftColor(now_ms);
         processAutoWander(now_ms);
     }
 
@@ -71,6 +73,9 @@ public:
             cmd.servo_id = config::servo_channel::DOME_PERISCOPE_SPIN;
             servo_pub_->publish(cmd);
         }
+        cancelPendingLiftColor();
+        periscope_led_visible_ = false;
+        publishPeriscopeOff();
         resetAutoWander();
     }
 
@@ -92,7 +97,6 @@ private:
     }
 
     void handleLift(const messages::ControllerInput& input, uint64_t now) {
-        (void)now;
         const bool using_intents = input.has_intents;
         const bool up_pressed = using_intents ? input.intent_periscope_up : false;
         const bool down_pressed = using_intents ? input.intent_periscope_down : false;
@@ -106,20 +110,28 @@ private:
             if (up_pressed && !last_lift_up_ && periscope_down_) {
                 moveLiftTo(static_cast<float>(lift_min_), static_cast<float>(lift_max_));
                 periscope_down_ = false;
+                schedulePeriscopeColorAfterLift(now);
                 handled = true;
             }
             if (!handled && down_pressed && !last_lift_down_ && !periscope_down_) {
                 moveLiftTo(static_cast<float>(lift_max_), static_cast<float>(lift_min_));
                 periscope_down_ = true;
+                cancelPendingLiftColor();
+                periscope_led_visible_ = false;
+                publishPeriscopeOff();
             }
         } else {
             if (toggle_pressed && !last_lift_toggle_) {
                 if (periscope_down_) {
                     moveLiftTo(static_cast<float>(lift_min_), static_cast<float>(lift_max_));
                     periscope_down_ = false;
+                    schedulePeriscopeColorAfterLift(now);
                 } else {
                     moveLiftTo(static_cast<float>(lift_max_), static_cast<float>(lift_min_));
                     periscope_down_ = true;
+                    cancelPendingLiftColor();
+                    periscope_led_visible_ = false;
+                    publishPeriscopeOff();
                 }
             }
         }
@@ -282,6 +294,46 @@ private:
         next_auto_move_ms_ = 0;
     }
 
+    void schedulePeriscopeColorAfterLift(uint64_t now_ms) {
+        pending_lift_color_ = true;
+        lift_color_due_ms_ = now_ms + kPeriscopeLiftMoveMs;
+    }
+
+    void cancelPendingLiftColor() {
+        pending_lift_color_ = false;
+        lift_color_due_ms_ = 0;
+    }
+
+    void publishPendingLiftColor(uint64_t now_ms) {
+        if (!pending_lift_color_ || now_ms < lift_color_due_ms_) {
+            return;
+        }
+        cancelPendingLiftColor();
+        periscope_led_visible_ = true;
+        publishPeriscopeColor();
+    }
+
+    void publishPeriscopeColor() {
+        if (!periscope_led_pub_) {
+            return;
+        }
+        messages::LEDCommand cmd;
+        cmd.command_type = messages::LEDCommand::CommandType::SET_COLOR;
+        cmd.led_id = LED_ID_PERISCOPE;
+        cmd.color.blue = 255;
+        periscope_led_pub_->publish(cmd);
+    }
+
+    void publishPeriscopeOff() {
+        if (!periscope_led_pub_) {
+            return;
+        }
+        messages::LEDCommand cmd;
+        cmd.command_type = messages::LEDCommand::CommandType::TURN_OFF;
+        cmd.led_id = LED_ID_PERISCOPE;
+        periscope_led_pub_->publish(cmd);
+    }
+
     // ── Helpers ─────────────────────────────────────────────────────────
 
     void moveLiftTo(float start_pwm_us, float target_pwm_us) {
@@ -347,12 +399,17 @@ private:
     static constexpr uint16_t kPeriscopeLiftMoveMs = 800;
     static constexpr uint16_t kPeriscopeSpinHalfMoveMs = 400;
     static constexpr uint16_t kPeriscopeSpinFullMoveMs = 800;
+    static constexpr uint8_t LED_ID_PERISCOPE = 4;
 
     core::TypedPublisherPtr<messages::ServoCommand> servo_pub_;
+    core::TypedPublisherPtr<messages::LEDCommand> periscope_led_pub_;
     core::TypedSubscriptionPtr<messages::ControllerInput> input_sub_;
 
     bool periscope_down_ = true;
     int8_t periscope_location_ = 0;  // -1=left, 0=center, 1=right
+    bool periscope_led_visible_ = false;
+    bool pending_lift_color_ = false;
+    uint64_t lift_color_due_ms_ = 0;
 
     bool last_lift_toggle_ = false;
     bool last_lift_up_ = false;

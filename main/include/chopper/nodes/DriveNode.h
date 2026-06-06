@@ -85,7 +85,9 @@ private:
         // Carpet mode toggle: thumbL double-click
         handleCarpetToggle(input);
 
-        float effective_max = carpet_mode_ ? std::clamp(max_speed_ + speed_boost_, 0.0f, 1.0f) : max_speed_;
+        const bool transient_carpet = input.has_intents && input.intent_carpet_mode_active;
+        const bool carpet_active = carpet_mode_ || transient_carpet;
+        float effective_max = carpet_active ? std::clamp(max_speed_ + speed_boost_, 0.0f, 1.0f) : max_speed_;
 
         if (std::fabs(drive_slew_rate_ - slew_rate_current_) > 0.001f) {
             slew_rate_current_ = drive_slew_rate_;

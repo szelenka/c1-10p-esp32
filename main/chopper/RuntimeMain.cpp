@@ -466,7 +466,7 @@ extern "C" int chopper_runtime_start(void) {
 
     // DOME controller drives a single dome motor on its own command topic.
     // Use motor_id=2 so it remains distinct from DRIVE motor IDs 0/1.
-    auto dome_node = std::make_shared<chopper::nodes::DomeNode>(&dome_position, 0.5f, 2.0f, 2, false, 320);
+    auto dome_node = std::make_shared<chopper::nodes::DomeNode>(&dome_position, 0.5f, 2.0f, 2, 320);
     if (!app.addNode(dome_node)) {
         ESP_LOGE(TAG, "Failed to add DomeNode");
         return 1;

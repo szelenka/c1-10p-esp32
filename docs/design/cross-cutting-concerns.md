@@ -57,7 +57,7 @@ The safety/RT design recommends 8 KB "runs all nodes, needs headroom." The curre
 | Resource | Message Design | Safety/RT Design |
 |----------|---------------|-----------------|
 | MAX_TOPICS | 32 | Not specified |
-| MAX_SUBSCRIBERS_PER_TOPIC | 8 | Not specified |
+| MAX_SUBSCRIBERS_PER_TOPIC | 10 | Not specified |
 | MAX_NODES | 32 (core Executor) | 32 (NodeHealthMonitor) |
 | MAX_MOTORS | Not specified | 16 |
 | MAX_CONTROLLERS | Not specified | 4 |
@@ -345,7 +345,7 @@ All subsystem MAX_* constants should be defined in one place:
 namespace chopper::limits {
     constexpr size_t MAX_NODES = 32;
     constexpr size_t MAX_TOPICS = 32;
-    constexpr size_t MAX_SUBSCRIBERS_PER_TOPIC = 8;
+    constexpr size_t MAX_SUBSCRIBERS_PER_TOPIC = 10;
     constexpr size_t MAX_MOTORS = 16;
     constexpr size_t MAX_CONTROLLERS = 4;
     constexpr size_t MAX_TIMERS = 16;

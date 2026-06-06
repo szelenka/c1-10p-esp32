@@ -44,7 +44,8 @@
     "0": "FrontBodyLED_1",
     "1": "RightEyelens_1",
     "2": "CentreEyeLens_1",
-    "3": "LeftEyeLens_1"
+    "3": "LeftEyeLens_1",
+    "4": "PericopeLift_1"
   },
 
   "urdf_file": "chopper_fusion.urdf",

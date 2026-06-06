@@ -52,6 +52,7 @@ public:
     [[nodiscard]] float getMaxHeight() const { return _platformMaxHeight; }
     [[nodiscard]] float getMinHeightAngle() const { return _platformMinHeightAngle; }
     [[nodiscard]] float getMaxHeightAngle() const { return _platformMaxHeightAngle; }
+    [[nodiscard]] float getLimitNormalVector() const { return _limitNormalVector; }
 
     /**
      * Calculate servo angle when links are fully extended (maximum height).

@@ -42,6 +42,7 @@ DEPS_test_mp3trigger           :=
 DEPS_test_openmv_bridge        := $(CORE_SRCS) $(PARAM_SRC)
 DEPS_test_control_mapping      :=
 DEPS_test_packet_to_action     := $(CORE_SRCS)
+DEPS_test_rss_servo_limits     := $(CORE_SRCS)
 
 # Auto-discover test names from test/test_*.cpp files
 TEST_NAMES := $(sort $(basename $(notdir $(wildcard $(TEST_SRC)/test_*.cpp))))

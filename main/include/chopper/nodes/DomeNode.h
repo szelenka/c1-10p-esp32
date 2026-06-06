@@ -37,16 +37,15 @@ public:
      * @param max_speed      Maximum dome spin speed (0..1).
      * @param slew_rate      Slew rate for smooth dome spin ramping.
      * @param motor_id       Motor ID for the dome spin motor.
-     * @param inverted       Invert dome spin direction.
+     * @param frame_width    Camera frame width used for tracking error normalization.
      */
     explicit DomeNode(dome::DomePosition* dome_position = nullptr, float max_speed = 0.5f, float slew_rate = 1.0f,
-                      uint8_t motor_id = 0, bool inverted = false, uint16_t frame_width = 320)
+                      uint8_t motor_id = 0, int32_t frame_width = 320)
         : PublishingNode("dome")
         , dome_position_(dome_position)
         , max_speed_(max_speed)
         , motor_id_(motor_id)
-        , inverted_(inverted)
-        , frame_width_(frame_width)
+        , frame_width_(static_cast<uint16_t>(std::max(frame_width, static_cast<int32_t>(1))))
         , slew_(slew_rate) {
         // process() does dead-reckoning, auto-dome, and motor publish —
         // synchronous broker dispatch can spike on ESP32.
@@ -74,7 +73,6 @@ public:
         bool listeners_ok = true;
         listeners_ok &= ps.onChange("dome.max_speed", &DomeNode::onParameterChanged, this);
         listeners_ok &= ps.onChange("dome.deadband", &DomeNode::onParameterChanged, this);
-        listeners_ok &= ps.onChange("dome.motor_inverted", &DomeNode::onParameterChanged, this);
         listeners_ok &= ps.onChange("dome.spin_slew_rate", &DomeNode::onParameterChanged, this);
         listeners_ok &= ps.onChange("tracking.kp", &DomeNode::onParameterChanged, this);
         listeners_ok &= ps.onChange("tracking.max_speed", &DomeNode::onParameterChanged, this);
@@ -172,6 +170,12 @@ public:
     /// Allow tests to force manual-move gate open
     void setDomeMovedManually(bool moved) { dome_has_moved_manually_ = moved; }
 
+protected:
+    bool onActivate() override {
+        publishEyeColor(eyeColorForIndex(eye_color_index_));
+        return true;
+    }
+
 private:
     // ── Manual input handling ───────────────────────────────────────────
 
@@ -239,11 +243,11 @@ private:
 
         float target = 0.0f;
         if (std::fabs(dome_analog_rotate_) > 0.001f) {
-            target = (inverted_ ? 1.0f : -1.0f) * dome_analog_rotate_ * max_speed_;
+            target = -dome_analog_rotate_ * max_speed_;
         } else if (drive_rotate_left_ && !dome_rotate_right_) {
-            target = inverted_ ? -max_speed_ : max_speed_;
+            target = max_speed_;
         } else if (!drive_rotate_left_ && dome_rotate_right_) {
-            target = inverted_ ? max_speed_ : -max_speed_;
+            target = -max_speed_;
         }
 
         if (std::fabs(spin_slew_rate_ - slew_rate_current_) > 0.001f) {
@@ -288,29 +292,48 @@ private:
     void handleEyeColorToggle(const messages::ControllerInput& input) {
         const bool pressed = input.has_intents ? input.intent_eye_color_toggle : input.button_r2;
         if (pressed && !last_eye_toggle_) {
-            eye_red_ = !eye_red_;
-            if (led_pub_) {
-                messages::LEDCommand cmd;
-                cmd.command_type = messages::LEDCommand::CommandType::SET_COLOR;
-                if (eye_red_) {
-                    cmd.color.red = 255;
-                    cmd.color.green = 0;
-                    cmd.color.blue = 0;
-                    cmd.color.white = 0;
-                } else {
-                    cmd.color.red = 0;
-                    cmd.color.green = 0;
-                    cmd.color.blue = 255;
-                    cmd.color.white = 0;
-                }
-                // Send to both eyes — center and right stay in sync
-                cmd.led_id = LED_ID_RIGHT_EYE;
-                led_pub_->publish(cmd);
-                cmd.led_id = LED_ID_CENTER_EYE;
-                led_pub_->publish(cmd);
-            }
+            eye_color_index_ = static_cast<uint8_t>((eye_color_index_ + 1) % EYE_COLOR_COUNT);
+            publishEyeColor(eyeColorForIndex(eye_color_index_));
         }
         last_eye_toggle_ = pressed;
+    }
+
+    void publishEyeColor(const messages::LEDCommand::Color& color) {
+        if (!led_pub_) {
+            return;
+        }
+        messages::LEDCommand cmd;
+        cmd.command_type = messages::LEDCommand::CommandType::SET_COLOR;
+        cmd.color = color;
+        cmd.led_id = LED_ID_RIGHT_EYE;
+        led_pub_->publish(cmd);
+        cmd.led_id = LED_ID_CENTER_EYE;
+        led_pub_->publish(cmd);
+    }
+
+    static messages::LEDCommand::Color eyeColorForIndex(uint8_t index) {
+        messages::LEDCommand::Color color;
+        switch (index) {
+            case EYE_COLOR_PURPLE:
+                color.red = 255;
+                color.blue = 255;
+                break;
+            case EYE_COLOR_RED:
+                color.red = 255;
+                break;
+            case EYE_COLOR_YELLOW:
+                color.red = 255;
+                color.green = 255;
+                break;
+            case EYE_COLOR_GREEN:
+                color.green = 255;
+                break;
+            case EYE_COLOR_BLUE:
+            default:
+                color.blue = 255;
+                break;
+        }
+        return color;
     }
 
     static bool isControllerUnavailable(const messages::ControllerInput& input) {
@@ -374,7 +397,9 @@ private:
             error = std::clamp(error, -1.0f, 1.0f);
 
             if (std::fabs(error) > tracking_deadband_) {
-                speed = tracking_kp_ * error;
+                // Positive camera X means the target is right of center; the
+                // manual right-rotation command convention is negative speed.
+                speed = -tracking_kp_ * error;
                 speed = std::clamp(speed, -tracking_max_speed_, tracking_max_speed_);
             }
             tracking_last_error_ = error;
@@ -636,7 +661,6 @@ private:
         auto& ps = core::ParameterServer::getInstance();
         (void)ps.get("dome.max_speed", max_speed_);
         (void)ps.get("dome.deadband", deadband_);
-        (void)ps.get("dome.motor_inverted", inverted_);
         (void)ps.get("dome.spin_slew_rate", spin_slew_rate_);
         (void)ps.get("tracking.kp", tracking_kp_);
         (void)ps.get("tracking.max_speed", tracking_max_speed_);
@@ -660,7 +684,6 @@ private:
     float max_speed_;
     float deadband_ = 0.05f;
     uint8_t motor_id_;
-    bool inverted_;
     uint16_t frame_width_;
     float spin_slew_rate_ = 2.0f;
     float slew_rate_current_ = 1.0f;
@@ -713,7 +736,13 @@ private:
     static constexpr uint8_t LED_ID_CENTER_EYE = 2;
 
     // Eye color toggle state
-    bool eye_red_ = false;
+    static constexpr uint8_t EYE_COLOR_BLUE = 0;
+    static constexpr uint8_t EYE_COLOR_PURPLE = 1;
+    static constexpr uint8_t EYE_COLOR_RED = 2;
+    static constexpr uint8_t EYE_COLOR_YELLOW = 3;
+    static constexpr uint8_t EYE_COLOR_GREEN = 4;
+    static constexpr uint8_t EYE_COLOR_COUNT = 5;
+    uint8_t eye_color_index_ = EYE_COLOR_BLUE;
     bool last_eye_toggle_ = false;
 
     // Face tracking state

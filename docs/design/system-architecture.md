@@ -503,7 +503,7 @@ All MAX_* constants in one file, shared by all subsystems:
 namespace chopper::limits {
     constexpr size_t MAX_NODES                   = 32;
     constexpr size_t MAX_TOPICS                  = 32;
-    constexpr size_t MAX_SUBSCRIBERS_PER_TOPIC   = 8;
+    constexpr size_t MAX_SUBSCRIBERS_PER_TOPIC   = 10;
     constexpr size_t MAX_MOTORS                  = 16;
     constexpr size_t MAX_CONTROLLERS             = 4;
     constexpr size_t MAX_TIMERS                  = 16;

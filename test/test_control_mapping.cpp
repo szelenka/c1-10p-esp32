@@ -348,6 +348,7 @@ TEST_CASE("tembed_drive_input_keeps_drive_axes_and_maps_intents") {
     CHECK(drive.intent_body_utility_toggle);
     CHECK_FALSE(drive.intent_sound_a);
     CHECK_FALSE(drive.intent_carpet_mode_toggle);
+    CHECK(drive.intent_carpet_mode_active);
     CHECK(drive.axis_x == raw.axis_x);
     CHECK(drive.axis_y == raw.axis_y);
     CHECK(drive.axis_x_normalized == doctest::Approx(raw.axis_x_normalized));
@@ -370,6 +371,7 @@ TEST_CASE("tembed_drive_input_keeps_drive_axes_and_maps_intents") {
     CHECK_FALSE(drive_sound_buttons.intent_periscope_spin_left);
     CHECK_FALSE(drive_sound_buttons.intent_periscope_spin_right);
     CHECK_FALSE(drive_sound_buttons.intent_body_utility_toggle);
+    CHECK_FALSE(drive_sound_buttons.intent_carpet_mode_active);
 
     raw = {};
     raw.button_thumb_l = true;
@@ -379,6 +381,17 @@ TEST_CASE("tembed_drive_input_keeps_drive_axes_and_maps_intents") {
     CHECK(drive_only_buttons.intent_periscope_spin_left);
     CHECK(drive_only_buttons.intent_periscope_spin_right);
     CHECK(drive_only_buttons.intent_body_utility_toggle);
+    CHECK_FALSE(drive_only_buttons.intent_carpet_mode_active);
+
+    raw = {};
+    raw.axis_x_normalized = 0.04f;
+    raw.axis_y_slew = 0.05f;
+    const auto drive_below_threshold = chopper::input::makeTEmbedDriveInput(raw);
+    CHECK_FALSE(drive_below_threshold.intent_carpet_mode_active);
+
+    raw.axis_y_slew = 0.06f;
+    const auto drive_received_axis = chopper::input::makeTEmbedDriveInput(raw);
+    CHECK(drive_received_axis.intent_carpet_mode_active);
 }
 
 TEST_CASE("tembed_decoded_button_x_remains_periscope_lift") {
@@ -404,6 +417,12 @@ TEST_CASE("tembed_decoded_button_x_remains_periscope_lift") {
     raw.misc_start = true;
     const auto random_sound = chopper::input::makeTEmbedDomeInput(raw);
     CHECK(random_sound.intent_sound_random);
+
+    raw = {};
+    raw.buttons = chopper::input::kTEmbedButtonCameraToggle;
+    const auto camera_toggle = chopper::input::makeTEmbedDomeInput(raw);
+    CHECK(camera_toggle.has_intents);
+    CHECK(camera_toggle.intent_face_tracking_toggle);
 }
 
 TEST_CASE("tembed_dome_input_keeps_rx_axis_and_maps_remote_actions") {

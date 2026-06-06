@@ -137,7 +137,7 @@ Statically allocated, fixed-capacity registry.
 
 ```cpp
 static constexpr size_t MAX_TOPICS = 32;
-static constexpr size_t MAX_SUBSCRIBERS_PER_TOPIC = 8;
+static constexpr size_t MAX_SUBSCRIBERS_PER_TOPIC = 10;
 
 struct TopicEntry {
     TopicId         id;

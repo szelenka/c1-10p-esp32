@@ -56,7 +56,7 @@ From `chopper_limits.h`:
 |----------|-------|----------|
 | Nodes | 32 | `MAX_NODES` |
 | Topics | 32 | `MAX_TOPICS` |
-| Subscribers/topic | 8 | `MAX_SUBSCRIBERS_PER_TOPIC` |
+| Subscribers/topic | 10 | `MAX_SUBSCRIBERS_PER_TOPIC` |
 | Motors | 16 | `MAX_MOTORS` |
 | Controllers | 4 | `MAX_CONTROLLERS` |
 | Drivers | 12 | `MAX_DRIVERS` |

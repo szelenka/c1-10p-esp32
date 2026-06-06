@@ -7,7 +7,7 @@ namespace chopper::limits {
 // Core framework limits
 constexpr size_t MAX_NODES = 32;
 constexpr size_t MAX_TOPICS = 32;
-constexpr size_t MAX_SUBSCRIBERS_PER_TOPIC = 8;
+constexpr size_t MAX_SUBSCRIBERS_PER_TOPIC = 10;
 
 // Hardware limits
 constexpr size_t MAX_MOTORS = 16;

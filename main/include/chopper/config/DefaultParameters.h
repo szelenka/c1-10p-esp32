@@ -134,12 +134,12 @@ inline size_t registerDefaultParameters() {
     // Servo PWM — Body Neck A
     // ========================================================================
 
-    tally(ps.declare("servo.neck_a.min", static_cast<int32_t>(2032), static_cast<int32_t>(500),
-                     static_cast<int32_t>(2500)));
-    tally(ps.declare("servo.neck_a.max", static_cast<int32_t>(2256), static_cast<int32_t>(500),
-                     static_cast<int32_t>(2500)));
-    tally(ps.declare("servo.neck_a.neutral", static_cast<int32_t>(2256), static_cast<int32_t>(500),
-                     static_cast<int32_t>(2500)));
+    tally(ps.declare("servo.neck_a.min", static_cast<int32_t>(2032), static_cast<int32_t>(2032),
+                     static_cast<int32_t>(2256)));
+    tally(ps.declare("servo.neck_a.max", static_cast<int32_t>(2256), static_cast<int32_t>(2032),
+                     static_cast<int32_t>(2256)));
+    tally(ps.declare("servo.neck_a.neutral", static_cast<int32_t>(2256), static_cast<int32_t>(2032),
+                     static_cast<int32_t>(2256)));
     tally(ps.declare("servo.neck_a.speed", 0.0f, 0.0f, 100.0f));
     tally(ps.declare("servo.neck_a.accel", 0.0f, 0.0f, 100.0f));
     tally(ps.declare("servo.neck_a.manual", true));
@@ -148,12 +148,12 @@ inline size_t registerDefaultParameters() {
     // Servo PWM — Body Neck B
     // ========================================================================
 
-    tally(ps.declare("servo.neck_b.min", static_cast<int32_t>(1952), static_cast<int32_t>(500),
-                     static_cast<int32_t>(2500)));
-    tally(ps.declare("servo.neck_b.max", static_cast<int32_t>(2176), static_cast<int32_t>(500),
-                     static_cast<int32_t>(2500)));
-    tally(ps.declare("servo.neck_b.neutral", static_cast<int32_t>(2176), static_cast<int32_t>(500),
-                     static_cast<int32_t>(2500)));
+    tally(ps.declare("servo.neck_b.min", static_cast<int32_t>(1952), static_cast<int32_t>(1952),
+                     static_cast<int32_t>(2176)));
+    tally(ps.declare("servo.neck_b.max", static_cast<int32_t>(2176), static_cast<int32_t>(1952),
+                     static_cast<int32_t>(2176)));
+    tally(ps.declare("servo.neck_b.neutral", static_cast<int32_t>(2176), static_cast<int32_t>(1952),
+                     static_cast<int32_t>(2176)));
     tally(ps.declare("servo.neck_b.speed", 0.0f, 0.0f, 100.0f));
     tally(ps.declare("servo.neck_b.accel", 0.0f, 0.0f, 100.0f));
     tally(ps.declare("servo.neck_b.manual", true));
@@ -162,12 +162,12 @@ inline size_t registerDefaultParameters() {
     // Servo PWM — Body Neck C
     // ========================================================================
 
-    tally(ps.declare("servo.neck_c.min", static_cast<int32_t>(2048), static_cast<int32_t>(500),
-                     static_cast<int32_t>(2500)));
-    tally(ps.declare("servo.neck_c.max", static_cast<int32_t>(2272), static_cast<int32_t>(500),
-                     static_cast<int32_t>(2500)));
-    tally(ps.declare("servo.neck_c.neutral", static_cast<int32_t>(2272), static_cast<int32_t>(500),
-                     static_cast<int32_t>(2500)));
+    tally(ps.declare("servo.neck_c.min", static_cast<int32_t>(2048), static_cast<int32_t>(2048),
+                     static_cast<int32_t>(2272)));
+    tally(ps.declare("servo.neck_c.max", static_cast<int32_t>(2272), static_cast<int32_t>(2048),
+                     static_cast<int32_t>(2272)));
+    tally(ps.declare("servo.neck_c.neutral", static_cast<int32_t>(2272), static_cast<int32_t>(2048),
+                     static_cast<int32_t>(2272)));
     tally(ps.declare("servo.neck_c.speed", 0.0f, 0.0f, 100.0f));
     tally(ps.declare("servo.neck_c.accel", 0.0f, 0.0f, 100.0f));
     tally(ps.declare("servo.neck_c.manual", true));
