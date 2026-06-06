@@ -54,11 +54,7 @@ public:
     }
 
     void setRotationAngleOffset(float angle) {
-        // This is a coordinate-frame calibration, not a servo travel limit.
-        // Legacy code clamped it to [0,160], which made the configured -30 deg
-        // RSS B/front alignment behave as 0 deg. Restore that clamp only if
-        // powered-test equivalence to the legacy bug is explicitly needed.
-        _rotationRadianOffset = normalizeDegrees(angle) * (math::kPi / 180.0f);
+        _rotationRadianOffset = std::clamp(angle, 0.0f, 160.0f) * (math::kPi / 180.0f);
     }
 
     void setActuationRange(uint16_t actuationRange) {
@@ -195,17 +191,6 @@ protected:
     float m_deadband = kDefaultDeadband;
 
 private:
-    [[nodiscard]] static float normalizeDegrees(float angle) {
-        float normalized = std::fmod(angle, 360.0f);
-        if (normalized > 180.0f) {
-            normalized -= 360.0f;
-        }
-        if (normalized < -180.0f) {
-            normalized += 360.0f;
-        }
-        return normalized;
-    }
-
     [[nodiscard]] float mapPWMToAngle(uint16_t pulseWidth) const {
         return static_cast<float>(
             math::mapValue(pulseWidth, _servoTheoreticalMinPulse, _servoTheoreticalMaxPulse, 0, _servoActuationRange));

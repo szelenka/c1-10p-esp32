@@ -348,32 +348,30 @@ void test_mechanism_joystick_rotation() {
     PASS();
 }
 
-void test_mechanism_signed_rotation_offset() {
-    TEST(mechanism_signed_rotation_offset);
+void test_mechanism_legacy_rotation_offset_clamp() {
+    TEST(mechanism_legacy_rotation_offset_clamp);
     chopper::dome::RSSMechanism mech(kBaseAlt, kEffAlt, kBottomLink, kTopLink,
                                       kMinHeight, kLimitNV, kBendOut);
 
     float x = 1.0f;
     float y = 0.0f;
     mech.setRotationAngleOffset(-30.0f);
-    auto [rx_neg, ry_neg] = mech.adjustJoystickToAngleOffset(x, y);
+    auto [rx_low, ry_low] = mech.adjustJoystickToAngleOffset(x, y);
 
     x = 1.0f;
     y = 0.0f;
     mech.setRotationAngleOffset(390.0f);
-    auto [rx_wrap_pos, ry_wrap_pos] = mech.adjustJoystickToAngleOffset(x, y);
+    auto [rx_high, ry_high] = mech.adjustJoystickToAngleOffset(x, y);
 
     x = 1.0f;
     y = 0.0f;
-    mech.setRotationAngleOffset(-390.0f);
-    auto [rx_wrap_neg, ry_wrap_neg] = mech.adjustJoystickToAngleOffset(x, y);
+    mech.setRotationAngleOffset(160.0f);
+    auto [rx_160, ry_160] = mech.adjustJoystickToAngleOffset(x, y);
 
-    ASSERT_NEAR(rx_neg, 0.866f, 0.01f);
-    ASSERT_NEAR(ry_neg, -0.5f, 0.01f);
-    ASSERT_NEAR(rx_wrap_pos, 0.866f, 0.01f);
-    ASSERT_NEAR(ry_wrap_pos, 0.5f, 0.01f);
-    ASSERT_NEAR(rx_wrap_neg, rx_neg, 0.01f);
-    ASSERT_NEAR(ry_wrap_neg, ry_neg, 0.01f);
+    ASSERT_NEAR(rx_low, 1.0f, 0.01f);
+    ASSERT_NEAR(ry_low, 0.0f, 0.01f);
+    ASSERT_NEAR(rx_high, rx_160, 0.01f);
+    ASSERT_NEAR(ry_high, ry_160, 0.01f);
     PASS();
 }
 
@@ -1189,7 +1187,7 @@ int main() {
     test_mechanism_enabled_produces_pwm();
     test_mechanism_height_adjustment();
     test_mechanism_joystick_rotation();
-    test_mechanism_signed_rotation_offset();
+    test_mechanism_legacy_rotation_offset_clamp();
 
     // DomePosition
     test_dome_position_initial();
