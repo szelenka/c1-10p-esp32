@@ -820,8 +820,8 @@ void test_neck_node_emergency_stop() {
     PASS();
 }
 
-void test_neck_node_disable_toggle_disables_servos() {
-    TEST(neck_node_disable_toggle_disables_servos);
+void test_neck_node_double_click_toggle_disables_servos() {
+    TEST(neck_node_double_click_toggle_disables_servos);
 
     chopper::dome::RSSMechanism mech(kBaseAlt, kEffAlt, kBottomLink, kTopLink, kMinHeight, kLimitNV, kBendOut);
     mech.setActuationRange(270);
@@ -852,14 +852,32 @@ void test_neck_node_disable_toggle_disables_servos() {
 
     node->setTime(2000);
     pub->publish(input);
-    ASSERT(mech.isEnabled());
+    ASSERT(!mech.isEnabled());
 
     input.button_thumb_l = false;
     node->setTime(2100);
     pub->publish(input);
 
     input.button_thumb_l = true;
-    node->setTime(3200);
+    node->setTime(2300);
+    pub->publish(input);
+    ASSERT(mech.isEnabled());
+
+    input.button_thumb_l = false;
+    node->setTime(2400);
+    pub->publish(input);
+
+    input.button_thumb_l = true;
+    node->setTime(3600);
+    pub->publish(input);
+    ASSERT(mech.isEnabled());
+
+    input.button_thumb_l = false;
+    node->setTime(3700);
+    pub->publish(input);
+
+    input.button_thumb_l = true;
+    node->setTime(3900);
     pub->publish(input);
 
     ASSERT(!mech.isEnabled());
@@ -1202,7 +1220,7 @@ int main() {
     // NeckNode integration
     test_neck_node_publishes_commands();
     test_neck_node_emergency_stop();
-    test_neck_node_disable_toggle_disables_servos();
+    test_neck_node_double_click_toggle_disables_servos();
 
     // DomeNode integration
     test_dome_node_publishes_position();

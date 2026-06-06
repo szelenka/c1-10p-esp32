@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <cstdint>
 #include <tuple>
 
 namespace chopper::dome {
@@ -180,7 +181,8 @@ public:
         std::array<float, 3> legs = getLegAngles(x, y, _platformCurrentHeight);
         std::array<uint16_t, 3> leg_pwm = {0, 0, 0};
         for (size_t i = 0; i < legs.size(); ++i) {
-            leg_pwm[i] = mapAngleToPWM(legs[i]) + _servoOffsetPWM[i];
+            const uint32_t raw_pwm = static_cast<uint32_t>(mapAngleToPWM(legs[i])) + _servoOffsetPWM[i];
+            leg_pwm[i] = clampLegPulse(i, raw_pwm);
         }
         return leg_pwm;
     }
@@ -212,6 +214,23 @@ private:
     [[nodiscard]] uint16_t mapAngleToPWM(float angle) const {
         return static_cast<uint16_t>(math::mapValue(static_cast<long>(std::round(angle)), 0, _servoActuationRange,
                                                     _servoTheoreticalMinPulse, _servoTheoreticalMaxPulse));
+    }
+
+    [[nodiscard]] uint16_t clampLegPulse(size_t leg_index, uint32_t pulse) const {
+        const uint16_t min_pulse = _servoMinPulse[leg_index];
+        const uint16_t max_pulse = _servoMaxPulse[leg_index];
+
+        if (min_pulse == 0 && max_pulse == 0) {
+            return static_cast<uint16_t>(std::min<uint32_t>(pulse, UINT16_MAX));
+        }
+
+        const uint32_t low = (min_pulse == 0)   ? 0U
+                             : (max_pulse == 0) ? min_pulse
+                                                : std::min<uint16_t>(min_pulse, max_pulse);
+        const uint32_t high = (max_pulse == 0)   ? UINT16_MAX
+                              : (min_pulse == 0) ? max_pulse
+                                                 : std::max<uint16_t>(min_pulse, max_pulse);
+        return static_cast<uint16_t>(std::clamp<uint32_t>(pulse, low, high));
     }
 
     uint16_t _servoMinPulse[3] = {0, 0, 0};
