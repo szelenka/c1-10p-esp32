@@ -52,11 +52,6 @@ public:
         setMaxExecutionTime(5000);
     }
 
-    DomeNode(dome::DomePosition* dome_position, float max_speed, float slew_rate, uint8_t motor_id,
-             bool inverted) = delete;
-    DomeNode(dome::DomePosition* dome_position, float max_speed, float slew_rate, uint8_t motor_id, bool inverted,
-             uint16_t frame_width) = delete;
-
     bool initialize() override {
         motor_pub_ = createPublisher<messages::MotorCommand>("dome/motor/cmd");
         sensor_pub_ = createPublisher<messages::SensorData>("dome/position");
