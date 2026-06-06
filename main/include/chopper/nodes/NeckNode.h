@@ -4,6 +4,8 @@
 #include "chopper/dome/RSSMechanism.h"
 #include "chopper/messages/CommonMessages.h"
 #include "esp_timer.h"
+#include <algorithm>
+#include <cmath>
 
 namespace chopper::nodes {
 
@@ -84,8 +86,10 @@ private:
             mechanism_->incrementHeight(1.0f);
         }
 
-        // Run IK: joystick slew values → PWM
-        auto pwm = mechanism_->getLegPWMFromJoystick(input.axis_x_slew, input.axis_y_slew, now_ms);
+        // c034 configured the dome controller output range to +/-rss.limit_normal before RSS IK.
+        const float x = scaleRssAxis(input.axis_x_slew, mechanism_->getLimitNormalVector());
+        const float y = scaleRssAxis(input.axis_y_slew, mechanism_->getLimitNormalVector());
+        auto pwm = mechanism_->getLegPWMFromJoystick(x, y, now_ms);
 
         // Publish servo commands for each leg
         for (size_t i = 0; i < pwm.size(); ++i) {
@@ -147,6 +151,13 @@ private:
             cmd.command_type = messages::ServoCommand::CommandType::DISABLE;
             servo_pub_->publish(cmd);
         }
+    }
+
+    [[nodiscard]] static float scaleRssAxis(float axis, float limit_normal) {
+        if (!std::isfinite(axis) || !std::isfinite(limit_normal) || limit_normal <= 0.0f) {
+            return 0.0f;
+        }
+        return std::clamp(axis, -1.0f, 1.0f) * std::clamp(limit_normal, 0.0f, 1.0f);
     }
 
     static constexpr uint64_t kDoubleClickMs = 500;

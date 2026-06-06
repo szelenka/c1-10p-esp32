@@ -145,6 +145,54 @@ TEST_CASE("NeckNode publishes only c034f87-bounded RSS servo commands") {
     CHECK(capture.count[2] > 0);
 }
 
+TEST_CASE("NeckNode scales full joystick travel to c034f87 RSS input range") {
+    auto expected_mech = makeC034Mechanism();
+    const auto expected = expected_mech.getLegPWMFromJoystick(0.25f, 0.0f, 2000);
+    const auto unscaled = expected_mech.getLegPWMFromJoystick(1.0f, 0.0f, 2000);
+
+    auto mech = makeC034Mechanism();
+    auto node = std::make_shared<chopper::nodes::NeckNode>(&mech, "controller/rss_scaled_input",
+                                                           "servo/rss_scaled_output", 0, 1, 2);
+    REQUIRE(node->initialize());
+    node->activate();
+    node->setTime(2000);
+
+    struct Capture {
+        std::array<uint16_t, 3> pwm = {0, 0, 0};
+        std::array<int, 3> count = {0, 0, 0};
+    } capture;
+
+    auto& broker = chopper::core::MessageBroker::getInstance();
+    auto sub = broker.createSubscription<chopper::messages::ServoCommand>(
+        "servo/rss_scaled_output",
+        [](const chopper::messages::ServoCommand& cmd, void* ctx) {
+            auto* out = static_cast<Capture*>(ctx);
+            if (cmd.command_type != chopper::messages::ServoCommand::CommandType::SET_POSITION || cmd.servo_id >= 3) {
+                return;
+            }
+            out->pwm[cmd.servo_id] = static_cast<uint16_t>(cmd.value);
+            out->count[cmd.servo_id]++;
+        },
+        &capture);
+
+    auto pub = broker.createPublisher<chopper::messages::ControllerInput>("controller/rss_scaled_input");
+    chopper::messages::ControllerInput input{};
+    input.is_connected = true;
+    input.has_data = true;
+    input.has_intents = true;
+    input.axis_x_slew = 1.0f;
+    input.axis_y_slew = 0.0f;
+    pub->publish(input);
+
+    CHECK(capture.count[0] == 1);
+    CHECK(capture.count[1] == 1);
+    CHECK(capture.count[2] == 1);
+    CHECK(capture.pwm == expected);
+    CHECK(capture.pwm[0] != unscaled[0]);
+    CHECK(capture.pwm[0] > C034_NECK_LIMITS[0].min);
+    CHECK(capture.pwm[0] < C034_NECK_LIMITS[0].max);
+}
+
 TEST_CASE("single neck thumb click does not enable RSS servos") {
     chopper::dome::RSSMechanism mech(149.053f, 193.350f, 45.0f, 31.0f, 28.621f, 0.25f, true);
     mech.setActuationRange(270);
