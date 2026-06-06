@@ -1651,7 +1651,7 @@ void test_dome_drive_l2_publishes_positive_speed() {
     resetFramework();
     mock_esp_timer_set(1'000'000);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, 320);
     ASSERT(node->initialize());
 
     auto& broker = chopper::core::MessageBroker::getInstance();
@@ -1695,7 +1695,7 @@ void test_dome_dome_l2_publishes_negative_speed() {
     resetFramework();
     mock_esp_timer_set(1'000'000);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, 320);
     ASSERT(node->initialize());
 
     auto& broker = chopper::core::MessageBroker::getInstance();
@@ -1737,7 +1737,7 @@ void test_dome_no_button_publishes_zero() {
     TEST(dome_no_button_publishes_zero);
     resetFramework();
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, 320);
     ASSERT(node->initialize());
 
     auto& broker = chopper::core::MessageBroker::getInstance();
@@ -1775,7 +1775,7 @@ void test_dome_analog_rx_publishes_proportional_speed() {
     resetFramework();
     mock_esp_timer_set(1'000'000);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 100.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 100.0f, 2, 320);
     ASSERT(node->initialize());
 
     auto& broker = chopper::core::MessageBroker::getInstance();
@@ -1818,7 +1818,7 @@ void test_dome_first_manual_command_slews_from_zero() {
     resetFramework();
     mock_esp_timer_set(1'000'000);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, 320);
     ASSERT(node->initialize());
 
     auto& broker = chopper::core::MessageBroker::getInstance();
@@ -1862,7 +1862,7 @@ void test_dome_disconnect_zero_bypasses_spin_slew() {
     resetFramework();
     mock_esp_timer_set(1'000'000);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, 320);
     ASSERT(node->initialize());
 
     auto& broker = chopper::core::MessageBroker::getInstance();
@@ -1911,7 +1911,7 @@ void test_dome_connected_neutral_zero_bypasses_spin_slew() {
     resetFramework();
     mock_esp_timer_set(1'000'000);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, 320);
     ASSERT(node->initialize());
 
     auto& broker = chopper::core::MessageBroker::getInstance();
@@ -1957,7 +1957,7 @@ void test_dome_connected_neutral_preserves_tracking() {
     resetFramework();
     mock_esp_timer_set(1'000'000);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, 320);
     ASSERT(node->initialize());
 
     auto& broker = chopper::core::MessageBroker::getInstance();
@@ -2005,7 +2005,7 @@ void test_dome_connected_neutral_preserves_random_mode() {
 
     chopper::dome::DomePosition dome_pos;
     dome_pos.update(180, 1'000);
-    auto node = std::make_shared<chopper::nodes::DomeNode>(&dome_pos, 0.5f, 1.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(&dome_pos, 0.5f, 1.0f, 2, 320);
     ASSERT(node->initialize());
 
     auto& broker = chopper::core::MessageBroker::getInstance();
@@ -2035,7 +2035,7 @@ void test_dome_disconnect_zero_clears_tracking_speed() {
     resetFramework();
     mock_esp_timer_set(1'000'000);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, 320);
     ASSERT(node->initialize());
 
     auto& broker = chopper::core::MessageBroker::getInstance();
@@ -2096,7 +2096,7 @@ void test_dome_disconnect_zero_disables_random_mode() {
 
     chopper::dome::DomePosition dome_pos;
     dome_pos.update(180, 1'000);
-    auto node = std::make_shared<chopper::nodes::DomeNode>(&dome_pos, 0.5f, 1.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(&dome_pos, 0.5f, 1.0f, 2, 320);
     ASSERT(node->initialize());
 
     auto& broker = chopper::core::MessageBroker::getInstance();
@@ -2129,7 +2129,7 @@ void test_dome_activate_publishes_default_blue_eye_leds() {
     TEST(dome_activate_publishes_default_blue_eye_leds);
     resetFramework();
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, 320);
     ASSERT(node->initialize());
 
     struct LedCapture {
@@ -2171,7 +2171,7 @@ void test_dome_eye_toggle_cycles_eye_led_colors() {
     TEST(dome_eye_toggle_cycles_eye_led_colors);
     resetFramework();
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, 320);
     ASSERT(node->initialize());
 
     struct LedCapture {
@@ -2237,7 +2237,7 @@ void test_dome_tracking_toggle_via_intent() {
     TEST(dome_tracking_toggle_via_intent);
     resetFramework();
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, 320);
     ASSERT(node->initialize());
     ASSERT(!node->isTrackingEnabled());
 
@@ -2265,11 +2265,12 @@ void test_dome_tracking_toggle_via_intent() {
     PASS();
 }
 
-void test_dome_tracking_face_right_rotates() {
-    TEST(dome_tracking_face_right_rotates);
+void test_dome_tracking_face_offset_matches_manual_direction() {
+    TEST(dome_tracking_face_offset_matches_manual_direction);
     resetFramework();
+    mock_esp_timer_set(1'000'000);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, 320);
     ASSERT(node->initialize());
 
     auto& broker = chopper::core::MessageBroker::getInstance();
@@ -2299,16 +2300,31 @@ void test_dome_tracking_face_right_rotates() {
     ctrl_pub->publish(input);
     ASSERT(node->isTrackingEnabled());
 
-    // Publish face detected to the right
+    // Face right matches manual rotate-right command sign (negative speed).
     chopper::messages::VisionResult v;
     v.detected = true;
     v.center_x = 80;  // error = 80/160 = 0.5
     v.confidence = 200;
     vision_pub->publish(v);
+    node->process(1'000'000);
 
-    // kp=0.5, error=0.5 → speed = 0.25
+    // kp=0.5, error=0.5 -> speed = -0.25
+    ASSERT(motor_count > 0);
+    ASSERT(node->getTrackingSpeed() < 0.0f);
+    ASSERT_NEAR(node->getTrackingSpeed(), -0.25f, 0.01f);
+    ASSERT_NEAR(last_speed, -0.25f, 0.01f);
+
+    motor_count = 0;
+    mock_esp_timer_set(1'100'000);
+    v.center_x = -80;  // error = -80/160 = -0.5
+    vision_pub->publish(v);
+    node->process(1'100'000);
+
+    ASSERT(motor_count > 0);
     ASSERT(node->getTrackingSpeed() > 0.0f);
     ASSERT_NEAR(node->getTrackingSpeed(), 0.25f, 0.01f);
+    ASSERT_NEAR(last_speed, 0.25f, 0.01f);
+    mock_esp_timer_reset();
     PASS();
 }
 
@@ -2316,7 +2332,7 @@ void test_dome_tracking_no_face_zero_speed() {
     TEST(dome_tracking_no_face_zero_speed);
     resetFramework();
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, 320);
     ASSERT(node->initialize());
 
     auto& broker = chopper::core::MessageBroker::getInstance();
@@ -2345,7 +2361,7 @@ void test_dome_tracking_stale_vision_times_out_to_zero() {
     resetFramework();
     mock_esp_timer_set(1'000'000);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, 320);
     ASSERT(node->initialize());
 
     auto& broker = chopper::core::MessageBroker::getInstance();
@@ -2391,7 +2407,7 @@ void test_dome_tracking_enabled_suppresses_auto_motion() {
     dome_pos.update(180, 0);
     dome_pos.setDomeHomePosition(0);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(&dome_pos, 0.5f, 1.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(&dome_pos, 0.5f, 1.0f, 2, 320);
     ASSERT(node->initialize());
 
     auto& broker = chopper::core::MessageBroker::getInstance();
@@ -2427,7 +2443,7 @@ void test_dome_tracking_disabled_ignores_vision() {
     TEST(dome_tracking_disabled_ignores_vision);
     resetFramework();
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, 320);
     ASSERT(node->initialize());
     ASSERT(!node->isTrackingEnabled());
 
@@ -2455,7 +2471,7 @@ void test_dome_tracking_toggle_publishes_tracking_cmd() {
     TEST(dome_tracking_toggle_publishes_tracking_cmd);
     resetFramework();
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, false, 320);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(nullptr, 0.5f, 1.0f, 2, 320);
     ASSERT(node->initialize());
 
     auto& broker = chopper::core::MessageBroker::getInstance();
@@ -2697,7 +2713,7 @@ int main() {
 
     // DomeNode face tracking
     test_dome_tracking_toggle_via_intent();
-    test_dome_tracking_face_right_rotates();
+    test_dome_tracking_face_offset_matches_manual_direction();
     test_dome_tracking_no_face_zero_speed();
     test_dome_tracking_stale_vision_times_out_to_zero();
     test_dome_tracking_enabled_suppresses_auto_motion();

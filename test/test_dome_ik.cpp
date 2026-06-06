@@ -883,7 +883,7 @@ void test_dome_node_publishes_position() {
     chopper::dome::DomePosition domePos;
     domePos.update(180, 1000);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 1.0f, 0, false);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 1.0f, 0);
     ASSERT(node->initialize());
     node->activate();
 
@@ -908,7 +908,7 @@ void test_dome_node_spin_control() {
     mock_esp_timer_set(1'000'000);
 
     chopper::dome::DomePosition domePos;
-    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 100.0f, 2, false);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 100.0f, 2);
     ASSERT(node->initialize());
     node->activate();
 
@@ -973,7 +973,7 @@ void test_dome_node_random_toggle() {
     chopper::dome::DomePosition domePos;
     domePos.update(180, 1000);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 1.0f, 0, false);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 1.0f, 0);
     ASSERT(node->initialize());
     node->activate();
 
@@ -1015,7 +1015,7 @@ void test_dome_node_auto_safety_gate() {
     chopper::dome::DomePosition domePos;
     domePos.update(180, 1000);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 1.0f, 0, false);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 1.0f, 0);
     ASSERT(node->initialize());
     node->activate();
 
@@ -1055,7 +1055,7 @@ void test_dome_node_idle_transition() {
     chopper::dome::DomePosition domePos;
     domePos.update(180, 0);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 100.0f, 0, false);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 100.0f, 0);
     ASSERT(node->initialize());
     node->activate();
 
@@ -1089,7 +1089,7 @@ void test_dome_node_move_to_target() {
     domePos.update(180, 0);
     domePos.setDomeHomePosition(0);
 
-    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 1.0f, 0, false);
+    auto node = std::make_shared<chopper::nodes::DomeNode>(&domePos, 0.5f, 1.0f, 0);
     ASSERT(node->initialize());
     node->activate();
 
